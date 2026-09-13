@@ -24,7 +24,7 @@ jobs:
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
       - name: Compile Python sources
-        run: python -m py_compile components/trane_hvac/*.py tests/*.py
+        run: python -m py_compile components/trane_hvac/*.py components/trane_bus/*.py tests/*.py
 
   esphome-build:
     name: ESPHome compile
@@ -38,8 +38,12 @@ jobs:
           wifi_ssid: "configure-me"
           wifi_password: "configure-me"
           EOF
-      - name: Compile firmware
+      - name: Compile production firmware
         uses: esphome/build-action@v6
         with:
           yaml-file: esphome-trane.yaml
           substitutions: "version=ci-${{ github.sha }}"
+      - name: Compile guarded transport smoke config
+        uses: esphome/build-action@v6
+        with:
+          yaml-file: tests/trane-bus-smoke.yaml
