@@ -10,10 +10,10 @@ on:
 permissions:
   contents: read
 
-# New pushes supersede old validation runs; do not burn runners compiling stale
-# development commits while the active branch is moving quickly.
+# Treat a dev push and its PR validation as the same work. New commits supersede
+# both event types so only the newest branch head consumes runners.
 concurrency:
-  group: validate-${{ github.event.pull_request.number || github.ref }}
+  group: validate-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
