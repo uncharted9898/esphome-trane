@@ -9,6 +9,7 @@
 namespace esphome {
 namespace trane_hvac {
 
+// Forward-declare trigger types so climate.py can bind automations to them
 class TraneModeTrigger;
 class TraneTemperatureTrigger;
 class TranePresetTrigger;
@@ -18,6 +19,7 @@ class TraneClimate : public climate::Climate, public Component {
   void setup() override;
   void dump_config() override;
 
+  // Sensor wiring
   void set_current_temperature_sensor(sensor::Sensor *s) { current_temp_sensor_ = s; }
   void set_heat_setpoint_sensor(sensor::Sensor *s) { heat_setpoint_sensor_ = s; }
   void set_cool_setpoint_sensor(sensor::Sensor *s) { cool_setpoint_sensor_ = s; }
@@ -26,6 +28,9 @@ class TraneClimate : public climate::Climate, public Component {
   void set_indoor_unit_state_sensor(text_sensor::TextSensor *s) { indoor_unit_state_sensor_ = s; }
   void set_trane_bus(trane_bus::TraneBus *bus) { trane_bus_ = bus; }
 
+  // Trigger accessors for climate.py automation binding.
+  // These remain as the legacy/fallback path while guarded trane_bus control is
+  // migrated into maintained source code.
   Trigger<climate::ClimateMode> *get_mode_trigger() { return &mode_trigger_; }
   Trigger<float, float> *get_temperature_trigger() { return &temperature_trigger_; }
   Trigger<climate::ClimatePreset> *get_preset_trigger() { return &preset_trigger_; }
@@ -45,7 +50,7 @@ class TraneClimate : public climate::Climate, public Component {
   trane_bus::TraneBus *trane_bus_{nullptr};
 
   Trigger<climate::ClimateMode> mode_trigger_;
-  Trigger<float, float> temperature_trigger_;
+  Trigger<float, float> temperature_trigger_;   // args: hsp_f, csp_f (degF)
   Trigger<climate::ClimatePreset> preset_trigger_;
 };
 
