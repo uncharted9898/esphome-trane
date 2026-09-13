@@ -1,0 +1,42 @@
+esphome:
+  name: trane-bus-smoke
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [trane_bus]
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+logger:
+
+canbus:
+  - platform: esp32_can
+    id: smoke_can
+    tx_pin: GPIO5
+    rx_pin: GPIO6
+    bit_rate: 50kbps
+    can_id: 1
+
+trane_bus:
+  id: smoke_trane_bus
+  canbus_id: smoke_can
+  command_can_id: 0x641
+  tx_enabled: false
+
+script:
+  - id: smoke_send_profile_request
+    then:
+      - trane_bus.send_json:
+          id: smoke_trane_bus
+          payload: '{"GetProfile":"SYSOP"}'
+
+  - id: smoke_enable_tx
+    then:
+      - trane_bus.set_tx_enabled:
+          id: smoke_trane_bus
+          enabled: true
