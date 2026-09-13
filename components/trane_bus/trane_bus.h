@@ -34,6 +34,8 @@ class TraneBus : public Component {
   bool has_pending_ack() const { return pending_ack_; }
   bool has_recent_trane_activity() const;
 
+  Trigger<std::string, uint32_t> *get_json_trigger() { return &json_trigger_; }
+
   // Raw JSON is intentionally disabled by default. Normal callers should use
   // the typed methods below so the component can validate command semantics.
   bool send_json(const std::string &payload);
@@ -44,6 +46,7 @@ class TraneBus : public Component {
   uint32_t get_rx_frames() const { return rx_frames_; }
   uint32_t get_trane_frames() const { return trane_frames_; }
   uint32_t get_sc360_frames() const { return sc360_frames_; }
+  uint32_t get_rx_json_messages() const { return rx_json_messages_; }
   uint32_t get_tx_attempts() const { return tx_attempts_; }
   uint32_t get_tx_blocked() const { return tx_blocked_; }
   uint32_t get_tx_busy_blocked() const { return tx_busy_blocked_; }
@@ -58,13 +61,26 @@ class TraneBus : public Component {
   uint32_t get_last_sc360_frame_ms() const { return last_sc360_frame_ms_; }
 
  protected:
+  struct SegmentedRxState {
+    std::string buffer{};
+    size_t expected_len{0};
+    uint8_t expected_seq{1};
+
+    void reset() {
+      buffer.clear();
+      expected_len = 0;
+      expected_seq = 1;
+    }
+  };
+
   bool send_frame_(const std::vector<uint8_t> &frame);
   bool send_json_internal_(const std::string &payload, bool expect_ack, const char *kind);
   bool validate_payload_shape_(const std::string &payload) const;
   bool validate_profile_name_(const std::string &profile) const;
   bool is_known_trane_id_(uint32_t can_id) const;
   void on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const std::vector<uint8_t> &data);
-  void handle_641_frame_(const std::vector<uint8_t> &data);
+  bool feed_segmented_json_(SegmentedRxState &state, const std::vector<uint8_t> &data, std::string &complete);
+  void handle_json_message_(uint32_t can_id, const std::string &json);
   void handle_641_message_(const std::string &json);
   void clear_pending_ack_();
 
@@ -87,13 +103,15 @@ class TraneBus : public Component {
   float min_deadband_f_{2.0f};
 
   std::string pending_kind_{};
-  std::string rx_641_buf_{};
-  size_t rx_641_expected_len_{0};
-  uint8_t rx_641_expected_seq_{1};
+  SegmentedRxState rx_641_{};
+  SegmentedRxState rx_649_{};
+
+  Trigger<std::string, uint32_t> json_trigger_;
 
   uint32_t rx_frames_{0};
   uint32_t trane_frames_{0};
   uint32_t sc360_frames_{0};
+  uint32_t rx_json_messages_{0};
   uint32_t tx_attempts_{0};
   uint32_t tx_blocked_{0};
   uint32_t tx_busy_blocked_{0};
@@ -109,21 +127,18 @@ class TraneBus : public Component {
 template<typename... Ts> class TraneBusSendJsonAction : public Action<Ts...>, public Parented<TraneBus> {
  public:
   TEMPLATABLE_VALUE(std::string, payload)
-
   void play(Ts... x) override { this->parent_->send_json(this->payload_.value(x...)); }
 };
 
 template<typename... Ts> class TraneBusSetTxEnabledAction : public Action<Ts...>, public Parented<TraneBus> {
  public:
   TEMPLATABLE_VALUE(bool, enabled)
-
   void play(Ts... x) override { this->parent_->set_tx_enabled(this->enabled_.value(x...)); }
 };
 
 template<typename... Ts> class TraneBusSetModeAction : public Action<Ts...>, public Parented<TraneBus> {
  public:
   TEMPLATABLE_VALUE(std::string, mode)
-
   void play(Ts... x) override { this->parent_->set_system_mode(this->mode_.value(x...)); }
 };
 
@@ -144,7 +159,6 @@ template<typename... Ts> class TraneBusSetSetpointsAction : public Action<Ts...>
 template<typename... Ts> class TraneBusGetProfileAction : public Action<Ts...>, public Parented<TraneBus> {
  public:
   TEMPLATABLE_VALUE(std::string, profile)
-
   void play(Ts... x) override { this->parent_->request_profile(this->profile_.value(x...)); }
 };
 
