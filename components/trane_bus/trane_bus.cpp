@@ -22,6 +22,9 @@ void TraneBus::setup() {
     return;
   }
 
+  if (capture_capacity_ > 0)
+    capture_frames_.reserve(capture_capacity_);
+
   canbus_->add_callback([this](uint32_t can_id, bool extended_id, bool rtr, const std::vector<uint8_t> &data) {
     this->on_can_frame_(can_id, extended_id, rtr, data);
   });
@@ -46,10 +49,51 @@ void TraneBus::dump_config() {
   ESP_LOGCONFIG(TAG, "  Setpoint bounds: %.1f..%.1f degF, min deadband %.1f degF", setpoint_min_f_, setpoint_max_f_,
                 min_deadband_f_);
   ESP_LOGCONFIG(TAG, "  Max JSON payload: %u bytes", static_cast<unsigned>(MAX_JSON_PAYLOAD));
+  ESP_LOGCONFIG(TAG, "  Capture: %s, capacity %u frames", YESNO(capture_enabled_),
+                static_cast<unsigned>(capture_capacity_));
 }
 
 bool TraneBus::has_recent_trane_activity() const {
   return seen_sc360_ && last_sc360_frame_ms_ != 0 && (millis() - last_sc360_frame_ms_) <= bus_activity_timeout_ms_;
+}
+
+void TraneBus::start_capture(bool clear_first) {
+  if (clear_first)
+    clear_capture();
+  if (capture_capacity_ == 0) {
+    ESP_LOGW(TAG, "Capture cannot start: capture_capacity is 0");
+    return;
+  }
+  capture_enabled_ = true;
+  ESP_LOGI(TAG, "CAN capture started (%u-frame ring)", static_cast<unsigned>(capture_capacity_));
+}
+
+void TraneBus::clear_capture() {
+  capture_frames_.clear();
+  capture_write_index_ = 0;
+  capture_overwrites_ = 0;
+}
+
+void TraneBus::dump_capture() const {
+  ESP_LOGI(TAG, "TRANE_CAPTURE_BEGIN frames=%u overwrites=%u", static_cast<unsigned>(capture_frames_.size()),
+           static_cast<unsigned>(capture_overwrites_));
+  if (capture_frames_.empty()) {
+    ESP_LOGI(TAG, "TRANE_CAPTURE_END");
+    return;
+  }
+
+  const bool wrapped = capture_frames_.size() == capture_capacity_ && capture_overwrites_ > 0;
+  const size_t start = wrapped ? capture_write_index_ : 0;
+  for (size_t n = 0; n < capture_frames_.size(); n++) {
+    const CapturedFrame &frame = capture_frames_[(start + n) % capture_frames_.size()];
+    char bytes[25] = {0};
+    size_t pos = 0;
+    for (uint8_t i = 0; i < frame.dlc && i < 8 && pos + 3 < sizeof(bytes); i++)
+      pos += snprintf(bytes + pos, sizeof(bytes) - pos, "%02X", frame.data[i]);
+    ESP_LOGI(TAG, "TRANE_CAN,%lu,%03lX,%u,%s", static_cast<unsigned long>(frame.timestamp_ms),
+             static_cast<unsigned long>(frame.can_id), static_cast<unsigned>(frame.dlc), bytes);
+  }
+  ESP_LOGI(TAG, "TRANE_CAPTURE_END");
 }
 
 bool TraneBus::is_known_trane_id_(uint32_t can_id) const {
@@ -59,19 +103,41 @@ bool TraneBus::is_known_trane_id_(uint32_t can_id) const {
   return can_id >= 0x380 && can_id <= 0x38F;
 }
 
+void TraneBus::capture_frame_(uint32_t can_id, const std::vector<uint8_t> &data) {
+  if (!capture_enabled_ || capture_capacity_ == 0)
+    return;
+
+  CapturedFrame frame;
+  frame.timestamp_ms = millis();
+  frame.can_id = can_id;
+  frame.dlc = static_cast<uint8_t>(std::min<size_t>(data.size(), 8));
+  for (uint8_t i = 0; i < frame.dlc; i++)
+    frame.data[i] = data[i];
+
+  if (capture_frames_.size() < capture_capacity_) {
+    capture_frames_.push_back(frame);
+    if (capture_frames_.size() == capture_capacity_)
+      capture_write_index_ = 0;
+    return;
+  }
+
+  capture_frames_[capture_write_index_] = frame;
+  capture_write_index_ = (capture_write_index_ + 1) % capture_capacity_;
+  capture_overwrites_++;
+}
+
 void TraneBus::on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const std::vector<uint8_t> &data) {
   rx_frames_++;
   if (extended_id || rtr)
     return;
+
+  capture_frame_(can_id, data);
 
   if (is_known_trane_id_(can_id)) {
     trane_frames_++;
     last_trane_frame_ms_ = millis();
   }
 
-  // 0x649 is the strongest currently decoded SC360 system broadcast signal.
-  // 0x5C9 is the SC360 side of the private UX360/SC360 transport. 0x641 is
-  // also retained as valid SC360 activity because command responses arrive there.
   if (can_id == 0x649 || can_id == 0x5C9 || can_id == 0x641) {
     seen_sc360_ = true;
     sc360_frames_++;
@@ -93,21 +159,18 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
     return false;
 
   const uint8_t marker = data[0];
-
   if ((marker & 0xF0) == 0xC0) {
     state.reset();
     if (data.size() < 3) {
       rx_transport_errors_++;
       return false;
     }
-
     state.expected_len = static_cast<size_t>(data[1]) | (static_cast<size_t>(data[2]) << 8);
     if (state.expected_len == 0 || state.expected_len > MAX_JSON_PAYLOAD) {
       rx_transport_errors_++;
       state.reset();
       return false;
     }
-
     state.buffer.reserve(state.expected_len);
     for (size_t i = 5; i < data.size() && state.buffer.size() < state.expected_len; i++) {
       if (data[i] != 0)
@@ -132,19 +195,16 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
       state.reset();
       return false;
     }
-
     for (size_t i = 1; i < data.size() && i <= used && state.buffer.size() < state.expected_len; i++) {
       if (data[i] == 0)
         break;
       state.buffer.push_back(static_cast<char>(data[i]));
     }
-
     if (state.buffer.size() == state.expected_len) {
       complete = state.buffer;
       state.reset();
       return true;
     }
-
     rx_transport_errors_++;
     state.reset();
     return false;
@@ -156,16 +216,10 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
     return false;
   }
   state.expected_seq++;
-
   for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
     if (data[i] == 0)
       break;
     state.buffer.push_back(static_cast<char>(data[i]));
-  }
-
-  if (state.buffer.size() > state.expected_len) {
-    rx_transport_errors_++;
-    state.reset();
   }
   return false;
 }
@@ -176,10 +230,8 @@ void TraneBus::handle_json_message_(uint32_t can_id, const std::string &json) {
     ESP_LOGW(TAG, "Discarding non-JSON segmented payload on 0x%03" PRIX32, can_id);
     return;
   }
-
   rx_json_messages_++;
   json_trigger_.trigger(json, can_id);
-
   if (can_id == 0x641)
     handle_641_message_(json);
 }
@@ -188,11 +240,9 @@ void TraneBus::handle_641_message_(const std::string &json) {
   const auto ack_pos = json.find("\"Ack\":");
   if (ack_pos == std::string::npos || !pending_ack_)
     return;
-
   size_t value = ack_pos + 6;
   while (value < json.size() && (json[value] == ' ' || json[value] == '\"'))
     value++;
-
   const bool ok = value + 3 <= json.size() && json.compare(value, 3, "200") == 0;
   if (ok) {
     ack_ok_++;
@@ -216,7 +266,6 @@ bool TraneBus::send_frame_(const std::vector<uint8_t> &frame) {
     tx_errors_++;
     return false;
   }
-
   const canbus::Error result = canbus_->send_data(command_can_id_, false, frame);
   if (result != canbus::ERROR_OK) {
     ESP_LOGE(TAG, "CAN transmit failed on 0x%03" PRIX32 " with error %u", command_can_id_,
@@ -224,7 +273,6 @@ bool TraneBus::send_frame_(const std::vector<uint8_t> &frame) {
     tx_errors_++;
     return false;
   }
-
   tx_frames_++;
   return true;
 }
@@ -245,25 +293,21 @@ bool TraneBus::validate_profile_name_(const std::string &profile) const {
 
 bool TraneBus::send_json_internal_(const std::string &payload, bool expect_ack, const char *kind) {
   tx_attempts_++;
-
   if (!tx_enabled_) {
     tx_blocked_++;
     ESP_LOGW(TAG, "TX blocked (monitor-only mode): %s", kind);
     return false;
   }
-
   if (require_sc360_before_tx_ && !has_recent_trane_activity()) {
     tx_blocked_++;
     ESP_LOGW(TAG, "TX blocked: no recent SC360 activity observed");
     return false;
   }
-
   if (pending_ack_) {
     tx_busy_blocked_++;
     ESP_LOGW(TAG, "TX blocked: waiting for ACK for %s", pending_kind_.c_str());
     return false;
   }
-
   if (!validate_payload_shape_(payload) || payload.size() > MAX_JSON_PAYLOAD) {
     tx_errors_++;
     ESP_LOGE(TAG, "Refusing malformed or oversized JSON payload for %s", kind);
@@ -330,7 +374,6 @@ bool TraneBus::set_system_mode(const std::string &mode) {
     tx_errors_++;
     return false;
   }
-
   char payload[64];
   snprintf(payload, sizeof(payload), "{\"SystemMode\":{\"Put\":{\"B\":\"%s\"}}}", value);
   return send_json_internal_(payload, true, "system-mode");
@@ -345,7 +388,6 @@ bool TraneBus::set_setpoints(float heat_f, float cool_f, int zone, int hold_type
     tx_errors_++;
     return false;
   }
-
   char payload[180];
   snprintf(payload, sizeof(payload),
            "{\"SpOverride\":{\"Put\":{\"%d\":{\"Hsp\":\"%.0f\",\"Csp\":\"%.0f\",\"HoldType\":\"%d\",\"Source\":\"%d\"}}}}",
