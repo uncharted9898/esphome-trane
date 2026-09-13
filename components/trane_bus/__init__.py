@@ -17,6 +17,8 @@ CONF_ACK_TIMEOUT = "ack_timeout"
 CONF_SETPOINT_MIN_F = "setpoint_min_f"
 CONF_SETPOINT_MAX_F = "setpoint_max_f"
 CONF_MIN_DEADBAND_F = "min_deadband_f"
+CONF_CAPTURE_CAPACITY = "capture_capacity"
+CONF_CAPTURE_ENABLED = "capture_enabled"
 CONF_ON_JSON = "on_json"
 CONF_PAYLOAD = "payload"
 CONF_ENABLED = "enabled"
@@ -49,6 +51,8 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_SETPOINT_MIN_F, default=50.0): cv.float_range(min=40, max=80),
         cv.Optional(CONF_SETPOINT_MAX_F, default=90.0): cv.float_range(min=70, max=100),
         cv.Optional(CONF_MIN_DEADBAND_F, default=2.0): cv.float_range(min=1, max=10),
+        cv.Optional(CONF_CAPTURE_CAPACITY, default=0): cv.int_range(min=0, max=16384),
+        cv.Optional(CONF_CAPTURE_ENABLED, default=False): cv.boolean,
         cv.Optional(CONF_ON_JSON): automation.validate_automation(single=True),
     }
 ).extend(cv.COMPONENT_SCHEMA)
@@ -68,6 +72,8 @@ async def to_code(config):
     cg.add(var.set_setpoint_min_f(config[CONF_SETPOINT_MIN_F]))
     cg.add(var.set_setpoint_max_f(config[CONF_SETPOINT_MAX_F]))
     cg.add(var.set_min_deadband_f(config[CONF_MIN_DEADBAND_F]))
+    cg.add(var.set_capture_capacity(config[CONF_CAPTURE_CAPACITY]))
+    cg.add(var.set_capture_enabled(config[CONF_CAPTURE_ENABLED]))
 
     if CONF_ON_JSON in config:
         await automation.build_automation(
