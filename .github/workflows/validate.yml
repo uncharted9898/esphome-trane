@@ -6,10 +6,15 @@ on:
     branches:
       - main
       - dev
-      - 'feature/**'
 
 permissions:
   contents: read
+
+# New pushes supersede old validation runs; do not burn runners compiling stale
+# development commits while the active branch is moving quickly.
+concurrency:
+  group: validate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   contract-tests:
@@ -28,17 +33,8 @@ jobs:
         run: python -m py_compile components/trane_hvac/*.py components/trane_bus/*.py tests/*.py
 
   esphome-build:
-    name: ESPHome compile (${{ matrix.config }})
+    name: ESPHome firmware profiles
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - esphome-trane.yaml
-          - tests/trane-bus-smoke.yaml
-          - waveshare-trane-listenonly.yaml
-          - waveshare-trane-control.yaml
-          - waveshare-trane-full.yaml
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,10 +44,34 @@ jobs:
           wifi_ssid: "configure-me"
           wifi_password: "configure-me"
           EOF
-      - name: Mirror secrets for test configs
-        run: cp secrets.yaml tests/secrets.yaml
-      - name: Compile firmware
+          cp secrets.yaml tests/secrets.yaml
+
+      - name: Compile legacy full decoder
         uses: esphome/build-action@v6
         with:
-          yaml-file: ${{ matrix.config }}
+          yaml-file: esphome-trane.yaml
+          substitutions: "version=ci-${{ github.sha }}"
+
+      - name: Compile guarded transport smoke profile
+        uses: esphome/build-action@v6
+        with:
+          yaml-file: tests/trane-bus-smoke.yaml
+          substitutions: "version=ci-${{ github.sha }}"
+
+      - name: Compile Waveshare passive commissioning profile
+        uses: esphome/build-action@v6
+        with:
+          yaml-file: waveshare-trane-listenonly.yaml
+          substitutions: "version=ci-${{ github.sha }}"
+
+      - name: Compile Waveshare guarded control profile
+        uses: esphome/build-action@v6
+        with:
+          yaml-file: waveshare-trane-control.yaml
+          substitutions: "version=ci-${{ github.sha }}"
+
+      - name: Compile Waveshare full decoder profile
+        uses: esphome/build-action@v6
+        with:
+          yaml-file: waveshare-trane-full.yaml
           substitutions: "version=ci-${{ github.sha }}"
