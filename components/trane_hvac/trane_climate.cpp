@@ -35,15 +35,26 @@ climate::ClimateTraits TraneClimate::traits() {
   traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE |
                            climate::CLIMATE_REQUIRES_TWO_POINT_TARGET_TEMPERATURE |
                            climate::CLIMATE_SUPPORTS_ACTION);
+
+  // The upstream implementation originally advertised HEAT_COOL and FAN_ONLY
+  // as well.  Those modes are intentionally not exposed here until their
+  // native Trane command/state semantics are captured and proven; the legacy
+  // YAML command mapper could otherwise collapse unsupported selections to OFF.
   traits.set_supported_modes({climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_COOL});
-  traits.set_visual_min_temperature(15.5f);
-  traits.set_visual_max_temperature(29.4f);
+
+  // Upstream also exposed Home/Away/Sleep/Boost presets.  Keep the historical
+  // knowledge in the legacy config, but do not advertise a preset until its
+  // native SC360 behavior is decoded.  In particular, the old "Boost" path was
+  // a synthetic setpoint trick rather than a known Trane preset command.
+  traits.set_visual_min_temperature(15.5f);   // 60 degF
+  traits.set_visual_max_temperature(29.4f);   // 85 degF
   traits.set_visual_target_temperature_step(0.5f);
   traits.set_visual_current_temperature_step(0.1f);
   return traits;
 }
 
 void TraneClimate::setup() {
+  // Current temperature
   if (current_temp_sensor_ != nullptr) {
     current_temp_sensor_->add_on_state_callback([this](float state) {
       if (!std::isnan(state)) {
@@ -53,6 +64,8 @@ void TraneClimate::setup() {
     });
   }
 
+  // Heat setpoint.  SC360-observed state is authoritative; this callback is
+  // what updates Home Assistant after a command is accepted/broadcast back.
   if (heat_setpoint_sensor_ != nullptr) {
     heat_setpoint_sensor_->add_on_state_callback([this](float state) {
       if (!std::isnan(state)) {
@@ -62,6 +75,8 @@ void TraneClimate::setup() {
     });
   }
 
+  // Cool setpoint.  As above, do not optimistically change the climate entity
+  // from a requested value; wait for observed Trane state.
   if (cool_setpoint_sensor_ != nullptr) {
     cool_setpoint_sensor_->add_on_state_callback([this](float state) {
       if (!std::isnan(state)) {
@@ -71,6 +86,8 @@ void TraneClimate::setup() {
     });
   }
 
+  // Mode text sensor -- maps system_mode values back to climate modes.
+  // Unknown values are deliberately ignored rather than coerced to OFF.
   if (mode_sensor_ != nullptr) {
     mode_sensor_->add_on_state_callback([this](const std::string &state) {
       if (!this->apply_observed_mode_(state)) {
@@ -81,6 +98,24 @@ void TraneClimate::setup() {
     });
   }
 
+  // Demand stage sensor -- maps SystemOpStatus.C to ClimateAction.
+  //
+  // Known stage strings from upstream CAN-bus observations:
+  //   "--"          = idle between cycles
+  //   "HP Stage 1"  = heat pump low stage
+  //   "HP Stage 2"  = heat pump high stage
+  //   "HP1+ID1"     = heat pump stage 1 + induced draft stage 1
+  //   "HP1+ID2"     = heat pump stage 1 + induced draft stage 2
+  //   "HP2+ID1"     = heat pump stage 2 + induced draft stage 1 (defrost/aux)
+  //   "HP2+ID2"     = heat pump stage 2 + induced draft stage 2 (defrost/aux)
+  //   "ID Stage 1"  = induced draft / gas stage 1 (furnace only)
+  //   "ID Stage 2"  = induced draft / gas stage 2 (furnace only)
+  //
+  // IMPORTANT: those meanings were observed on the upstream author's system,
+  // which included gas auxiliary heat.  They are preserved here as valuable
+  // reverse-engineering evidence, not asserted as the final interpretation for
+  // our 5TWV0X + 5TAMX + electric-strip configuration.  Electric AUX/defrost
+  // behavior must be capture-qualified before we name new stage strings.
   if (demand_sensor_ != nullptr) {
     demand_sensor_->add_on_state_callback([this](const std::string &state) {
       if (this->mode == climate::CLIMATE_MODE_OFF)
@@ -98,6 +133,10 @@ void TraneClimate::setup() {
     });
   }
 
+  // Subscribe to indoor unit state for fan action detection.
+  // IndoorStatus.D = "B" means blower running, "A" means transition/off in
+  // the upstream captures.  When demand stage is "--" but blower is running,
+  // that is treated as a fan/post-cycle state for the climate entity.
   if (indoor_unit_state_sensor_ != nullptr) {
     indoor_unit_state_sensor_->add_on_state_callback([this](const std::string &state) {
       if (state == "B" && this->action == climate::CLIMATE_ACTION_IDLE) {
@@ -110,6 +149,8 @@ void TraneClimate::setup() {
     });
   }
 
+  // Seed initial values from current sensor states.  This is observation-only;
+  // it does not restore a stale requested mode or transmit anything at boot.
   if (current_temp_sensor_ != nullptr && !std::isnan(current_temp_sensor_->state))
     this->current_temperature = (current_temp_sensor_->state - 32.0f) * 5.0f / 9.0f;
   if (heat_setpoint_sensor_ != nullptr && !std::isnan(heat_setpoint_sensor_->state))
@@ -119,6 +160,9 @@ void TraneClimate::setup() {
 }
 
 void TraneClimate::control(const climate::ClimateCall &call) {
+  // --- Mode change ----------------------------------------------------------
+  // Request the change once, then wait for SC360-observed state to update the
+  // climate entity.  The SC360 remains the source of truth.
   if (call.get_mode().has_value()) {
     const climate::ClimateMode requested_mode = *call.get_mode();
     if (!is_supported_control_mode_(requested_mode)) {
@@ -136,6 +180,10 @@ void TraneClimate::control(const climate::ClimateCall &call) {
     }
   }
 
+  // --- Setpoint change ------------------------------------------------------
+  // Existing setpoints are the last values actually observed from Trane.  A
+  // one-sided HA request therefore composes against observed state, not against
+  // a previous unconfirmed local request.
   if (call.get_target_temperature_low().has_value() || call.get_target_temperature_high().has_value()) {
     float hsp_c = this->target_temperature_low;
     float csp_c = this->target_temperature_high;
@@ -147,6 +195,7 @@ void TraneClimate::control(const climate::ClimateCall &call) {
     if (std::isnan(hsp_c) || std::isnan(csp_c)) {
       ESP_LOGW(TAG, "Rejecting setpoint request before both observed setpoints are known");
     } else {
+      // Convert degC -> degF for Trane CAN command generation.
       const float hsp_f = hsp_c * 9.0f / 5.0f + 32.0f;
       const float csp_f = csp_c * 9.0f / 5.0f + 32.0f;
       if (trane_bus_ != nullptr) {
@@ -161,6 +210,9 @@ void TraneClimate::control(const climate::ClimateCall &call) {
     }
   }
 
+  // --- Preset change --------------------------------------------------------
+  // Preserve the upstream preset trigger for compatibility, but do not emit a
+  // command until a native Trane preset operation has actually been decoded.
   if (call.get_preset().has_value())
     ESP_LOGW(TAG, "Ignoring preset request: native Trane preset command is not decoded yet");
 }
