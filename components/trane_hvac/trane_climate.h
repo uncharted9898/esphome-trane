@@ -18,7 +18,8 @@ class TraneClimate : public climate::Climate, public Component {
   void setup() override;
   void dump_config() override;
 
-  // Sensor wiring
+  // Sensor wiring. All published climate state is sourced from these observed
+  // SC360/UX360-backed entities; control requests are intentionally non-optimistic.
   void set_current_temperature_sensor(sensor::Sensor *s) { current_temp_sensor_ = s; }
   void set_heat_setpoint_sensor(sensor::Sensor *s) { heat_setpoint_sensor_ = s; }
   void set_cool_setpoint_sensor(sensor::Sensor *s) { cool_setpoint_sensor_ = s; }
@@ -34,6 +35,8 @@ class TraneClimate : public climate::Climate, public Component {
  protected:
   climate::ClimateTraits traits() override;
   void control(const climate::ClimateCall &call) override;
+  static bool is_supported_control_mode_(climate::ClimateMode mode);
+  bool apply_observed_mode_(const std::string &state);
 
   sensor::Sensor *current_temp_sensor_{nullptr};
   sensor::Sensor *heat_setpoint_sensor_{nullptr};
@@ -43,7 +46,9 @@ class TraneClimate : public climate::Climate, public Component {
   text_sensor::TextSensor *indoor_unit_state_sensor_{nullptr};
 
   Trigger<climate::ClimateMode> mode_trigger_;
-  Trigger<float, float> temperature_trigger_;   // args: hsp_f, csp_f (°F)
+  Trigger<float, float> temperature_trigger_;   // args: hsp_f, csp_f (degF)
+  // Kept for config compatibility. Presets are not advertised or transmitted
+  // until native Trane preset semantics are decoded and verified.
   Trigger<climate::ClimatePreset> preset_trigger_;
 };
 
