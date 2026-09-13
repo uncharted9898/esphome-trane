@@ -22,8 +22,8 @@ esp32:
 logger:
   level: DEBUG
   logs:
-    canbus: INFO
-    trane_bus: DEBUG
+    canbus: WARN
+    trane_bus: INFO
 
 api:
 
@@ -49,21 +49,7 @@ canbus:
     can_id: 1
     mode: LISTENONLY
     tx_queue_len: 0
-    rx_queue_len: 64
-    on_frame:
-      - can_id: 0x000
-        can_id_mask: 0x000
-        then:
-          - lambda: |-
-              static uint32_t frame_count = 0;
-              frame_count++;
-              if (frame_count <= 50 || (frame_count % 250) == 0) {
-                char buf[96];
-                int pos = snprintf(buf, sizeof(buf), "ID:%03X DLC:%u ", can_id, (unsigned)x.size());
-                for (size_t i = 0; i < x.size() && pos < 84; i++)
-                  pos += snprintf(buf + pos, sizeof(buf) - pos, "%02X ", x[i]);
-                ESP_LOGI("trane_capture", "%s", buf);
-              }
+    rx_queue_len: 128
 
 trane_bus:
   id: trane_link
@@ -72,6 +58,8 @@ trane_bus:
   tx_enabled: false
   raw_json_enabled: false
   require_sc360_before_tx: true
+  capture_capacity: 8192
+  capture_enabled: true
 
 text_sensor:
   - platform: template
@@ -85,6 +73,11 @@ binary_sensor:
     name: "SC360 Traffic Seen"
     lambda: |-
       return id(trane_link).has_seen_sc360();
+
+  - platform: template
+    name: "CAN Capture Running"
+    lambda: |-
+      return id(trane_link).is_capture_enabled();
 
 sensor:
   - platform: template
@@ -100,3 +93,41 @@ sensor:
     lambda: |-
       return id(trane_link).get_sc360_frames();
     update_interval: 10s
+
+  - platform: template
+    name: "Captured CAN Frames"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_capture_size();
+    update_interval: 5s
+
+  - platform: template
+    name: "Capture Ring Overwrites"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_capture_overwrites();
+    update_interval: 5s
+
+button:
+  - platform: template
+    name: "Freeze CAN Capture"
+    icon: mdi:snowflake
+    on_press:
+      - lambda: |-
+          id(trane_link).stop_capture();
+          ESP_LOGI("trane_capture", "Capture frozen with %u frames", (unsigned) id(trane_link).get_capture_size());
+
+  - platform: template
+    name: "Dump Frozen CAN Capture"
+    icon: mdi:download
+    on_press:
+      - lambda: |-
+          id(trane_link).stop_capture();
+          id(trane_link).dump_capture();
+
+  - platform: template
+    name: "Clear And Resume CAN Capture"
+    icon: mdi:record-rec
+    on_press:
+      - lambda: |-
+          id(trane_link).start_capture(true);
