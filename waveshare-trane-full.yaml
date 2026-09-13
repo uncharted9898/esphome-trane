@@ -1,0 +1,144 @@
+substitutions:
+  version: "dev-waveshare-full"
+
+packages:
+  legacy_decoder: !include esphome-trane.yaml
+
+# The Waveshare board is now the reference hardware. Keep the mature decoder
+# from esphome-trane.yaml while replacing its hardware/control boundary.
+esphome:
+  name: trane-link-bridge
+  friendly_name: Trane Link Bridge
+  project:
+    name: "uncharted9898.trane-link-bridge"
+    version: ${version}
+  # Remove the legacy boot action because it transmits a raw GetProfile before
+  # the guarded transport has observed the SC360.
+  on_boot: !remove
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [trane_hvac, trane_bus]
+
+# Remove legacy raw API services. Normal control is through the climate entity
+# and guarded trane_bus actions/switches below.
+api:
+  services: !remove
+
+canbus:
+  - id: !extend hvac_can
+    tx_pin: GPIO15
+    rx_pin: GPIO16
+    bit_rate: 50kbps
+    mode: NORMAL
+    rx_queue_len: 64
+    tx_queue_len: 8
+
+trane_bus:
+  id: trane_link
+  canbus_id: hvac_can
+  command_can_id: 0x641
+  tx_enabled: false
+  raw_json_enabled: false
+  require_sc360_before_tx: true
+  bus_activity_timeout: 5min
+  ack_timeout: 3s
+  setpoint_min_f: 50
+  setpoint_max_f: 90
+  min_deadband_f: 2
+
+climate:
+  - id: !extend trane_climate
+    trane_bus_id: trane_link
+
+switch:
+  - platform: template
+    id: trane_local_control
+    name: "Local Trane Control"
+    icon: mdi:shield-lock
+    restore_mode: ALWAYS_OFF
+    lambda: |-
+      return id(trane_link).is_tx_enabled();
+    turn_on_action:
+      - if:
+          condition:
+            lambda: 'return id(trane_link).has_recent_trane_activity();'
+          then:
+            - trane_bus.set_tx_enabled:
+                id: trane_link
+                enabled: true
+          else:
+            - logger.log:
+                level: WARN
+                format: "Refusing to enable local control: no recent SC360 traffic"
+    turn_off_action:
+      - trane_bus.set_tx_enabled:
+          id: trane_link
+          enabled: false
+
+button:
+  - platform: template
+    name: "Request SC360 SYSOP Profile"
+    icon: mdi:database-refresh
+    on_press:
+      - trane_bus.get_profile:
+          id: trane_link
+          profile: SYSOP
+
+binary_sensor:
+  - platform: template
+    name: "SC360 Seen"
+    lambda: 'return id(trane_link).has_seen_sc360();'
+
+  - platform: template
+    name: "SC360 Recently Active"
+    lambda: 'return id(trane_link).has_recent_trane_activity();'
+
+  - platform: template
+    name: "Trane Command Awaiting ACK"
+    lambda: 'return id(trane_link).has_pending_ack();'
+
+sensor:
+  - platform: template
+    name: "Trane RX Frames"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_trane_frames();'
+
+  - platform: template
+    name: "SC360 RX Frames"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_sc360_frames();'
+
+  - platform: template
+    name: "Trane TX Messages"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_tx_messages();'
+
+  - platform: template
+    name: "Trane TX Blocked"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_tx_blocked();'
+
+  - platform: template
+    name: "Trane ACK OK"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_ack_ok();'
+
+  - platform: template
+    name: "Trane ACK Errors"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_ack_error();'
+
+  - platform: template
+    name: "Trane ACK Timeouts"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_ack_timeouts();'
