@@ -30,6 +30,9 @@ trane_bus:
   tx_enabled: false
   raw_json_enabled: false
   require_sc360_before_tx: true
+  on_json:
+    - lambda: |-
+        ESP_LOGD("trane_smoke", "JSON 0x%03X: %s", can_id, json.c_str());
 
 script:
   - id: smoke_get_profile
