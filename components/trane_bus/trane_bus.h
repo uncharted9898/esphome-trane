@@ -27,21 +27,27 @@ class TraneBus : public Component {
   void set_setpoint_min_f(float value) { setpoint_min_f_ = value; }
   void set_setpoint_max_f(float value) { setpoint_max_f_ = value; }
   void set_min_deadband_f(float value) { min_deadband_f_ = value; }
+  void set_capture_capacity(size_t capacity) { capture_capacity_ = capacity; }
+  void set_capture_enabled(bool enabled) { capture_enabled_ = enabled; }
 
   bool is_tx_enabled() const { return tx_enabled_; }
   bool is_raw_json_enabled() const { return raw_json_enabled_; }
   bool has_seen_sc360() const { return seen_sc360_; }
   bool has_pending_ack() const { return pending_ack_; }
   bool has_recent_trane_activity() const;
+  bool is_capture_enabled() const { return capture_enabled_; }
 
   Trigger<std::string, uint32_t> *get_json_trigger() { return &json_trigger_; }
 
-  // Raw JSON is intentionally disabled by default. Normal callers should use
-  // the typed methods below so the component can validate command semantics.
   bool send_json(const std::string &payload);
   bool set_system_mode(const std::string &mode);
   bool set_setpoints(float heat_f, float cool_f, int zone = 1, int hold_type = 2, int source = 1);
   bool request_profile(const std::string &profile);
+
+  void start_capture(bool clear_first = false);
+  void stop_capture() { capture_enabled_ = false; }
+  void clear_capture();
+  void dump_capture() const;
 
   uint32_t get_rx_frames() const { return rx_frames_; }
   uint32_t get_trane_frames() const { return trane_frames_; }
@@ -59,18 +65,26 @@ class TraneBus : public Component {
   uint32_t get_rx_transport_errors() const { return rx_transport_errors_; }
   uint32_t get_last_trane_frame_ms() const { return last_trane_frame_ms_; }
   uint32_t get_last_sc360_frame_ms() const { return last_sc360_frame_ms_; }
+  size_t get_capture_size() const { return capture_frames_.size(); }
+  uint32_t get_capture_overwrites() const { return capture_overwrites_; }
 
  protected:
   struct SegmentedRxState {
     std::string buffer{};
     size_t expected_len{0};
     uint8_t expected_seq{1};
-
     void reset() {
       buffer.clear();
       expected_len = 0;
       expected_seq = 1;
     }
+  };
+
+  struct CapturedFrame {
+    uint32_t timestamp_ms{0};
+    uint32_t can_id{0};
+    uint8_t dlc{0};
+    uint8_t data[8]{0};
   };
 
   bool send_frame_(const std::vector<uint8_t> &frame);
@@ -79,6 +93,7 @@ class TraneBus : public Component {
   bool validate_profile_name_(const std::string &profile) const;
   bool is_known_trane_id_(uint32_t can_id) const;
   void on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const std::vector<uint8_t> &data);
+  void capture_frame_(uint32_t can_id, const std::vector<uint8_t> &data);
   bool feed_segmented_json_(SegmentedRxState &state, const std::vector<uint8_t> &data, std::string &complete);
   void handle_json_message_(uint32_t can_id, const std::string &json);
   void handle_641_message_(const std::string &json);
@@ -90,6 +105,7 @@ class TraneBus : public Component {
   bool require_sc360_before_tx_{true};
   bool seen_sc360_{false};
   bool pending_ack_{false};
+  bool capture_enabled_{false};
 
   uint32_t command_can_id_{0x641};
   uint32_t bus_activity_timeout_ms_{300000};
@@ -105,8 +121,12 @@ class TraneBus : public Component {
   std::string pending_kind_{};
   SegmentedRxState rx_641_{};
   SegmentedRxState rx_649_{};
-
   Trigger<std::string, uint32_t> json_trigger_;
+
+  size_t capture_capacity_{0};
+  size_t capture_write_index_{0};
+  std::vector<CapturedFrame> capture_frames_{};
+  uint32_t capture_overwrites_{0};
 
   uint32_t rx_frames_{0};
   uint32_t trane_frames_{0};
@@ -149,7 +169,6 @@ template<typename... Ts> class TraneBusSetSetpointsAction : public Action<Ts...>
   TEMPLATABLE_VALUE(int, zone)
   TEMPLATABLE_VALUE(int, hold_type)
   TEMPLATABLE_VALUE(int, source)
-
   void play(Ts... x) override {
     this->parent_->set_setpoints(this->heat_f_.value(x...), this->cool_f_.value(x...), this->zone_.value(x...),
                                  this->hold_type_.value(x...), this->source_.value(x...));
