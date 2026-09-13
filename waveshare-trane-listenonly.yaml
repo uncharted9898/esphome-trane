@@ -80,11 +80,34 @@ binary_sensor:
       return id(trane_link).is_capture_enabled();
 
 sensor:
+  # Total standard/extended/RTR callbacks observed by trane_bus. During
+  # commissioning this is intentionally broader than the known-Trane counter so
+  # new 5TAMX/5TWV0X/A2L node traffic is visible instead of disappearing into
+  # the old protocol map.
   - platform: template
-    name: "Trane Frames Seen"
+    name: "Total CAN Frames Seen"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_rx_frames();
+    update_interval: 10s
+
+  - platform: template
+    name: "Known Trane Frames Seen"
     accuracy_decimals: 0
     lambda: |-
       return id(trane_link).get_trane_frames();
+    update_interval: 10s
+
+  # Discovery hint only: a non-zero value means traffic exists outside the IDs
+  # currently classified by is_known_trane_id_(). The raw capture remains the
+  # authoritative source because this counter does not identify which IDs are new.
+  - platform: template
+    name: "Unclassified CAN Frames Seen"
+    accuracy_decimals: 0
+    lambda: |-
+      const uint32_t total = id(trane_link).get_rx_frames();
+      const uint32_t known = id(trane_link).get_trane_frames();
+      return total >= known ? total - known : 0;
     update_interval: 10s
 
   - platform: template
@@ -92,6 +115,20 @@ sensor:
     accuracy_decimals: 0
     lambda: |-
       return id(trane_link).get_sc360_frames();
+    update_interval: 10s
+
+  - platform: template
+    name: "Segmented JSON Messages"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_rx_json_messages();
+    update_interval: 10s
+
+  - platform: template
+    name: "RX Transport Errors"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_rx_transport_errors();
     update_interval: 10s
 
   - platform: template
