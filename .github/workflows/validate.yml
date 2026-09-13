@@ -38,6 +38,7 @@ jobs:
           - tests/trane-bus-smoke.yaml
           - waveshare-trane-listenonly.yaml
           - waveshare-trane-control.yaml
+          - waveshare-trane-full.yaml
     steps:
       - name: Checkout
         uses: actions/checkout@v4
