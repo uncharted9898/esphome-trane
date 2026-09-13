@@ -33,6 +33,17 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("TRANE_CAPTURE_BEGIN", BUS_CPP)
         self.assertIn("TRANE_CAPTURE_END", BUS_CPP)
 
+    def test_passive_image_exposes_discovery_counters(self):
+        self.assertIn("Total CAN Frames Seen", LISTEN)
+        self.assertIn("Known Trane Frames Seen", LISTEN)
+        self.assertIn("Unclassified CAN Frames Seen", LISTEN)
+        self.assertIn("Segmented JSON Messages", LISTEN)
+        self.assertIn("RX Transport Errors", LISTEN)
+        self.assertIn("get_rx_frames()", LISTEN)
+        self.assertIn("get_trane_frames()", LISTEN)
+        self.assertIn("get_rx_json_messages()", LISTEN)
+        self.assertIn("get_rx_transport_errors()", LISTEN)
+
     def test_full_profile_starts_control_disarmed(self):
         self.assertIn("tx_enabled: false", FULL)
         self.assertIn("raw_json_enabled: false", FULL)
