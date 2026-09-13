@@ -69,79 +69,119 @@ void TraneBus::on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const 
     last_trane_frame_ms_ = millis();
   }
 
-  if (can_id == 0x649 || can_id == 0x641 || can_id == 0x5C9) {
+  // 0x649 is the strongest currently decoded SC360 system broadcast signal.
+  // 0x5C9 is the SC360 side of the private UX360/SC360 transport. 0x641 is
+  // also retained as valid SC360 activity because command responses arrive there.
+  if (can_id == 0x649 || can_id == 0x5C9 || can_id == 0x641) {
     seen_sc360_ = true;
     sc360_frames_++;
     last_sc360_frame_ms_ = millis();
   }
 
-  if (can_id == 0x641)
-    handle_641_frame_(data);
+  if (can_id == 0x641 || can_id == 0x649) {
+    std::string complete;
+    SegmentedRxState &state = can_id == 0x641 ? rx_641_ : rx_649_;
+    if (feed_segmented_json_(state, data, complete))
+      handle_json_message_(can_id, complete);
+  }
 }
 
-void TraneBus::handle_641_frame_(const std::vector<uint8_t> &data) {
+bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<uint8_t> &data,
+                                    std::string &complete) {
+  complete.clear();
   if (data.empty())
-    return;
+    return false;
 
   const uint8_t marker = data[0];
+
   if ((marker & 0xF0) == 0xC0) {
-    rx_641_buf_.clear();
-    rx_641_expected_seq_ = 1;
-    rx_641_expected_len_ = data.size() >= 3 ? static_cast<size_t>(data[1]) | (static_cast<size_t>(data[2]) << 8) : 0;
-    if (rx_641_expected_len_ > MAX_JSON_PAYLOAD) {
+    state.reset();
+    if (data.size() < 3) {
       rx_transport_errors_++;
-      rx_641_buf_.clear();
-      rx_641_expected_len_ = 0;
-      return;
+      return false;
     }
-    for (size_t i = 5; i < data.size() && rx_641_buf_.size() < rx_641_expected_len_; i++) {
+
+    state.expected_len = static_cast<size_t>(data[1]) | (static_cast<size_t>(data[2]) << 8);
+    if (state.expected_len == 0 || state.expected_len > MAX_JSON_PAYLOAD) {
+      rx_transport_errors_++;
+      state.reset();
+      return false;
+    }
+
+    state.buffer.reserve(state.expected_len);
+    for (size_t i = 5; i < data.size() && state.buffer.size() < state.expected_len; i++) {
       if (data[i] != 0)
-        rx_641_buf_.push_back(static_cast<char>(data[i]));
+        state.buffer.push_back(static_cast<char>(data[i]));
     }
-    return;
+    return false;
   }
 
-  if (rx_641_expected_len_ == 0)
-    return;
+  if (state.expected_len == 0)
+    return false;
 
   if (marker & 0x80) {
-    size_t used = (marker & 0x7F);
+    size_t used = marker & 0x7F;
     if (used == 0) {
       rx_transport_errors_++;
-      return;
+      state.reset();
+      return false;
     }
     used -= 1;
-    for (size_t i = 1; i < data.size() && i <= used && rx_641_buf_.size() < rx_641_expected_len_; i++) {
-      if (data[i] == 0)
-        break;
-      rx_641_buf_.push_back(static_cast<char>(data[i]));
+    if (used > 7) {
+      rx_transport_errors_++;
+      state.reset();
+      return false;
     }
 
-    if (rx_641_buf_.size() == rx_641_expected_len_)
-      handle_641_message_(rx_641_buf_);
-    else
-      rx_transport_errors_++;
+    for (size_t i = 1; i < data.size() && i <= used && state.buffer.size() < state.expected_len; i++) {
+      if (data[i] == 0)
+        break;
+      state.buffer.push_back(static_cast<char>(data[i]));
+    }
 
-    rx_641_buf_.clear();
-    rx_641_expected_len_ = 0;
-    rx_641_expected_seq_ = 1;
-    return;
-  }
+    if (state.buffer.size() == state.expected_len) {
+      complete = state.buffer;
+      state.reset();
+      return true;
+    }
 
-  if (marker != rx_641_expected_seq_) {
     rx_transport_errors_++;
-    rx_641_buf_.clear();
-    rx_641_expected_len_ = 0;
-    rx_641_expected_seq_ = 1;
-    return;
+    state.reset();
+    return false;
   }
-  rx_641_expected_seq_++;
 
-  for (size_t i = 1; i < data.size() && rx_641_buf_.size() < rx_641_expected_len_; i++) {
+  if (marker != state.expected_seq) {
+    rx_transport_errors_++;
+    state.reset();
+    return false;
+  }
+  state.expected_seq++;
+
+  for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
     if (data[i] == 0)
       break;
-    rx_641_buf_.push_back(static_cast<char>(data[i]));
+    state.buffer.push_back(static_cast<char>(data[i]));
   }
+
+  if (state.buffer.size() > state.expected_len) {
+    rx_transport_errors_++;
+    state.reset();
+  }
+  return false;
+}
+
+void TraneBus::handle_json_message_(uint32_t can_id, const std::string &json) {
+  if (!validate_payload_shape_(json)) {
+    rx_transport_errors_++;
+    ESP_LOGW(TAG, "Discarding non-JSON segmented payload on 0x%03" PRIX32, can_id);
+    return;
+  }
+
+  rx_json_messages_++;
+  json_trigger_.trigger(json, can_id);
+
+  if (can_id == 0x641)
+    handle_641_message_(json);
 }
 
 void TraneBus::handle_641_message_(const std::string &json) {
@@ -149,7 +189,12 @@ void TraneBus::handle_641_message_(const std::string &json) {
   if (ack_pos == std::string::npos || !pending_ack_)
     return;
 
-  if (json.find("200", ack_pos) != std::string::npos) {
+  size_t value = ack_pos + 6;
+  while (value < json.size() && (json[value] == ' ' || json[value] == '\"'))
+    value++;
+
+  const bool ok = value + 3 <= json.size() && json.compare(value, 3, "200") == 0;
+  if (ok) {
     ack_ok_++;
     ESP_LOGI(TAG, "SC360 acknowledged %s", pending_kind_.c_str());
   } else {
@@ -292,9 +337,9 @@ bool TraneBus::set_system_mode(const std::string &mode) {
 }
 
 bool TraneBus::set_setpoints(float heat_f, float cool_f, int zone, int hold_type, int source) {
-  if (!std::isfinite(heat_f) || !std::isfinite(cool_f) || heat_f < setpoint_min_f_ || cool_f > setpoint_max_f_ ||
-      cool_f - heat_f < min_deadband_f_ || zone < 1 || zone > 6 || hold_type < 0 || hold_type > 2 || source < 0 ||
-      source > 2) {
+  if (!std::isfinite(heat_f) || !std::isfinite(cool_f) || heat_f < setpoint_min_f_ || heat_f > setpoint_max_f_ ||
+      cool_f < setpoint_min_f_ || cool_f > setpoint_max_f_ || cool_f - heat_f < min_deadband_f_ || zone < 1 ||
+      zone > 6 || hold_type < 0 || hold_type > 2 || source < 0 || source > 2) {
     ESP_LOGW(TAG, "Refusing invalid setpoint request: heat=%.1f cool=%.1f zone=%d hold=%d source=%d", heat_f, cool_f,
              zone, hold_type, source);
     tx_errors_++;
