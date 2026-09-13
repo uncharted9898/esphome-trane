@@ -1,0 +1,45 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    name: Safety contract tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Compile Python sources
+        run: python -m py_compile components/trane_hvac/*.py tests/*.py
+
+  esphome-build:
+    name: ESPHome compile
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Create CI secrets
+        run: |
+          cat > secrets.yaml << 'EOF'
+          wifi_ssid: "configure-me"
+          wifi_password: "configure-me"
+          EOF
+      - name: Compile firmware
+        uses: esphome/build-action@v6
+        with:
+          yaml-file: esphome-trane.yaml
+          substitutions: "version=ci-${{ github.sha }}"
