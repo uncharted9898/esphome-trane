@@ -1,0 +1,1027 @@
+# Reusable read-only telemetry package for the Waveshare Trane Link bridge.
+#
+# This package intentionally exposes three confidence classes:
+#   1. Known/observed semantic entities (normal names).
+#   2. Candidate/raw channels (names explicitly say Candidate/Raw).
+#   3. Discovery surfaces for currently unknown target-system traffic.
+#
+# Nothing in this file transmits CAN frames or enables Trane application TX.
+# It is designed to be useful in ESPHome's web_server/API before the target
+# 5TAMX/5TWV0X/A2L capture has finished qualifying every new-generation field.
+
+esphome:
+  devices:
+    - id: dev_thermostat
+      name: "Trane UX360"
+    - id: dev_sc360
+      name: "Trane SC360"
+    - id: dev_air_handler
+      name: "Trane 5TAMX Air Handler"
+    - id: dev_heat_pump
+      name: "Trane 5TWV0X Heat Pump"
+    - id: dev_discovery
+      name: "Trane Link Discovery"
+
+# Count traffic that does not yet belong to the protocol inventory. This is a
+# diagnostic counter, not an attempt to assign semantics to unknown IDs.
+globals:
+  - id: trane_unknown_frame_count
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
+sensor:
+  # UX360 / zone 1 -----------------------------------------------------------
+  - platform: template
+    id: trane_room_temp
+    name: "Room Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_heat_setpoint
+    name: "Heat Setpoint"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_cool_setpoint
+    name: "Cool Setpoint"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_indoor_humidity
+    name: "Indoor Humidity"
+    unit_of_measurement: "%"
+    device_class: humidity
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_zone1_airflow
+    name: "Zone 1 Airflow"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_zone1_demand
+    name: "Zone 1 Demand"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_thermostat
+
+  # SC360 -------------------------------------------------------------------
+  - platform: template
+    id: trane_sc360_outdoor_temp
+    name: "SC360 Outdoor Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_od_widget_temp
+    name: "Outdoor Widget Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    device_id: dev_sc360
+
+  # 5TAMX -------------------------------------------------------------------
+  - platform: template
+    id: trane_blower_speed
+    name: "Indoor Blower Speed"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_283_float1
+    name: "0x283 Float 1 Candidate ET GT"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_283_float2
+    name: "0x283 Float 2 Candidate ET GT"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_308_float1
+    name: "0x308 Float 1 Candidate Return Air"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_308_float2
+    name: "0x308 Float 2 Candidate Supply Air"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_air_handler
+
+  # 5TWV0X ------------------------------------------------------------------
+  - platform: template
+    id: trane_compressor_speed
+    name: "Compressor Speed"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_compressor_demand
+    name: "Compressor Demand"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_outdoor_air_temp
+    name: "Outdoor Air Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_suction_temp
+    name: "0x381 Suction Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_discharge_temp
+    name: "0x383 Discharge Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_380_float1
+    name: "0x380 Float 1 Raw"
+    accuracy_decimals: 3
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_386_float1
+    name: "0x386 Float 1 Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_386_float2
+    name: "0x386 Float 2 Refrigerant Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_387_float1
+    name: "0x387 Float 1 Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_38f_pressure
+    name: "0x38F Refrigerant Pressure Candidate"
+    unit_of_measurement: "psi"
+    device_class: pressure
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+
+  # Unresolved component-temperature channels -------------------------------
+  - platform: template
+    id: trane_410_temp
+    name: "0x410 Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_430_temp
+    name: "0x430 Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_450_temp
+    name: "0x450 Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_weather_humidity
+    name: "Weather Humidity"
+    unit_of_measurement: "%"
+    device_class: humidity
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_weather_current_temp
+    name: "Weather Current Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_weather_feels_like
+    name: "Weather Feels Like"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_weather_high
+    name: "Weather Forecast High"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_weather_low
+    name: "Weather Forecast Low"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_preset_home_heat
+    name: "Preset Home Heat"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_preset_home_cool
+    name: "Preset Home Cool"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_preset_away_heat
+    name: "Preset Away Heat"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_preset_away_cool
+    name: "Preset Away Cool"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_preset_sleep_heat
+    name: "Preset Sleep Heat"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_preset_sleep_cool
+    name: "Preset Sleep Cool"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_unknown_frames
+    name: "Unclassified CAN Frames"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return id(trane_unknown_frame_count);'
+    device_id: dev_discovery
+
+text_sensor:
+  # Core status --------------------------------------------------------------
+  - platform: template
+    id: trane_system_mode
+    name: "System Mode"
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_system_demand_stage
+    name: "System Demand Stage"
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_system_status_d_raw
+    name: "SystemOpStatus D Raw"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_system_status_e_raw
+    name: "SystemOpStatus E Raw"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_zone1_hc_status
+    name: "Zone 1 HC Status"
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_zone1_hold_text
+    name: "Zone 1 Hold Text"
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_zone1_state
+    name: "Zone 1 State"
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_setpoint_source
+    name: "Setpoint Source"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_hold_type
+    name: "Hold Type"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  # Indoor ------------------------------------------------------------------
+  - platform: template
+    id: trane_indoor_state
+    name: "Indoor Unit State"
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_indoor_status_e_raw
+    name: "IndoorStatus E Raw"
+    entity_category: diagnostic
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_indoor_status_f_raw
+    name: "IndoorStatus F Raw"
+    entity_category: diagnostic
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_indoor_fault
+    name: "Indoor Fault String"
+    entity_category: diagnostic
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_hum_control
+    name: "Humidity Control"
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_humidifier_status
+    name: "Humidifier Status"
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_dehumidifier_status
+    name: "Dehumidifier Status"
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_ventilator_status
+    name: "Ventilator Status"
+    device_id: dev_air_handler
+
+  # Outdoor -----------------------------------------------------------------
+  - platform: template
+    id: trane_outdoor_active
+    name: "Outdoor Active Flag"
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_outdoor_state
+    name: "Outdoor Unit State"
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_outdoor_fault
+    name: "Outdoor Fault Code"
+    device_id: dev_heat_pump
+
+  # Identity/config/alarm ----------------------------------------------------
+  - platform: template
+    id: trane_unit_model
+    name: "Unit Model"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_unit_serial
+    name: "Unit Serial"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_unit_firmware
+    name: "Unit Firmware"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_config_version
+    name: "Config Properties Version"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_alarm_db_version
+    name: "Alarm Details Version"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_alarm_id_1
+    name: "Active Alarm 1"
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_alarm_origin_1
+    name: "Active Alarm 1 Origin"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_alarm_level_1
+    name: "Active Alarm 1 Level"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_alarm_id_2
+    name: "Active Alarm 2"
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_alarm_origin_2
+    name: "Active Alarm 2 Origin"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_zone_name_1
+    name: "Zone 1 Name"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_zone_name_2
+    name: "Zone 2 Name"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_zone_name_3
+    name: "Zone 3 Name"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_zone_name_4
+    name: "Zone 4 Name"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_zone_name_5
+    name: "Zone 5 Name"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_zone_name_6
+    name: "Zone 6 Name"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+
+  # Weather/profile ----------------------------------------------------------
+  - platform: template
+    id: trane_schedule_enabled
+    name: "Schedule Enabled"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_weather_status
+    name: "Weather Data Status"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_weather_zip
+    name: "Weather ZIP"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_weather_city
+    name: "Weather City"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_weather_condition
+    name: "Weather Condition Code"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  # Raw/discovery ------------------------------------------------------------
+  - platform: template
+    id: trane_last_json_649
+    name: "Last JSON 0x649"
+    entity_category: diagnostic
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_last_json_641
+    name: "Last JSON 0x641"
+    entity_category: diagnostic
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_490_raw
+    name: "Last 0x490 Raw"
+    entity_category: diagnostic
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_last_unknown_id
+    name: "Last Unknown CAN ID"
+    entity_category: diagnostic
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_last_unknown_frame
+    name: "Last Unknown CAN Frame"
+    entity_category: diagnostic
+    device_id: dev_discovery
+
+# Parse already-reassembled 0x641/0x649 JSON from the guarded trane_bus.
+trane_bus:
+  id: trane_link
+  on_json:
+    - lambda: |-
+        const std::string &j = json;
+        ESP_LOGI("trane_json", "TRANE_JSON,%03lX,%s",
+                 static_cast<unsigned long>(can_id), j.c_str());
+        if (can_id == 0x649) id(trane_last_json_649).publish_state(j);
+        if (can_id == 0x641) id(trane_last_json_641).publish_state(j);
+
+        auto object_range = [&](const std::string &key, size_t from, size_t limit,
+                                size_t &start, size_t &end) -> bool {
+          std::string needle = "\"" + key + "\"";
+          size_t kp = j.find(needle, from);
+          if (kp == std::string::npos || kp >= limit) return false;
+          size_t brace = j.find('{', kp + needle.size());
+          if (brace == std::string::npos || brace >= limit) return false;
+          int depth = 0;
+          bool in_string = false;
+          bool escaped = false;
+          for (size_t p = brace; p < limit; p++) {
+            char c = j[p];
+            if (in_string) {
+              if (escaped) { escaped = false; continue; }
+              if (c == '\\') { escaped = true; continue; }
+              if (c == '"') in_string = false;
+              continue;
+            }
+            if (c == '"') { in_string = true; continue; }
+            if (c == '{') depth++;
+            else if (c == '}') {
+              depth--;
+              if (depth == 0) { start = brace + 1; end = p; return true; }
+            }
+          }
+          return false;
+        };
+
+        auto get_string = [&](size_t start, size_t end, const std::string &key,
+                              std::string &out) -> bool {
+          std::string needle = "\"" + key + "\":\"";
+          size_t p = j.find(needle, start);
+          if (p == std::string::npos || p >= end) return false;
+          p += needle.size();
+          size_t e = j.find('"', p);
+          if (e == std::string::npos || e > end) return false;
+          out = j.substr(p, e - p);
+          return true;
+        };
+
+        auto get_float = [&](size_t start, size_t end, const std::string &key,
+                             float &out) -> bool {
+          std::string s;
+          if (!get_string(start, end, key, s) || s.empty()) return false;
+          char *tail = nullptr;
+          out = strtof(s.c_str(), &tail);
+          return tail != s.c_str() && *tail == '\0';
+        };
+
+        auto publish_preset = [&](size_t ps, size_t pe, const char *name,
+                                  sensor::Sensor *heat, sensor::Sensor *cool) {
+          size_t s, e;
+          if (!object_range(name, ps, pe, s, e)) return;
+          float v;
+          if (get_float(s, e, "Hsp", v)) heat->publish_state(v);
+          if (get_float(s, e, "Csp", v)) cool->publish_state(v);
+        };
+
+        size_t s, e;
+        std::string value;
+        float f;
+
+        if (object_range("SystemOpStatus", 0, j.size(), s, e)) {
+          if (get_string(s, e, "B", value)) {
+            if (value == "A") id(trane_system_mode).publish_state("heat");
+            else if (value == "B") id(trane_system_mode).publish_state("cool");
+            else if (value == "C") id(trane_system_mode).publish_state("off");
+            else id(trane_system_mode).publish_state(value);
+          }
+          if (get_string(s, e, "C", value)) id(trane_system_demand_stage).publish_state(value);
+          if (get_string(s, e, "D", value)) id(trane_system_status_d_raw).publish_state(value);
+          if (get_string(s, e, "E", value)) {
+            id(trane_system_status_e_raw).publish_state(value);
+            char *tail = nullptr;
+            float v = strtof(value.c_str(), &tail);
+            if (tail != value.c_str() && *tail == '\0') {
+              // Historical SC360 captures use decimal-form E for outdoor temp
+              // and integer-form E for indoor humidity. Keep E Raw visible so
+              // the target 9.4.x system can prove/refute this heuristic.
+              if (value.find('.') != std::string::npos) {
+                if (v > -60 && v < 160) id(trane_sc360_outdoor_temp).publish_state(v);
+              } else if (v >= 0 && v <= 100) {
+                id(trane_indoor_humidity).publish_state(v);
+              }
+            }
+          }
+        }
+
+        if (object_range("ZoneStatus", 0, j.size(), s, e)) {
+          size_t zs, ze;
+          if (object_range("1", s, e, zs, ze)) {
+            if (get_float(zs, ze, "H", f) && f > 20 && f < 120) id(trane_room_temp).publish_state(f);
+            if (get_float(zs, ze, "Hsp", f)) id(trane_heat_setpoint).publish_state(f);
+            if (get_float(zs, ze, "Csp", f)) id(trane_cool_setpoint).publish_state(f);
+            if (get_float(zs, ze, "E", f) && f >= 0 && f <= 100) id(trane_zone1_airflow).publish_state(f);
+            if (get_float(zs, ze, "G", f)) id(trane_zone1_demand).publish_state(f);
+            if (get_string(zs, ze, "F", value)) id(trane_zone1_state).publish_state(value);
+            if (get_string(zs, ze, "HcStatus", value)) id(trane_zone1_hc_status).publish_state(value);
+            if (get_string(zs, ze, "HoldText", value)) id(trane_zone1_hold_text).publish_state(value);
+          }
+        }
+
+        if (object_range("SpOverride", 0, j.size(), s, e)) {
+          size_t zs, ze;
+          if (object_range("1", s, e, zs, ze)) {
+            if (get_float(zs, ze, "Hsp", f)) id(trane_heat_setpoint).publish_state(f);
+            if (get_float(zs, ze, "Csp", f)) id(trane_cool_setpoint).publish_state(f);
+            if (get_string(zs, ze, "Source", value)) id(trane_setpoint_source).publish_state(value);
+            if (get_string(zs, ze, "HoldType", value)) id(trane_hold_type).publish_state(value);
+          }
+        }
+
+        if (object_range("OdStatus", 0, j.size(), s, e)) {
+          size_t os, oe;
+          if (object_range("1", s, e, os, oe)) {
+            if (get_string(os, oe, "A", value)) id(trane_outdoor_active).publish_state(value);
+            if (get_float(os, oe, "B", f) && f >= 0 && f <= 100) id(trane_compressor_speed).publish_state(f);
+            if (get_string(os, oe, "C", value)) id(trane_outdoor_state).publish_state(value);
+            if (get_string(os, oe, "D", value)) id(trane_outdoor_fault).publish_state(value);
+            if (get_float(os, oe, "CompDemandPercent", f)) id(trane_compressor_demand).publish_state(f);
+          }
+          if (get_float(s, e, "CompDemandPercent", f)) id(trane_compressor_demand).publish_state(f);
+        }
+
+        if (object_range("IndoorStatus", 0, j.size(), s, e)) {
+          size_t is, ie;
+          if (!object_range("1", s, e, is, ie)) { is = s; ie = e; }
+          if (get_string(is, ie, "D", value)) id(trane_indoor_state).publish_state(value);
+          if (get_string(is, ie, "E", value)) {
+            id(trane_indoor_status_e_raw).publish_state(value);
+            char *tail = nullptr;
+            float v = strtof(value.c_str(), &tail);
+            if (tail != value.c_str() && *tail == '\0' && v >= 0 && v <= 100)
+              id(trane_blower_speed).publish_state(v);
+            else if (!value.empty())
+              id(trane_indoor_fault).publish_state(value);
+          }
+          if (get_string(is, ie, "F", value)) id(trane_indoor_status_f_raw).publish_state(value);
+          if (get_string(is, ie, "HumControl", value)) id(trane_hum_control).publish_state(value);
+          if (get_string(is, ie, "HumidifierStatus", value)) id(trane_humidifier_status).publish_state(value);
+          if (get_string(is, ie, "DehumidifierStatus", value)) id(trane_dehumidifier_status).publish_state(value);
+          if (get_string(is, ie, "VentilatorStatus", value)) id(trane_ventilator_status).publish_state(value);
+        }
+
+        if (object_range("VersionDetails", 0, j.size(), s, e)) {
+          if (get_string(s, e, "ConfigPropertiesVersion", value)) id(trane_config_version).publish_state(value);
+          if (get_string(s, e, "AlarmDetailsVersion", value)) id(trane_alarm_db_version).publish_state(value);
+        }
+
+        if (object_range("UnitID", 0, j.size(), s, e)) {
+          if (get_string(s, e, "ModelNumber", value)) id(trane_unit_model).publish_state(value);
+          if (get_string(s, e, "SerialNumber", value)) id(trane_unit_serial).publish_state(value);
+          if (get_string(s, e, "BuildInfo", value)) id(trane_unit_firmware).publish_state(value);
+        }
+
+        if (object_range("OdWidget", 0, j.size(), s, e)) {
+          if (get_float(s, e, "A", f) && f > -60 && f < 160) id(trane_od_widget_temp).publish_state(f);
+        }
+
+        if (object_range("ScheduleSettings", 0, j.size(), s, e)) {
+          if (get_string(s, e, "WeeklySchEnable", value)) id(trane_schedule_enabled).publish_state(value);
+        }
+
+        if (object_range("PresetSettings", 0, j.size(), s, e)) {
+          publish_preset(s, e, "Home", id(trane_preset_home_heat), id(trane_preset_home_cool));
+          publish_preset(s, e, "Away", id(trane_preset_away_heat), id(trane_preset_away_cool));
+          publish_preset(s, e, "Sleep", id(trane_preset_sleep_heat), id(trane_preset_sleep_cool));
+        }
+
+        if (object_range("ZoneCardState", 0, j.size(), s, e)) {
+          text_sensor::TextSensor *names[6] = {
+            id(trane_zone_name_1), id(trane_zone_name_2), id(trane_zone_name_3),
+            id(trane_zone_name_4), id(trane_zone_name_5), id(trane_zone_name_6)
+          };
+          for (int z = 1; z <= 6; z++) {
+            size_t zs, ze;
+            if (object_range(std::to_string(z), s, e, zs, ze) && get_string(zs, ze, "B", value))
+              names[z - 1]->publish_state(value);
+          }
+        }
+
+        if (object_range("WeatherData", 0, j.size(), s, e)) {
+          if (get_string(s, e, "A", value)) id(trane_weather_zip).publish_state(value);
+          if (get_string(s, e, "D", value)) id(trane_weather_status).publish_state(value);
+        }
+
+        if (object_range("WeatherToday", 0, j.size(), s, e)) {
+          if (get_string(s, e, "C", value)) id(trane_weather_city).publish_state(value);
+          if (get_float(s, e, "D", f)) id(trane_weather_current_temp).publish_state(f);
+          if (get_float(s, e, "E", f)) id(trane_weather_humidity).publish_state(f);
+          if (get_float(s, e, "F", f)) id(trane_weather_feels_like).publish_state(f);
+          if (get_float(s, e, "G", f)) id(trane_weather_high).publish_state(f);
+          if (get_string(s, e, "H", value)) id(trane_weather_condition).publish_state(value);
+          if (get_float(s, e, "I", f)) id(trane_weather_low).publish_state(f);
+        }
+
+        if (object_range("ActiveAlarms", 0, j.size(), s, e)) {
+          if (j.find("\"Deleted\"", s) != std::string::npos && j.find("\"Deleted\"", s) < e) {
+            id(trane_alarm_id_1).publish_state("cleared");
+            id(trane_alarm_origin_1).publish_state("");
+            id(trane_alarm_level_1).publish_state("");
+            id(trane_alarm_id_2).publish_state("");
+            id(trane_alarm_origin_2).publish_state("");
+          } else {
+            auto find_alarm_field = [&](const std::string &key, size_t from, std::string &out, size_t &after) -> bool {
+              std::string needle = "\"" + key + "\":\"";
+              size_t p = j.find(needle, from);
+              if (p == std::string::npos || p >= e) return false;
+              p += needle.size();
+              size_t q = j.find('"', p);
+              if (q == std::string::npos || q > e) return false;
+              out = j.substr(p, q - p);
+              after = q + 1;
+              return true;
+            };
+            size_t next = s;
+            if (find_alarm_field("AlarmId", next, value, next)) id(trane_alarm_id_1).publish_state(value);
+            size_t second_from = next;
+            if (find_alarm_field("AlarmId", second_from, value, next)) id(trane_alarm_id_2).publish_state(value);
+            next = s;
+            if (find_alarm_field("Origin", next, value, next)) id(trane_alarm_origin_1).publish_state(value);
+            second_from = next;
+            if (find_alarm_field("Origin", second_from, value, next)) id(trane_alarm_origin_2).publish_state(value);
+            next = s;
+            if (find_alarm_field("Level", next, value, next)) id(trane_alarm_level_1).publish_state(value);
+          }
+        }
+
+# Raw frame channels and discovery catchall. These callbacks only read/publish.
+canbus:
+  - id: !extend hvac_can
+    on_frame:
+      - can_id: 0x380
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 8) return;
+              float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
+              if (isfinite(a)) id(trane_380_float1).publish_state(a);
+              if (isfinite(b) && b > -80 && b < 180) id(trane_outdoor_air_temp).publish_state(b);
+
+      - can_id: 0x381
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 300) id(trane_suction_temp).publish_state(v);
+
+      - can_id: 0x383
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 400) id(trane_discharge_temp).publish_state(v);
+
+      - can_id: 0x386
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 8) return; float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
+              if (isfinite(a) && a > -100 && a < 300) id(trane_386_float1).publish_state(a);
+              if (isfinite(b) && b > -100 && b < 300) id(trane_386_float2).publish_state(b);
+
+      - can_id: 0x387
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 300) id(trane_387_float1).publish_state(v);
+
+      - can_id: 0x38F
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v >= 0 && v < 1500) id(trane_38f_pressure).publish_state(v);
+
+      - can_id: 0x283
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 8) return; float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
+              if (isfinite(a) && a > -100 && a < 300) id(trane_283_float1).publish_state(a);
+              if (isfinite(b) && b > -100 && b < 300) id(trane_283_float2).publish_state(b);
+
+      - can_id: 0x308
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 8) return; float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
+              if (isfinite(a) && a > -100 && a < 250) id(trane_308_float1).publish_state(a);
+              if (isfinite(b) && b > -100 && b < 250) id(trane_308_float2).publish_state(b);
+
+      - can_id: 0x410
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 300) id(trane_410_temp).publish_state(v);
+
+      - can_id: 0x430
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 300) id(trane_430_temp).publish_state(v);
+
+      - can_id: 0x450
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 300) id(trane_450_temp).publish_state(v);
+
+      - can_id: 0x490
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              char buf[32] = {0}; size_t pos = 0;
+              for (size_t i = 0; i < x.size() && i < 8 && pos + 3 < sizeof(buf); i++)
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "%02X%s", x[i], i + 1 < x.size() ? " " : "");
+              id(trane_490_raw).publish_state(buf);
+
+      - can_id: 0x000
+        can_id_mask: 0x000
+        use_extended_id: false
+        then:
+          - lambda: |-
+              switch (can_id) {
+                case 0x641: case 0x649: case 0x5C1: case 0x5C9:
+                case 0x283: case 0x308: case 0x380: case 0x381:
+                case 0x382: case 0x383: case 0x384: case 0x385:
+                case 0x386: case 0x387: case 0x388: case 0x389:
+                case 0x38A: case 0x38B: case 0x38C: case 0x38D:
+                case 0x38E: case 0x38F: case 0x410: case 0x430:
+                case 0x450: case 0x490:
+                  return;
+              }
+              id(trane_unknown_frame_count)++;
+              char idbuf[12]; snprintf(idbuf, sizeof(idbuf), "0x%03lX", static_cast<unsigned long>(can_id));
+              id(trane_last_unknown_id).publish_state(idbuf);
+              char frame[48] = {0}; size_t pos = snprintf(frame, sizeof(frame), "%s ", idbuf);
+              for (size_t i = 0; i < x.size() && i < 8 && pos + 3 < sizeof(frame); i++)
+                pos += snprintf(frame + pos, sizeof(frame) - pos, "%02X%s", x[i], i + 1 < x.size() ? " " : "");
+              id(trane_last_unknown_frame).publish_state(frame);
