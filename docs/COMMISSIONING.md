@@ -4,7 +4,7 @@ Reference board: Waveshare ESP32-S3-RS485-CAN
 
 Target architecture: parallel CAN tap. UX360 remains installed and usable. SC360 remains authoritative. The bridge must be removable without changing normal HVAC operation.
 
-See `docs/TELEMETRY.md` for the current confidence/provenance map. Installation-day captures should preserve raw evidence even when an existing friendly entity name is wrong or ambiguous.
+See `docs/TELEMETRY.md` for the current confidence/provenance map and `docs/WIRING.md` for the Waveshare connection and bus-topology diagrams. Installation-day captures should preserve raw evidence even when an existing friendly entity name is wrong or ambiguous.
 
 ## 0. Before connecting anything
 
@@ -13,23 +13,32 @@ See `docs/TELEMETRY.md` for the current confidence/provenance map. Installation-
 3. Power the Waveshare from USB-C for first commissioning.
 4. Connect only CAN H -> DH and CAN L -> DL.
 5. Do not connect Trane R/B to the Waveshare CAN terminal side.
-6. Record the installed model/serial/software information visible on UX360 equipment summary before interpreting any `UnitID` payload.
-7. Record the installed BAYEA heater model/size and the UX360 heater configuration.
+6. Keep the Waveshare as a short parallel tap. Do not put it in series with an OEM device.
+7. Record the installed model/serial/software information visible on UX360 equipment summary before interpreting any `UnitID` payload.
+8. Record the installed BAYEA heater model/size and the UX360 heater configuration.
 
-## 1. Passive capture firmware
+## 1. Preferred commissioning firmware
 
-Flash `waveshare-trane-listenonly.yaml`.
+For Home Assistant ESPHome Device Builder, use `waveshare-trane-homeassistant.yaml`.
+
+For a repo-local build, use `waveshare-trane-commissioning.yaml`.
 
 Expected behavior:
 
 - GPIO15 = CAN TX into the Waveshare onboard CAN interface.
 - GPIO16 = CAN RX from the onboard CAN interface.
 - 50 kbit/s.
-- ESP32 TWAI mode = LISTENONLY.
-- TX queue length = 0.
+- ESP32 TWAI mode = NORMAL.
+- The CAN controller participates normally in arbitration and ACKs valid received frames.
 - `trane_bus.tx_enabled = false`.
 - raw JSON TX disabled.
+- no Trane application command is sent merely because the CAN controller is in NORMAL mode.
 - bounded RAM capture enabled.
+- continuous `TRANE_CAN_LIVE` logging can be retained by the host for effectively unlimited capture.
+
+This is preferred over hardware LISTENONLY for first commissioning because a LISTENONLY controller does not ACK bus frames and can therefore make the observed bus behave differently from the eventual installed bridge.
+
+`waveshare-trane-listenonly.yaml` remains available as a diagnostic fallback when a true no-ACK CAN observer is specifically needed.
 
 Acceptance checks:
 
@@ -41,8 +50,7 @@ Acceptance checks:
 - outdoor 0x380-0x38F family appears.
 - indoor/air-handler traffic appears.
 - previously unknown standard CAN IDs are retained in the capture ring rather than discarded.
-
-Remain in passive capture until this stage is clean.
+- `Trane TX Messages` remains 0 unless application TX is explicitly enabled in a later control profile.
 
 ## 2. Establish a bus census before decoding anything new
 
@@ -64,15 +72,18 @@ The capture ring intentionally records all standard CAN frames, not only current
 
 ## 3. Capture workflow
 
+The Home Assistant profile continuously emits raw frames as `TRANE_CAN_LIVE`. Save the ESPHome logger output on the host whenever possible.
+
 For a controlled event:
 
-1. `Clear And Resume CAN Capture`.
+1. Start/save the host logger before the event.
 2. Wait for a short stable baseline.
 3. Perform **one** UX360/system operation.
 4. Keep recording through the complete response and a short stable period afterward.
-5. `Freeze CAN Capture`.
-6. `Dump Frozen CAN Capture`.
-7. Save the UX360/Diagnostics monitor values and event notes next to the dump.
+5. Note the exact event timestamp.
+6. Preserve the resulting log and any corresponding UX360 diagnostic values.
+
+If using a profile that exposes the RAM capture controls, a freeze/dump of the ring can be retained as a secondary artifact.
 
 Do not change two service/test variables at once. Correlation quality matters more than capture quantity.
 
@@ -112,7 +123,7 @@ The 0x5C1/0x5C9 private UX360-SC360 transport has been observed carrying the boo
 - complete alarms/history sent during startup;
 - configuration/profile objects that disappear after delta-update mode begins.
 
-Do not transmit a private-channel request yet; first recover the target-system framing from passive captures.
+Do not transmit a private-channel request yet; first recover the target-system framing from captures.
 
 ### 4.2 Blower CFM sweep
 
@@ -308,22 +319,19 @@ In addition to controlled service-test captures, record normal operation:
 20. installer-required A2L mitigation verification;
 21. safe service/fault conditions encountered naturally or during legitimate commissioning.
 
-## 7. Active-monitor firmware
+## 7. Guarded local control
 
-Only after passive capture is clean, flash `waveshare-trane-full.yaml` or `waveshare-trane-control.yaml` with repository defaults unchanged.
+After monitoring is clean, `waveshare-trane-full.yaml` provides the guarded local-control surface.
 
-At this stage:
+At startup:
 
-- TWAI is NORMAL so the bridge participates as a CAN node/ACK peer;
-- Trane application TX remains disabled;
+- TWAI remains NORMAL;
+- Trane application TX starts disabled;
 - raw JSON remains disabled;
-- decoded telemetry should continue working.
+- decoded telemetry continues working;
+- the SC360 remains authoritative.
 
-Verify for an extended run before enabling commands.
-
-## 8. Local-control arming
-
-On `waveshare-trane-full.yaml`, the `Local Trane Control` switch restores OFF after every reboot.
+The `Local Trane Control` switch restores OFF after every reboot.
 
 It may only enable if recent SC360 traffic has been observed. Even after enabled, command transport:
 
@@ -336,7 +344,7 @@ It may only enable if recent SC360 traffic has been observed. Even after enabled
 
 Do not expose emergency heat, auto, fan-only, electric-stage control, defrost control, EEV control, or other service functions as normal local commands until their target-system semantics are captured and reviewed.
 
-## 9. First command sequence
+## 8. First command sequence
 
 Use a low-risk sequence while physically present at the equipment.
 
@@ -350,7 +358,7 @@ Use a low-risk sequence while physically present at the equipment.
 8. Change the value back from the UX360 and confirm Home Assistant follows without the bridge fighting the thermostat.
 9. Test heat/cool/off commands one at a time only after setpoint coexistence is proven.
 
-## 10. Failure tests
+## 9. Failure tests
 
 All must pass before treating the bridge as production-ready.
 
@@ -367,7 +375,7 @@ All must pass before treating the bridge as production-ready.
 
 Expected result: HVAC and UX360/SC360 continue normally in every case.
 
-## 11. Permanent power
+## 10. Permanent power
 
 Do not apply Trane 24 VAC directly to the Waveshare DC input.
 
