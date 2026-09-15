@@ -51,7 +51,10 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_SETPOINT_MIN_F, default=50.0): cv.float_range(min=40, max=80),
         cv.Optional(CONF_SETPOINT_MAX_F, default=90.0): cv.float_range(min=70, max=100),
         cv.Optional(CONF_MIN_DEADBAND_F, default=2.0): cv.float_range(min=1, max=10),
-        cv.Optional(CONF_CAPTURE_CAPACITY, default=0): cv.int_range(min=0, max=16384),
+        # CapturedFrame is about 20 bytes after alignment on ESP32. Keep the
+        # bounded fallback ring below 100 KiB even at the explicit maximum;
+        # host-side TRANE_CAN_LIVE logging is the long-duration recorder.
+        cv.Optional(CONF_CAPTURE_CAPACITY, default=0): cv.int_range(min=0, max=4096),
         cv.Optional(CONF_CAPTURE_ENABLED, default=False): cv.boolean,
         cv.Optional(CONF_ON_JSON): automation.validate_automation(single=True),
     }
