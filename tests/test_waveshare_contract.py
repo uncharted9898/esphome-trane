@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 LISTEN = (ROOT / "waveshare-trane-listenonly.yaml").read_text()
+COMMISSION = (ROOT / "waveshare-trane-commissioning.yaml").read_text()
 FULL = (ROOT / "waveshare-trane-full.yaml").read_text()
 BUS_CPP = (ROOT / "components/trane_bus/trane_bus.cpp").read_text()
 BUS_H = (ROOT / "components/trane_bus/trane_bus.h").read_text()
@@ -15,6 +16,31 @@ class WaveshareSafetyContractTests(unittest.TestCase):
             self.assertIn("tx_pin: GPIO15", config)
             self.assertIn("rx_pin: GPIO16", config)
             self.assertIn("bit_rate: 50kbps", config)
+
+    def test_commissioning_uses_real_full_stack_with_normal_can(self):
+        self.assertIn("full_stack: !include waveshare-trane-full.yaml", COMMISSION)
+        self.assertIn("mode: NORMAL", COMMISSION)
+        self.assertIn("tx_enabled: false", COMMISSION)
+        self.assertIn("raw_json_enabled: false", COMMISSION)
+        self.assertIn("switch: !remove", COMMISSION)
+        self.assertIn("button: !remove", COMMISSION)
+        self.assertNotIn("trane_bus.set_tx_enabled", COMMISSION)
+        self.assertNotIn("trane_bus.set_mode", COMMISSION)
+        self.assertNotIn("trane_bus.set_setpoints", COMMISSION)
+        self.assertNotIn("trane_bus.get_profile", COMMISSION)
+
+    def test_commissioning_has_large_continuous_recorder(self):
+        self.assertIn("capture_capacity: 16384", COMMISSION)
+        self.assertIn("capture_enabled: true", COMMISSION)
+        self.assertIn("can_id_mask: 0x000", COMMISSION)
+        self.assertIn("can_id_mask: 0x00000000", COMMISSION)
+        self.assertIn("TRANE_CAN_LIVE,S", COMMISSION)
+        self.assertIn("TRANE_CAN_LIVE,E", COMMISSION)
+        self.assertIn("TRANE_JSON", COMMISSION)
+        self.assertIn("TRANE_RECORDER_READY", COMMISSION)
+        self.assertGreaterEqual(COMMISSION.count("reboot_timeout: 0s"), 2)
+        self.assertIn("power_save_mode: none", COMMISSION)
+        self.assertIn("rx_queue_len: 512", COMMISSION)
 
     def test_passive_image_is_hardware_listen_only(self):
         self.assertIn("mode: LISTENONLY", LISTEN)
