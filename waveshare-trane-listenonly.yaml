@@ -1,5 +1,5 @@
 substitutions:
-  version: "dev-listenonly"
+  version: "dev-listenonly-recorder"
 
 esphome:
   name: trane-link-listenonly
@@ -7,6 +7,14 @@ esphome:
   project:
     name: "uncharted9898.trane-link-bridge"
     version: ${version}
+  # Commissioning is intentionally recorder-first. This marker appears after
+  # component setup so the host log shows that the passive image was alive
+  # before the HVAC system was energized.
+  on_boot:
+    - priority: -10
+      then:
+        - lambda: |-
+            ESP_LOGI("trane_capture", "TRANE_RECORDER_READY,mode=LISTENONLY,ring=16384,tx_queue=0");
 
 external_components:
   - source:
@@ -19,18 +27,31 @@ esp32:
   framework:
     type: esp-idf
 
+# INFO keeps ESPHome background chatter low while preserving the raw wire stream,
+# reconstructed JSON, capture markers, and warnings. On ESP32-S3 + ESP-IDF the
+# normal ESPHome console is USB Serial/JTAG, so USB is the preferred first-boot
+# capture path; API logging remains useful as a second path once Wi-Fi is up.
 logger:
-  level: DEBUG
+  level: INFO
   logs:
     canbus: WARN
     trane_bus: INFO
+    trane_wire: INFO
+    trane_json: INFO
 
+# Never reboot the recorder merely because HA/ESPHome is not connected. Losing
+# the API must not create a hole in a one-time cold-boot or firmware-update trace.
 api:
+  reboot_timeout: 0s
 
 ota:
   - platform: esphome
 
+# Likewise, commissioning capture continues if Wi-Fi is absent or changes while
+# the HVAC/Technician-app session is in progress.
 wifi:
+  reboot_timeout: 0s
+  power_save_mode: none
   networks:
     - ssid: !secret wifi_ssid
       password: !secret wifi_password
@@ -47,25 +68,69 @@ canbus:
     rx_pin: GPIO16
     bit_rate: 50kbps
     can_id: 1
+    # HARD SAFETY BOUNDARY: TWAI listen-only receives but does not ACK or
+    # transmit. tx_queue_len: 0 is a second independent guard.
     mode: LISTENONLY
     tx_queue_len: 0
-    rx_queue_len: 128
+    rx_queue_len: 512
+
+    # Continuous host-side recorder. A zero CAN-ID mask matches every ID of the
+    # selected standard/extended class. These lines are intended to be piped to
+    # a host file for an effectively unbounded trace; the trane_bus RAM ring
+    # below is the independent fallback if the host logger drops temporarily.
+    on_frame:
+      - can_id: 0x000
+        can_id_mask: 0x000
+        use_extended_id: false
+        then:
+          - lambda: |-
+              char bytes[17] = {0};
+              for (size_t i = 0; i < x.size() && i < 8; i++)
+                snprintf(bytes + (i * 2), sizeof(bytes) - (i * 2), "%02X", x[i]);
+              ESP_LOGI("trane_wire", "TRANE_CAN_LIVE,S,%lu,%03lX,%u,%u,%s",
+                       static_cast<unsigned long>(millis()),
+                       static_cast<unsigned long>(can_id),
+                       remote_transmission_request ? 1U : 0U,
+                       static_cast<unsigned>(x.size()), bytes);
+
+      - can_id: 0x00000000
+        can_id_mask: 0x00000000
+        use_extended_id: true
+        then:
+          - lambda: |-
+              char bytes[17] = {0};
+              for (size_t i = 0; i < x.size() && i < 8; i++)
+                snprintf(bytes + (i * 2), sizeof(bytes) - (i * 2), "%02X", x[i]);
+              ESP_LOGI("trane_wire", "TRANE_CAN_LIVE,E,%lu,%08lX,%u,%u,%s",
+                       static_cast<unsigned long>(millis()),
+                       static_cast<unsigned long>(can_id),
+                       remote_transmission_request ? 1U : 0U,
+                       static_cast<unsigned>(x.size()), bytes);
 
 trane_bus:
   id: trane_link
   canbus_id: hvac_can
   command_can_id: 0x641
+  # These software guards are deliberately retained even though the CAN driver
+  # above is already hardware LISTENONLY. This commissioning image has no UI or
+  # automation that can arm transmission.
   tx_enabled: false
   raw_json_enabled: false
   require_sc360_before_tx: true
-  capture_capacity: 8192
+  # Maximum currently supported in-RAM fallback ring. The host TRANE_CAN_LIVE
+  # stream is the primary long-duration/"huge file" recorder.
+  capture_capacity: 16384
   capture_enabled: true
+  on_json:
+    - lambda: |-
+        ESP_LOGI("trane_json", "TRANE_JSON,%03lX,%s",
+                 static_cast<unsigned long>(can_id), json.c_str());
 
 text_sensor:
   - platform: template
     name: "Commissioning Mode"
     lambda: |-
-      return {"PASSIVE LISTEN-ONLY"};
+      return {"PASSIVE LISTEN-ONLY RECORDER"};
     update_interval: 60s
 
 binary_sensor:
