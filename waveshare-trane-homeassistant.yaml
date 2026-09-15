@@ -21,8 +21,13 @@ esphome:
     name: "uncharted9898.trane-link-bridge"
     version: ${version}
 
+# Waveshare documents the standard ESP32-S3-RS485-CAN as an ESP32-S3,
+# normally using the ESP32-S3R8 chip, with 16 MB flash. ESPHome recommends
+# selecting the silicon variant rather than pinning a generic dev-board ID.
+# In the HA ESPHome board picker choose the generic ESP32-S3 family.
 esp32:
-  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 16MB
   framework:
     type: esp-idf
 
