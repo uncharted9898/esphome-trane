@@ -32,6 +32,27 @@ jobs:
       - name: Compile Python sources
         run: python -m py_compile components/trane_hvac/*.py components/trane_bus/*.py tests/*.py
 
+  # Keep the commissioning recorder independent of the larger decoder/control
+  # profiles. This is the image needed on hardware first, so a failure or long
+  # compile elsewhere must not prevent validation or production of its artifact.
+  passive-recorder-build:
+    name: Waveshare passive recorder firmware
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Create CI secrets
+        run: |
+          cat > secrets.yaml << 'EOF'
+          wifi_ssid: "configure-me"
+          wifi_password: "configure-me"
+          EOF
+      - name: Compile passive recorder
+        uses: esphome/build-action@v6
+        with:
+          yaml-file: waveshare-trane-listenonly.yaml
+          substitutions: "version=ci-${{ github.sha }}"
+
   esphome-build:
     name: ESPHome firmware profiles
     runs-on: ubuntu-latest
@@ -56,12 +77,6 @@ jobs:
         uses: esphome/build-action@v6
         with:
           yaml-file: tests/trane-bus-smoke.yaml
-          substitutions: "version=ci-${{ github.sha }}"
-
-      - name: Compile Waveshare passive commissioning profile
-        uses: esphome/build-action@v6
-        with:
-          yaml-file: waveshare-trane-listenonly.yaml
           substitutions: "version=ci-${{ github.sha }}"
 
       - name: Compile Waveshare guarded control profile
