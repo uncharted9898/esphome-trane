@@ -29,8 +29,9 @@ api:
 
 canbus:
   - id: !extend hvac_can
-    tx_pin: GPIO15
-    rx_pin: GPIO16
+    # Waveshare ESP32-S3-RS485-CAN schematic: CAN uses GPIO17 TX / GPIO18 RX.
+    tx_pin: GPIO17
+    rx_pin: GPIO18
     bit_rate: 50kbps
     mode: NORMAL
     rx_queue_len: 64
