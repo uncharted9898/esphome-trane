@@ -1,0 +1,230 @@
+substitutions:
+  device_name: trane-link-bridge
+  friendly_name: "Trane Link Bridge"
+  version: "dev-ha-waveshare"
+
+# Home Assistant / ESPHome Device Builder entrypoint for the
+# Waveshare ESP32-S3-RS485-CAN board.
+#
+# This file is intentionally self-contained from the HA user's perspective:
+# the custom Trane components are downloaded from this repository at compile
+# time. Only wifi_ssid and wifi_password are expected in the HA ESPHome
+# secrets.yaml file.
+#
+# CAN mode is NORMAL so this node ACKs valid CAN traffic like the eventual
+# installed bridge. Trane application command TX remains disabled below.
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  project:
+    name: "uncharted9898.trane-link-bridge"
+    version: ${version}
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: github://uncharted9898/esphome-trane@dev
+    components: [trane_bus, trane_hvac]
+    refresh: 5min
+
+logger:
+  level: INFO
+  logs:
+    canbus: WARN
+    trane_bus: INFO
+    trane_wire: INFO
+    trane_json: INFO
+
+api:
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none
+  reboot_timeout: 0s
+  ap:
+    ssid: "Trane-Link-Fallback"
+    password: "tranelink123"
+
+captive_portal:
+
+web_server:
+  port: 80
+
+# Waveshare ESP32-S3-RS485-CAN onboard isolated CAN interface:
+#   ESP32 GPIO15 -> onboard CAN TX
+#   ESP32 GPIO16 <- onboard CAN RX
+#
+# Field wiring:
+#   Waveshare CAN H -> Trane DH
+#   Waveshare CAN L -> Trane DL
+#   Trane R          -> NO CONNECTION to Waveshare CAN side
+#   Trane B          -> NO CONNECTION to Waveshare CAN side
+#
+# Leave the Waveshare 120-ohm termination jumper OPEN.
+canbus:
+  - platform: esp32_can
+    id: hvac_can
+
+    tx_pin: GPIO15
+    rx_pin: GPIO16
+
+    # Required by ESPHome as the CAN component's default transmit ID.
+    # It does not cause frames to be transmitted by itself. The guarded Trane
+    # transport explicitly uses 0x641 if/when application TX is later armed.
+    can_id: 0x7FF
+    use_extended_id: false
+
+    bit_rate: 50kbps
+    mode: NORMAL
+    rx_queue_len: 512
+    tx_queue_len: 8
+
+    # Continuous host-side raw recorder. These triggers do not transmit.
+    on_frame:
+      - can_id: 0x000
+        can_id_mask: 0x000
+        use_extended_id: false
+        then:
+          - lambda: |-
+              char bytes[17] = {0};
+              for (size_t i = 0; i < x.size() && i < 8; i++) {
+                snprintf(bytes + (i * 2), sizeof(bytes) - (i * 2), "%02X", x[i]);
+              }
+              ESP_LOGI(
+                "trane_wire",
+                "TRANE_CAN_LIVE,S,%lu,%03lX,%u,%s",
+                static_cast<unsigned long>(millis()),
+                static_cast<unsigned long>(can_id),
+                static_cast<unsigned>(x.size()),
+                bytes
+              );
+
+      - can_id: 0x00000000
+        can_id_mask: 0x00000000
+        use_extended_id: true
+        then:
+          - lambda: |-
+              char bytes[17] = {0};
+              for (size_t i = 0; i < x.size() && i < 8; i++) {
+                snprintf(bytes + (i * 2), sizeof(bytes) - (i * 2), "%02X", x[i]);
+              }
+              ESP_LOGI(
+                "trane_wire",
+                "TRANE_CAN_LIVE,E,%lu,%08lX,%u,%s",
+                static_cast<unsigned long>(millis()),
+                static_cast<unsigned long>(can_id),
+                static_cast<unsigned>(x.size()),
+                bytes
+              );
+
+trane_bus:
+  id: trane_link
+  canbus_id: hvac_can
+  command_can_id: 0x641
+
+  # Application-level writes are OFF. NORMAL CAN mode above still permits the
+  # controller to ACK received CAN frames; it does not enable Trane commands.
+  tx_enabled: false
+  raw_json_enabled: false
+  require_sc360_before_tx: true
+
+  bus_activity_timeout: 5min
+  ack_timeout: 3s
+  setpoint_min_f: 50
+  setpoint_max_f: 90
+  min_deadband_f: 2
+
+  capture_capacity: 16384
+  capture_enabled: true
+
+  on_json:
+    - lambda: |-
+        ESP_LOGI(
+          "trane_json",
+          "TRANE_JSON,%03lX,%s",
+          static_cast<unsigned long>(can_id),
+          json.c_str()
+        );
+
+binary_sensor:
+  - platform: template
+    name: "SC360 Seen"
+    lambda: 'return id(trane_link).has_seen_sc360();'
+
+  - platform: template
+    name: "SC360 Recently Active"
+    lambda: 'return id(trane_link).has_recent_trane_activity();'
+
+  - platform: template
+    name: "Trane Command Awaiting ACK"
+    lambda: 'return id(trane_link).has_pending_ack();'
+
+sensor:
+  - platform: template
+    name: "CAN Frames Seen"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_rx_frames();'
+
+  - platform: template
+    name: "Known Trane Frames Seen"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_trane_frames();'
+
+  - platform: template
+    name: "SC360 RX Frames"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_sc360_frames();'
+
+  - platform: template
+    name: "Trane TX Messages"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_tx_messages();'
+
+  - platform: template
+    name: "Trane TX Blocked"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_tx_blocked();'
+
+  - platform: template
+    name: "Segmented JSON Messages"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_rx_json_messages();'
+
+  - platform: template
+    name: "RX Transport Errors"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_rx_transport_errors();'
+
+  - platform: template
+    name: "Captured CAN Frames"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_capture_size();'
+
+  - platform: template
+    name: "Capture Ring Overwrites"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_capture_overwrites();'
+
+text_sensor:
+  - platform: template
+    name: "Trane Bridge Mode"
+    lambda: 'return {"NORMAL CAN / APPLICATION TX DISABLED"};'
+    update_interval: 60s
