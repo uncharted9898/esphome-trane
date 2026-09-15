@@ -21,9 +21,13 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("tx_queue_len: 0", LISTEN)
         self.assertIn("tx_enabled: false", LISTEN)
         self.assertIn("raw_json_enabled: false", LISTEN)
+        self.assertNotIn("trane_bus.set_tx_enabled", LISTEN)
+        self.assertNotIn("trane_bus.set_mode", LISTEN)
+        self.assertNotIn("trane_bus.set_setpoints", LISTEN)
+        self.assertNotIn("trane_bus.get_profile", LISTEN)
 
-    def test_passive_image_has_bounded_freeze_and_dump_capture(self):
-        self.assertIn("capture_capacity: 8192", LISTEN)
+    def test_passive_image_has_large_bounded_freeze_and_dump_capture(self):
+        self.assertIn("capture_capacity: 16384", LISTEN)
         self.assertIn("capture_enabled: true", LISTEN)
         self.assertIn("Freeze CAN Capture", LISTEN)
         self.assertIn("Dump Frozen CAN Capture", LISTEN)
@@ -32,6 +36,19 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("capture_overwrites_", BUS_H)
         self.assertIn("TRANE_CAPTURE_BEGIN", BUS_CPP)
         self.assertIn("TRANE_CAPTURE_END", BUS_CPP)
+
+    def test_passive_image_continuously_logs_all_can_frames(self):
+        self.assertIn("can_id_mask: 0x000", LISTEN)
+        self.assertIn("can_id_mask: 0x00000000", LISTEN)
+        self.assertIn("TRANE_CAN_LIVE,S", LISTEN)
+        self.assertIn("TRANE_CAN_LIVE,E", LISTEN)
+        self.assertIn("TRANE_RECORDER_READY", LISTEN)
+        self.assertIn("TRANE_JSON", LISTEN)
+
+    def test_passive_image_does_not_reboot_for_network_loss(self):
+        self.assertGreaterEqual(LISTEN.count("reboot_timeout: 0s"), 2)
+        self.assertIn("power_save_mode: none", LISTEN)
+        self.assertIn("rx_queue_len: 512", LISTEN)
 
     def test_passive_image_exposes_discovery_counters(self):
         self.assertIn("Total CAN Frames Seen", LISTEN)
