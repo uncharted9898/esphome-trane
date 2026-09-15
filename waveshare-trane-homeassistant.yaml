@@ -90,7 +90,10 @@ canbus:
 
     bit_rate: 50kbps
     mode: NORMAL
-    rx_queue_len: 512
+
+    # Keep queues generous enough for startup bursts without consuming an
+    # excessive amount of internal RAM before Wi-Fi/API setup.
+    rx_queue_len: 128
     tx_queue_len: 8
 
     # Continuous host-side raw recorder. These triggers do not transmit.
@@ -148,7 +151,10 @@ trane_bus:
   setpoint_max_f: 90
   min_deadband_f: 2
 
-  capture_capacity: 16384
+  # Bounded in-RAM fallback only. The continuous TRANE_CAN_LIVE host log is
+  # the long-duration recorder. Keeping this modest avoids a large contiguous
+  # allocation during ESPHome setup on ESP32-S3.
+  capture_capacity: 2048
   capture_enabled: true
 
   on_json:
