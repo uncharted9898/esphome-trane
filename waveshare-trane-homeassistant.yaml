@@ -64,9 +64,13 @@ captive_portal:
 web_server:
   port: 80
 
-# Waveshare ESP32-S3-RS485-CAN onboard isolated CAN interface:
-#   ESP32 GPIO15 -> onboard CAN TX
-#   ESP32 GPIO16 <- onboard CAN RX
+# Waveshare ESP32-S3-RS485-CAN onboard isolated CAN interface.
+# IMPORTANT: verified against the Waveshare schematic, not inferred from other
+# Waveshare ESP32-S3 boards:
+#   ESP32 GPIO17 -> onboard CAN TX path (TXD1 / CAN_TXD)
+#   ESP32 GPIO18 <- onboard CAN RX path (RXD1 / CAN_RXD)
+# GPIO15/GPIO16 belong to the board's other serial/RS485 path and must not be
+# used for TWAI on this product.
 #
 # Field wiring:
 #   Waveshare CAN H -> Trane DH
@@ -74,13 +78,13 @@ web_server:
 #   Trane R          -> NO CONNECTION to Waveshare CAN side
 #   Trane B          -> NO CONNECTION to Waveshare CAN side
 #
-# Leave the Waveshare 120-ohm termination jumper OPEN.
+# Leave the Waveshare H1/R19 120-ohm CAN termination jumper OPEN.
 canbus:
   - platform: esp32_can
     id: hvac_can
 
-    tx_pin: GPIO15
-    rx_pin: GPIO16
+    tx_pin: GPIO17
+    rx_pin: GPIO18
 
     # Required by ESPHome as the CAN component's default transmit ID.
     # It does not cause frames to be transmitted by itself. The guarded Trane
