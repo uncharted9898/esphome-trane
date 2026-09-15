@@ -7,24 +7,28 @@ substitutions:
 # Waveshare ESP32-S3-RS485-CAN board.
 #
 # This file is intentionally self-contained from the HA user's perspective:
-# the custom Trane components are downloaded from this repository at compile
-# time. Only wifi_ssid and wifi_password are expected in the HA ESPHome
-# secrets.yaml file.
+# custom components and the maintained known-telemetry package are downloaded
+# from this repository at compile time. Only wifi_ssid and wifi_password are
+# expected in the HA ESPHome secrets.yaml file.
 #
 # CAN mode is NORMAL so this node ACKs valid CAN traffic like the eventual
 # installed bridge. Trane application command TX remains disabled below.
+
+packages:
+  known_telemetry: github://uncharted9898/esphome-trane/waveshare-trane-known-telemetry.yaml@dev
 
 esphome:
   name: ${device_name}
   friendly_name: ${friendly_name}
   project:
     name: "uncharted9898.trane-link-bridge"
-    version: ${version}
+    # Keep this literal because some ESPHome builds have displayed ${version}
+    # verbatim in project metadata when fed through this entrypoint.
+    version: "dev-ha-waveshare"
 
 # Waveshare documents the standard ESP32-S3-RS485-CAN as an ESP32-S3,
 # normally using the ESP32-S3R8 chip, with 16 MB flash. ESPHome recommends
 # selecting the silicon variant rather than pinning a generic dev-board ID.
-# In the HA ESPHome board picker choose the generic ESP32-S3 family.
 esp32:
   variant: esp32s3
   flash_size: 16MB
@@ -65,12 +69,9 @@ web_server:
   port: 80
 
 # Waveshare ESP32-S3-RS485-CAN onboard isolated CAN interface.
-# IMPORTANT: verified against the Waveshare schematic, not inferred from other
-# Waveshare ESP32-S3 boards:
-#   ESP32 GPIO17 -> onboard CAN TX path (TXD1 / CAN_TXD)
-#   ESP32 GPIO18 <- onboard CAN RX path (RXD1 / CAN_RXD)
-# GPIO15/GPIO16 belong to the board's other serial/RS485 path and must not be
-# used for TWAI on this product.
+# IMPORTANT: verified against the Waveshare schematic:
+#   ESP32 GPIO17 -> onboard CAN TX path
+#   ESP32 GPIO18 <- onboard CAN RX path
 #
 # Field wiring:
 #   Waveshare CAN H -> Trane DH
@@ -95,8 +96,6 @@ canbus:
     bit_rate: 50kbps
     mode: NORMAL
 
-    # Keep queues generous enough for startup bursts without consuming an
-    # excessive amount of internal RAM before Wi-Fi/API setup.
     rx_queue_len: 128
     tx_queue_len: 8
 
@@ -156,19 +155,9 @@ trane_bus:
   min_deadband_f: 2
 
   # Bounded in-RAM fallback only. The continuous TRANE_CAN_LIVE host log is
-  # the long-duration recorder. Keeping this modest avoids a large contiguous
-  # allocation during ESPHome setup on ESP32-S3.
+  # the long-duration recorder.
   capture_capacity: 2048
   capture_enabled: true
-
-  on_json:
-    - lambda: |-
-        ESP_LOGI(
-          "trane_json",
-          "TRANE_JSON,%03lX,%s",
-          static_cast<unsigned long>(can_id),
-          json.c_str()
-        );
 
 binary_sensor:
   - platform: template
