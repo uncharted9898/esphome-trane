@@ -1,0 +1,165 @@
+substitutions:
+  version: "dev-commissioning-watch"
+
+# Commissioning image: run the same maintained decoder/control stack that will
+# eventually live on the HVAC bus, but disarm every application-level transmit
+# surface. Unlike the pure listen-only diagnostic image, the ESP32 TWAI
+# controller remains in NORMAL mode and therefore participates in CAN ACKs just
+# like the eventual installed bridge. That avoids changing bus behavior simply
+# because we chose a special sniffer-only firmware for first boot/OTA capture.
+packages:
+  full_stack: !include waveshare-trane-full.yaml
+
+esphome:
+  name: trane-link-commissioning
+  friendly_name: Trane Link Commissioning Watcher
+  project:
+    name: "uncharted9898.trane-link-bridge"
+    version: ${version}
+  on_boot:
+    - priority: -10
+      then:
+        - lambda: |-
+            ESP_LOGI("trane_capture", "TRANE_RECORDER_READY,mode=NORMAL,app_tx=DISARMED,ring=16384");
+
+logger:
+  level: INFO
+  logs:
+    canbus: WARN
+    trane_bus: INFO
+    trane_wire: INFO
+    trane_json: INFO
+
+# Capture must continue through HA/API/Wi-Fi outages during commissioning.
+api:
+  reboot_timeout: 0s
+
+wifi:
+  reboot_timeout: 0s
+  power_save_mode: none
+
+canbus:
+  - id: !extend hvac_can
+    # Keep the real installed-node CAN behavior: NORMAL mode means this node
+    # acknowledges valid traffic at the controller level. Application TX is
+    # still disabled below and no user-visible arm/control action is present.
+    mode: NORMAL
+    rx_queue_len: 512
+    tx_queue_len: 8
+
+    # Continuous host-side raw recorder for a very large log file. Standard and
+    # extended frames are emitted in a stable CSV-like format that can be piped
+    # directly to disk from the ESPHome/serial logger.
+    on_frame:
+      - can_id: 0x000
+        can_id_mask: 0x000
+        use_extended_id: false
+        then:
+          - lambda: |-
+              char bytes[17] = {0};
+              for (size_t i = 0; i < x.size() && i < 8; i++)
+                snprintf(bytes + (i * 2), sizeof(bytes) - (i * 2), "%02X", x[i]);
+              ESP_LOGI("trane_wire", "TRANE_CAN_LIVE,S,%lu,%03lX,%u,%u,%s",
+                       static_cast<unsigned long>(millis()),
+                       static_cast<unsigned long>(can_id),
+                       remote_transmission_request ? 1U : 0U,
+                       static_cast<unsigned>(x.size()), bytes);
+
+      - can_id: 0x00000000
+        can_id_mask: 0x00000000
+        use_extended_id: true
+        then:
+          - lambda: |-
+              char bytes[17] = {0};
+              for (size_t i = 0; i < x.size() && i < 8; i++)
+                snprintf(bytes + (i * 2), sizeof(bytes) - (i * 2), "%02X", x[i]);
+              ESP_LOGI("trane_wire", "TRANE_CAN_LIVE,E,%lu,%08lX,%u,%u,%s",
+                       static_cast<unsigned long>(millis()),
+                       static_cast<unsigned long>(can_id),
+                       remote_transmission_request ? 1U : 0U,
+                       static_cast<unsigned>(x.size()), bytes);
+
+trane_bus:
+  id: trane_link
+  # Same transport/parser code as the eventual bridge, but application-level
+  # writes are hard-disabled for commissioning.
+  tx_enabled: false
+  raw_json_enabled: false
+  require_sc360_before_tx: true
+  capture_capacity: 16384
+  capture_enabled: true
+  on_json:
+    - lambda: |-
+        ESP_LOGI("trane_json", "TRANE_JSON,%03lX,%s",
+                 static_cast<unsigned long>(can_id), json.c_str());
+
+# Remove the two full-profile UI surfaces that could otherwise attempt writes.
+# The climate entity remains present deliberately: it exercises the real state
+# plumbing/decoder, but any attempted call still reaches trane_bus with TX false.
+switch: !remove
+button: !remove
+
+text_sensor:
+  - platform: template
+    name: "Commissioning Mode"
+    lambda: |-
+      return {"FULL STACK / NORMAL CAN / APPLICATION TX DISARMED"};
+    update_interval: 60s
+
+  - platform: template
+    name: "Recorder Log Format"
+    lambda: |-
+      return {"TRANE_CAN_LIVE + TRANE_JSON"};
+    update_interval: 60s
+
+sensor:
+  - platform: template
+    name: "Total CAN Frames Seen"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_rx_frames();
+    update_interval: 10s
+
+  - platform: template
+    name: "Known Trane Frames Seen"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_trane_frames();
+    update_interval: 10s
+
+  - platform: template
+    name: "Unclassified CAN Frames Seen"
+    accuracy_decimals: 0
+    lambda: |-
+      const uint32_t total = id(trane_link).get_rx_frames();
+      const uint32_t known = id(trane_link).get_trane_frames();
+      return total >= known ? total - known : 0;
+    update_interval: 10s
+
+  - platform: template
+    name: "Segmented JSON Messages"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_rx_json_messages();
+    update_interval: 10s
+
+  - platform: template
+    name: "RX Transport Errors"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_rx_transport_errors();
+    update_interval: 10s
+
+  - platform: template
+    name: "Captured CAN Frames"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_capture_size();
+    update_interval: 5s
+
+  - platform: template
+    name: "Capture Ring Overwrites"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_capture_overwrites();
+    update_interval: 5s
