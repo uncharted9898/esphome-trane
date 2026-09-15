@@ -20,7 +20,7 @@ esphome:
     - priority: -10
       then:
         - lambda: |-
-            ESP_LOGI("trane_capture", "TRANE_RECORDER_READY,mode=NORMAL,app_tx=DISARMED,ring=16384");
+            ESP_LOGI("trane_capture", "TRANE_RECORDER_READY,mode=NORMAL,app_tx=DISARMED,ring=2048");
 
 logger:
   level: INFO
@@ -44,7 +44,7 @@ canbus:
     # acknowledges valid traffic at the controller level. Application TX is
     # still disabled below and no user-visible arm/control action is present.
     mode: NORMAL
-    rx_queue_len: 512
+    rx_queue_len: 128
     tx_queue_len: 8
 
     # Continuous host-side raw recorder for a very large log file. Standard and
@@ -86,7 +86,9 @@ trane_bus:
   tx_enabled: false
   raw_json_enabled: false
   require_sc360_before_tx: true
-  capture_capacity: 16384
+  # RAM is only a short outage fallback. The continuous TRANE_CAN_LIVE stream
+  # on the host is the long-duration recorder.
+  capture_capacity: 2048
   capture_enabled: true
   on_json:
     - lambda: |-
