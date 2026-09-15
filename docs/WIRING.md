@@ -33,8 +33,8 @@ Waveshare ESP32-S3-RS485-CAN
 
     USB-C / approved DC supply ---> board power
 
-    GPIO15 ---> onboard isolated CAN TX ---> CAN transceiver
-    GPIO16 <--- onboard isolated CAN RX <--- CAN transceiver
+    GPIO17 ---> onboard isolated CAN TX ---> CAN transceiver
+    GPIO18 <--- onboard isolated CAN RX <--- CAN transceiver
 
     CAN H  -------------------------------> Trane DH
     CAN L  -------------------------------> Trane DL
@@ -42,8 +42,10 @@ Waveshare ESP32-S3-RS485-CAN
     Trane R  ------------------------------ NO CONNECTION
     Trane B  ------------------------------ NO CONNECTION
 
-    Waveshare 120-ohm CAN termination jumper: OPEN
+    Waveshare H1/R19 120-ohm CAN termination jumper: OPEN
 ```
+
+Important hardware note: on this exact Waveshare ESP32-S3-RS485-CAN board, the official schematic shows the CAN interface on **GPIO17 TX / GPIO18 RX**. Do not use GPIO15/GPIO16 for TWAI on this product; those pins belong to the board's other serial/RS485 path.
 
 For first commissioning, power the Waveshare from USB-C. For permanent installation, use a properly rated HVAC 24 VAC to DC converter and feed the Waveshare within the board's documented DC-input range. Do not connect Trane 24 VAC directly to a DC input.
 
@@ -166,7 +168,7 @@ The important rule is that the ESP bridge is **not an additional end-of-line ter
 
 Before energizing the system:
 
-- Waveshare 120-ohm jumper is OPEN.
+- Waveshare H1/R19 120-ohm jumper is OPEN.
 - CAN H is connected to Trane DH.
 - CAN L is connected to Trane DL.
 - Trane R is not connected to the Waveshare CAN terminal side.
@@ -184,8 +186,8 @@ The Waveshare profile uses:
 canbus:
   - platform: esp32_can
     id: hvac_can
-    tx_pin: GPIO15
-    rx_pin: GPIO16
+    tx_pin: GPIO17
+    rx_pin: GPIO18
     can_id: 0x7FF
     use_extended_id: false
     bit_rate: 50kbps
