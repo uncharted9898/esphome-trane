@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LISTEN = (ROOT / "waveshare-trane-listenonly.yaml").read_text()
 COMMISSION = (ROOT / "waveshare-trane-commissioning.yaml").read_text()
+HOMEASSISTANT = (ROOT / "waveshare-trane-homeassistant.yaml").read_text()
 FULL = (ROOT / "waveshare-trane-full.yaml").read_text()
 BUS_CPP = (ROOT / "components/trane_bus/trane_bus.cpp").read_text()
 BUS_H = (ROOT / "components/trane_bus/trane_bus.h").read_text()
@@ -12,10 +13,19 @@ BUS_PY = (ROOT / "components/trane_bus/__init__.py").read_text()
 
 class WaveshareSafetyContractTests(unittest.TestCase):
     def test_reference_can_pins_and_rate(self):
-        for config in (LISTEN, FULL):
+        for config in (LISTEN, FULL, HOMEASSISTANT):
             self.assertIn("tx_pin: GPIO15", config)
             self.assertIn("rx_pin: GPIO16", config)
             self.assertIn("bit_rate: 50kbps", config)
+
+    def test_homeassistant_profile_targets_s3_and_has_required_can_id(self):
+        self.assertIn("variant: esp32s3", HOMEASSISTANT)
+        self.assertIn("flash_size: 16MB", HOMEASSISTANT)
+        self.assertIn("can_id: 0x7FF", HOMEASSISTANT)
+        self.assertIn("mode: NORMAL", HOMEASSISTANT)
+        self.assertIn("tx_enabled: false", HOMEASSISTANT)
+        self.assertIn("raw_json_enabled: false", HOMEASSISTANT)
+        self.assertIn("github://uncharted9898/esphome-trane@dev", HOMEASSISTANT)
 
     def test_commissioning_uses_real_full_stack_with_normal_can(self):
         self.assertIn("full_stack: !include waveshare-trane-full.yaml", COMMISSION)
@@ -29,8 +39,8 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertNotIn("trane_bus.set_setpoints", COMMISSION)
         self.assertNotIn("trane_bus.get_profile", COMMISSION)
 
-    def test_commissioning_has_large_continuous_recorder(self):
-        self.assertIn("capture_capacity: 16384", COMMISSION)
+    def test_commissioning_has_continuous_recorder_with_bounded_ram(self):
+        self.assertIn("capture_capacity: 2048", COMMISSION)
         self.assertIn("capture_enabled: true", COMMISSION)
         self.assertIn("can_id_mask: 0x000", COMMISSION)
         self.assertIn("can_id_mask: 0x00000000", COMMISSION)
@@ -40,7 +50,7 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("TRANE_RECORDER_READY", COMMISSION)
         self.assertGreaterEqual(COMMISSION.count("reboot_timeout: 0s"), 2)
         self.assertIn("power_save_mode: none", COMMISSION)
-        self.assertIn("rx_queue_len: 512", COMMISSION)
+        self.assertIn("rx_queue_len: 128", COMMISSION)
 
     def test_passive_image_is_hardware_listen_only(self):
         self.assertIn("mode: LISTENONLY", LISTEN)
@@ -52,8 +62,8 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertNotIn("trane_bus.set_setpoints", LISTEN)
         self.assertNotIn("trane_bus.get_profile", LISTEN)
 
-    def test_passive_image_has_large_bounded_freeze_and_dump_capture(self):
-        self.assertIn("capture_capacity: 16384", LISTEN)
+    def test_passive_image_has_bounded_freeze_and_dump_capture(self):
+        self.assertIn("capture_capacity: 2048", LISTEN)
         self.assertIn("capture_enabled: true", LISTEN)
         self.assertIn("Freeze CAN Capture", LISTEN)
         self.assertIn("Dump Frozen CAN Capture", LISTEN)
@@ -62,6 +72,12 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("capture_overwrites_", BUS_H)
         self.assertIn("TRANE_CAPTURE_BEGIN", BUS_CPP)
         self.assertIn("TRANE_CAPTURE_END", BUS_CPP)
+
+    def test_capture_schema_prevents_oversized_ram_ring(self):
+        self.assertIn("max=4096", BUS_PY)
+        for config in (LISTEN, COMMISSION, HOMEASSISTANT):
+            self.assertNotIn("capture_capacity: 16384", config)
+            self.assertIn("capture_capacity: 2048", config)
 
     def test_passive_image_continuously_logs_all_can_frames(self):
         self.assertIn("can_id_mask: 0x000", LISTEN)
@@ -74,7 +90,7 @@ class WaveshareSafetyContractTests(unittest.TestCase):
     def test_passive_image_does_not_reboot_for_network_loss(self):
         self.assertGreaterEqual(LISTEN.count("reboot_timeout: 0s"), 2)
         self.assertIn("power_save_mode: none", LISTEN)
-        self.assertIn("rx_queue_len: 512", LISTEN)
+        self.assertIn("rx_queue_len: 128", LISTEN)
 
     def test_passive_image_exposes_discovery_counters(self):
         self.assertIn("Total CAN Frames Seen", LISTEN)
