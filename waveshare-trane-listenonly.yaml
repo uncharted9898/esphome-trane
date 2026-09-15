@@ -64,8 +64,9 @@ improv_serial:
 canbus:
   - platform: esp32_can
     id: hvac_can
-    tx_pin: GPIO15
-    rx_pin: GPIO16
+    # Waveshare ESP32-S3-RS485-CAN schematic: CAN is GPIO17 TX / GPIO18 RX.
+    tx_pin: GPIO17
+    rx_pin: GPIO18
     bit_rate: 50kbps
     can_id: 1
     # HARD SAFETY BOUNDARY: TWAI listen-only receives but does not ACK or
@@ -75,9 +76,8 @@ canbus:
     rx_queue_len: 128
 
     # Continuous host-side recorder. A zero CAN-ID mask matches every ID of the
-    # selected standard/extended class. These lines are intended to be piped to
-    # a host file for an effectively unbounded trace; the trane_bus RAM ring
-    # below is the independent fallback if the host logger drops temporarily.
+    # selected standard/extended class. These lines are intended to be piped
+    # directly to disk from the ESPHome/serial logger.
     on_frame:
       - can_id: 0x000
         can_id_mask: 0x000
@@ -145,10 +145,6 @@ binary_sensor:
       return id(trane_link).is_capture_enabled();
 
 sensor:
-  # Total standard/extended/RTR callbacks observed by trane_bus. During
-  # commissioning this is intentionally broader than the known-Trane counter so
-  # new 5TAMX/5TWV0X/A2L node traffic is visible instead of disappearing into
-  # the old protocol map.
   - platform: template
     name: "Total CAN Frames Seen"
     accuracy_decimals: 0
@@ -163,9 +159,6 @@ sensor:
       return id(trane_link).get_trane_frames();
     update_interval: 10s
 
-  # Discovery hint only: a non-zero value means traffic exists outside the IDs
-  # currently classified by is_known_trane_id_(). The raw capture remains the
-  # authoritative source because this counter does not identify which IDs are new.
   - platform: template
     name: "Unclassified CAN Frames Seen"
     accuracy_decimals: 0
