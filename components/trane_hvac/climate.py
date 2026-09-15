@@ -6,9 +6,9 @@ from esphome.const import CONF_ID
 from esphome import automation
 
 trane_hvac_ns = cg.esphome_ns.namespace("trane_hvac")
-TraneClimate = trane_hvac_ns.class_(
-    "TraneClimate", climate.Climate, cg.Component
-)
+TraneClimate = trane_hvac_ns.class_("TraneClimate", climate.Climate, cg.Component)
+trane_bus_ns = cg.esphome_ns.namespace("trane_bus")
+TraneBus = trane_bus_ns.class_("TraneBus", cg.Component)
 
 CONF_CURRENT_TEMPERATURE_SENSOR = "current_temperature_sensor"
 CONF_HEAT_SETPOINT_SENSOR = "heat_setpoint_sensor"
@@ -16,6 +16,7 @@ CONF_COOL_SETPOINT_SENSOR = "cool_setpoint_sensor"
 CONF_MODE_TEXT_SENSOR = "mode_text_sensor"
 CONF_DEMAND_STAGE_SENSOR = "demand_stage_sensor"
 CONF_INDOOR_UNIT_STATE_SENSOR = "indoor_unit_state_sensor"
+CONF_TRANE_BUS_ID = "trane_bus_id"
 CONF_SET_MODE_ACTION = "set_mode_action"
 CONF_SET_TEMPERATURE_ACTION = "set_temperature_action"
 CONF_SET_PRESET_ACTION = "set_preset_action"
@@ -27,6 +28,7 @@ CONFIG_SCHEMA = climate.climate_schema(TraneClimate).extend({
     cv.Required(CONF_MODE_TEXT_SENSOR): cv.use_id(text_sensor.TextSensor),
     cv.Optional(CONF_DEMAND_STAGE_SENSOR): cv.use_id(text_sensor.TextSensor),
     cv.Optional(CONF_INDOOR_UNIT_STATE_SENSOR): cv.use_id(text_sensor.TextSensor),
+    cv.Optional(CONF_TRANE_BUS_ID): cv.use_id(TraneBus),
     cv.Optional(CONF_SET_MODE_ACTION): automation.validate_automation(single=True),
     cv.Optional(CONF_SET_TEMPERATURE_ACTION): automation.validate_automation(single=True),
     cv.Optional(CONF_SET_PRESET_ACTION): automation.validate_automation(single=True),
@@ -58,6 +60,10 @@ async def to_code(config):
     if CONF_INDOOR_UNIT_STATE_SENSOR in config:
         ius = await cg.get_variable(config[CONF_INDOOR_UNIT_STATE_SENSOR])
         cg.add(var.set_indoor_unit_state_sensor(ius))
+
+    if CONF_TRANE_BUS_ID in config:
+        bus = await cg.get_variable(config[CONF_TRANE_BUS_ID])
+        cg.add(var.set_trane_bus(bus))
 
     if CONF_SET_MODE_ACTION in config:
         await automation.build_automation(

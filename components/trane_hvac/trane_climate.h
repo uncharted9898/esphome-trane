@@ -4,6 +4,7 @@
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
+#include "../trane_bus/trane_bus.h"
 
 namespace esphome {
 namespace trane_hvac {
@@ -25,8 +26,11 @@ class TraneClimate : public climate::Climate, public Component {
   void set_mode_sensor(text_sensor::TextSensor *s) { mode_sensor_ = s; }
   void set_demand_stage_sensor(text_sensor::TextSensor *s) { demand_sensor_ = s; }
   void set_indoor_unit_state_sensor(text_sensor::TextSensor *s) { indoor_unit_state_sensor_ = s; }
+  void set_trane_bus(trane_bus::TraneBus *bus) { trane_bus_ = bus; }
 
-  // Trigger accessors for climate.py automation binding
+  // Trigger accessors for climate.py automation binding.
+  // These remain as the legacy/fallback path while guarded trane_bus control is
+  // migrated into maintained source code.
   Trigger<climate::ClimateMode> *get_mode_trigger() { return &mode_trigger_; }
   Trigger<float, float> *get_temperature_trigger() { return &temperature_trigger_; }
   Trigger<climate::ClimatePreset> *get_preset_trigger() { return &preset_trigger_; }
@@ -34,6 +38,8 @@ class TraneClimate : public climate::Climate, public Component {
  protected:
   climate::ClimateTraits traits() override;
   void control(const climate::ClimateCall &call) override;
+  static bool is_supported_control_mode_(climate::ClimateMode mode);
+  bool apply_observed_mode_(const std::string &state);
 
   sensor::Sensor *current_temp_sensor_{nullptr};
   sensor::Sensor *heat_setpoint_sensor_{nullptr};
@@ -41,9 +47,10 @@ class TraneClimate : public climate::Climate, public Component {
   text_sensor::TextSensor *mode_sensor_{nullptr};
   text_sensor::TextSensor *demand_sensor_{nullptr};
   text_sensor::TextSensor *indoor_unit_state_sensor_{nullptr};
+  trane_bus::TraneBus *trane_bus_{nullptr};
 
   Trigger<climate::ClimateMode> mode_trigger_;
-  Trigger<float, float> temperature_trigger_;   // args: hsp_f, csp_f (°F)
+  Trigger<float, float> temperature_trigger_;   // args: hsp_f, csp_f (degF)
   Trigger<climate::ClimatePreset> preset_trigger_;
 };
 
