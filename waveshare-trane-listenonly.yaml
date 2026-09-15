@@ -14,7 +14,7 @@ esphome:
     - priority: -10
       then:
         - lambda: |-
-            ESP_LOGI("trane_capture", "TRANE_RECORDER_READY,mode=LISTENONLY,ring=16384,tx_queue=0");
+            ESP_LOGI("trane_capture", "TRANE_RECORDER_READY,mode=LISTENONLY,ring=2048,tx_queue=0");
 
 external_components:
   - source:
@@ -72,7 +72,7 @@ canbus:
     # transmit. tx_queue_len: 0 is a second independent guard.
     mode: LISTENONLY
     tx_queue_len: 0
-    rx_queue_len: 512
+    rx_queue_len: 128
 
     # Continuous host-side recorder. A zero CAN-ID mask matches every ID of the
     # selected standard/extended class. These lines are intended to be piped to
@@ -117,9 +117,9 @@ trane_bus:
   tx_enabled: false
   raw_json_enabled: false
   require_sc360_before_tx: true
-  # Maximum currently supported in-RAM fallback ring. The host TRANE_CAN_LIVE
-  # stream is the primary long-duration/"huge file" recorder.
-  capture_capacity: 16384
+  # Bounded RAM fallback only. Host TRANE_CAN_LIVE logging is the primary
+  # long-duration/"huge file" recorder.
+  capture_capacity: 2048
   capture_enabled: true
   on_json:
     - lambda: |-
