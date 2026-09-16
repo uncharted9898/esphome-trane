@@ -1,0 +1,577 @@
+# Read-only entity declarations and JSON parser support for the Waveshare
+# Trane Link bridge. Hardware ownership stays in waveshare-trane-homeassistant.yaml.
+#
+# Confidence policy:
+# - normal names: observed/strong semantic mapping
+# - Candidate/Raw names: useful discovery channels, not yet promoted to truth
+# - expected-but-unmapped 5TAMX/5TWV0X/A2L fields remain raw/discovery only
+#
+# This package intentionally contains no esphome:, canbus:, trane_bus:, or
+# transmit actions. The parent device owns those boundaries.
+
+globals:
+  - id: trane_unknown_frame_count
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
+sensor:
+  - platform: template
+    id: trane_room_temp
+    name: "Room Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_heat_setpoint
+    name: "Heat Setpoint"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_cool_setpoint
+    name: "Cool Setpoint"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_indoor_humidity
+    name: "Indoor Humidity"
+    unit_of_measurement: "%"
+    device_class: humidity
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_zone1_airflow
+    name: "Zone 1 Airflow"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_zone1_demand
+    name: "Zone 1 Demand"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_sc360_outdoor_temp
+    name: "SC360 Outdoor Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    device_id: dev_sc360
+  - platform: template
+    id: trane_od_widget_temp
+    name: "Outdoor Widget Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_blower_speed
+    name: "Indoor Blower Speed"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_283_float1
+    name: "0x283 Float 1 Candidate ET GT"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_283_float2
+    name: "0x283 Float 2 Candidate ET GT"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_308_float1
+    name: "0x308 Float 1 Candidate Return Air"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_308_float2
+    name: "0x308 Float 2 Candidate Supply Air"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_compressor_speed
+    name: "Compressor Speed"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_compressor_demand
+    name: "Compressor Demand"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_outdoor_air_temp
+    name: "Outdoor Air Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_suction_temp
+    name: "0x381 Suction Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_discharge_temp
+    name: "0x383 Discharge Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_380_float1
+    name: "0x380 Float 1 Raw"
+    accuracy_decimals: 3
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_386_float1
+    name: "0x386 Float 1 Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_386_float2
+    name: "0x386 Float 2 Refrigerant Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_387_float1
+    name: "0x387 Float 1 Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_38f_pressure
+    name: "0x38F Refrigerant Pressure Candidate"
+    unit_of_measurement: "psi"
+    device_class: pressure
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_410_temp
+    name: "0x410 Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_discovery
+  - platform: template
+    id: trane_430_temp
+    name: "0x430 Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_discovery
+  - platform: template
+    id: trane_450_temp
+    name: "0x450 Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_weather_humidity
+    name: "Weather Humidity"
+    unit_of_measurement: "%"
+    device_class: humidity
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_current_temp
+    name: "Weather Current Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_feels_like
+    name: "Weather Feels Like"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_high
+    name: "Weather Forecast High"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_low
+    name: "Weather Forecast Low"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_preset_home_heat
+    name: "Preset Home Heat"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_preset_home_cool
+    name: "Preset Home Cool"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_preset_away_heat
+    name: "Preset Away Heat"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_preset_away_cool
+    name: "Preset Away Cool"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_preset_sleep_heat
+    name: "Preset Sleep Heat"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_preset_sleep_cool
+    name: "Preset Sleep Cool"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_unknown_frames
+    name: "Unclassified CAN Frames"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return id(trane_unknown_frame_count);'
+    device_id: dev_discovery
+
+text_sensor:
+  - platform: template
+    id: trane_system_mode
+    name: "System Mode"
+    device_id: dev_sc360
+  - platform: template
+    id: trane_system_demand_stage
+    name: "System Demand Stage"
+    device_id: dev_sc360
+  - platform: template
+    id: trane_system_status_d_raw
+    name: "SystemOpStatus D Raw"
+    entity_category: diagnostic
+    device_id: dev_sc360
+  - platform: template
+    id: trane_system_status_e_raw
+    name: "SystemOpStatus E Raw"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_zone1_hc_status
+    name: "Zone 1 HC Status"
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_zone1_hold_text
+    name: "Zone 1 Hold Text"
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_zone1_state
+    name: "Zone 1 State"
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_setpoint_source
+    name: "Setpoint Source"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_hold_type
+    name: "Hold Type"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_indoor_state
+    name: "Indoor Unit State"
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_status_e_raw
+    name: "IndoorStatus E Raw"
+    entity_category: diagnostic
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_status_f_raw
+    name: "IndoorStatus F Raw"
+    entity_category: diagnostic
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_fault
+    name: "Indoor Fault String"
+    entity_category: diagnostic
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_hum_control
+    name: "Humidity Control"
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_humidifier_status
+    name: "Humidifier Status"
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_dehumidifier_status
+    name: "Dehumidifier Status"
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_ventilator_status
+    name: "Ventilator Status"
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_outdoor_active
+    name: "Outdoor Active Flag"
+    entity_category: diagnostic
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_outdoor_state
+    name: "Outdoor Unit State"
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_outdoor_fault
+    name: "Outdoor Fault Code"
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_unit_model
+    name: "Unit Model"
+    entity_category: diagnostic
+    device_id: dev_sc360
+  - platform: template
+    id: trane_unit_serial
+    name: "Unit Serial"
+    entity_category: diagnostic
+    device_id: dev_sc360
+  - platform: template
+    id: trane_unit_firmware
+    name: "Unit Firmware"
+    entity_category: diagnostic
+    device_id: dev_sc360
+  - platform: template
+    id: trane_config_version
+    name: "Config Properties Version"
+    entity_category: diagnostic
+    device_id: dev_sc360
+  - platform: template
+    id: trane_alarm_db_version
+    name: "Alarm Details Version"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_alarm_id_1
+    name: "Active Alarm 1"
+    device_id: dev_sc360
+  - platform: template
+    id: trane_alarm_origin_1
+    name: "Active Alarm 1 Origin"
+    entity_category: diagnostic
+    device_id: dev_sc360
+  - platform: template
+    id: trane_alarm_level_1
+    name: "Active Alarm 1 Level"
+    entity_category: diagnostic
+    device_id: dev_sc360
+  - platform: template
+    id: trane_alarm_id_2
+    name: "Active Alarm 2"
+    device_id: dev_sc360
+  - platform: template
+    id: trane_alarm_origin_2
+    name: "Active Alarm 2 Origin"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_zone_name_1
+    name: "Zone 1 Name"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_zone_name_2
+    name: "Zone 2 Name"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_zone_name_3
+    name: "Zone 3 Name"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_zone_name_4
+    name: "Zone 4 Name"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_zone_name_5
+    name: "Zone 5 Name"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_zone_name_6
+    name: "Zone 6 Name"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_schedule_enabled
+    name: "Schedule Enabled"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_status
+    name: "Weather Data Status"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_zip
+    name: "Weather ZIP"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_city
+    name: "Weather City"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_condition
+    name: "Weather Condition Code"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_last_json_649
+    name: "Last JSON 0x649"
+    entity_category: diagnostic
+    device_id: dev_discovery
+  - platform: template
+    id: trane_last_json_641
+    name: "Last JSON 0x641"
+    entity_category: diagnostic
+    device_id: dev_discovery
+  - platform: template
+    id: trane_490_raw
+    name: "Last 0x490 Raw"
+    entity_category: diagnostic
+    device_id: dev_discovery
+  - platform: template
+    id: trane_last_unknown_id
+    name: "Last Unknown CAN ID"
+    entity_category: diagnostic
+    device_id: dev_discovery
+  - platform: template
+    id: trane_last_unknown_frame
+    name: "Last Unknown CAN Frame"
+    entity_category: diagnostic
+    device_id: dev_discovery
