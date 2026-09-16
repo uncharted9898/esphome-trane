@@ -23,10 +23,13 @@ For Home Assistant ESPHome Device Builder, use `waveshare-trane-homeassistant.ya
 
 For a repo-local build, use `waveshare-trane-commissioning.yaml`.
 
+While tracking the moving `dev` branch, keep remote ESPHome packages/components at `refresh: always`. ESPHome caches remote `packages:` separately from per-device build files, so a normal "Clean Build Files" does not necessarily refresh a stale Git checkout. If a build log says `Skipping update ... refresh: 1d`, that build is intentionally reusing cached package source rather than current `dev`.
+
 Expected behavior:
 
-- GPIO15 = CAN TX into the Waveshare onboard CAN interface.
-- GPIO16 = CAN RX from the onboard CAN interface.
+- GPIO17 = CAN TX into the Waveshare onboard CAN interface.
+- GPIO18 = CAN RX from the onboard CAN interface.
+- GPIO15/GPIO16 are not the onboard CAN pair for this board.
 - 50 kbit/s.
 - ESP32 TWAI mode = NORMAL.
 - The CAN controller participates normally in arbitration and ACKs valid received frames.
