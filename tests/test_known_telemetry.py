@@ -6,6 +6,12 @@ HA = (ROOT / "waveshare-trane-homeassistant.yaml").read_text()
 TELEMETRY = (ROOT / "waveshare-trane-known-telemetry-v2.yaml").read_text()
 
 
+def without_yaml_comments(text: str) -> str:
+    return "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith("#")
+    )
+
+
 class KnownTelemetryContractTests(unittest.TestCase):
     def test_homeassistant_loads_package_safe_known_telemetry(self):
         self.assertIn("packages:", HA)
@@ -19,7 +25,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertNotIn("\ncanbus:", TELEMETRY)
         self.assertNotIn("\ntrane_bus:", TELEMETRY)
         self.assertNotIn("!extend hvac_can", TELEMETRY)
-        self.assertNotIn("send_data(", TELEMETRY)
+        self.assertNotIn("send_data(", without_yaml_comments(TELEMETRY))
 
     def test_parent_owns_devices_can_and_json_hook(self):
         self.assertIn("name: ${device_name}", HA)
@@ -39,7 +45,11 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertNotIn("trane_bus.set_mode", TELEMETRY)
         self.assertNotIn("trane_bus.set_setpoints", TELEMETRY)
         self.assertNotIn("trane_bus.get_profile", TELEMETRY)
-        self.assertNotIn("send_data(", HA)
+        self.assertNotIn("send_data(", without_yaml_comments(HA))
+
+    def test_homeassistant_uses_std_finite_for_idf_gcc14(self):
+        self.assertNotIn("if (isfinite(", without_yaml_comments(HA))
+        self.assertIn("std::isfinite(", HA)
 
     def test_known_system_entities_are_exposed(self):
         for name in (
