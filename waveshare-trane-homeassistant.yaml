@@ -5,30 +5,30 @@ substitutions:
 
 # Home Assistant / ESPHome Device Builder entrypoint for the
 # Waveshare ESP32-S3-RS485-CAN board.
-#
-# This file is intentionally self-contained from the HA user's perspective:
-# custom components and the maintained known-telemetry package are downloaded
-# from this repository at compile time. Only wifi_ssid and wifi_password are
-# expected in the HA ESPHome secrets.yaml file.
-#
-# CAN mode is NORMAL so this node ACKs valid CAN traffic like the eventual
-# installed bridge. Trane application command TX remains disabled below.
+# Hardware ownership stays in this file; the remote telemetry package only
+# declares read-only entities. This avoids cross-package !extend ordering.
 
 packages:
-  known_telemetry: github://uncharted9898/esphome-trane/waveshare-trane-known-telemetry.yaml@dev
+  known_telemetry: github://uncharted9898/esphome-trane/waveshare-trane-known-telemetry-v2.yaml@dev
 
 esphome:
   name: ${device_name}
   friendly_name: ${friendly_name}
   project:
     name: "uncharted9898.trane-link-bridge"
-    # Keep this literal because some ESPHome builds have displayed ${version}
-    # verbatim in project metadata when fed through this entrypoint.
     version: "dev-ha-waveshare"
+  devices:
+    - id: dev_thermostat
+      name: "Trane UX360"
+    - id: dev_sc360
+      name: "Trane SC360"
+    - id: dev_air_handler
+      name: "Trane 5TAMX Air Handler"
+    - id: dev_heat_pump
+      name: "Trane 5TWV0X Heat Pump"
+    - id: dev_discovery
+      name: "Trane Link Discovery"
 
-# Waveshare documents the standard ESP32-S3-RS485-CAN as an ESP32-S3,
-# normally using the ESP32-S3R8 chip, with 16 MB flash. ESPHome recommends
-# selecting the silicon variant rather than pinning a generic dev-board ID.
 esp32:
   variant: esp32s3
   flash_size: 16MB
@@ -68,38 +68,23 @@ captive_portal:
 web_server:
   port: 80
 
-# Waveshare ESP32-S3-RS485-CAN onboard isolated CAN interface.
-# IMPORTANT: verified against the Waveshare schematic:
-#   ESP32 GPIO17 -> onboard CAN TX path
-#   ESP32 GPIO18 <- onboard CAN RX path
-#
-# Field wiring:
-#   Waveshare CAN H -> Trane DH
-#   Waveshare CAN L -> Trane DL
-#   Trane R          -> NO CONNECTION to Waveshare CAN side
-#   Trane B          -> NO CONNECTION to Waveshare CAN side
-#
-# Leave the Waveshare H1/R19 120-ohm CAN termination jumper OPEN.
+# Waveshare ESP32-S3-RS485-CAN isolated CAN interface, verified from schematic:
+# GPIO17 = CAN TX, GPIO18 = CAN RX.
+# Field: CAN H -> DH, CAN L -> DL, H1/R19 120-ohm jumper OPEN.
 canbus:
   - platform: esp32_can
     id: hvac_can
-
     tx_pin: GPIO17
     rx_pin: GPIO18
-
-    # Required by ESPHome as the CAN component's default transmit ID.
-    # It does not cause frames to be transmitted by itself. The guarded Trane
-    # transport explicitly uses 0x641 if/when application TX is later armed.
     can_id: 0x7FF
     use_extended_id: false
-
     bit_rate: 50kbps
     mode: NORMAL
-
     rx_queue_len: 128
     tx_queue_len: 8
 
-    # Continuous host-side raw recorder. These triggers do not transmit.
+    # Continuous recorder plus read-only decoding/discovery. None of these
+    # callbacks call send_data().
     on_frame:
       - can_id: 0x000
         can_id_mask: 0x000
@@ -107,17 +92,34 @@ canbus:
         then:
           - lambda: |-
               char bytes[17] = {0};
-              for (size_t i = 0; i < x.size() && i < 8; i++) {
+              for (size_t i = 0; i < x.size() && i < 8; i++)
                 snprintf(bytes + (i * 2), sizeof(bytes) - (i * 2), "%02X", x[i]);
+              ESP_LOGI("trane_wire", "TRANE_CAN_LIVE,S,%lu,%03lX,%u,%s",
+                       static_cast<unsigned long>(millis()),
+                       static_cast<unsigned long>(can_id),
+                       static_cast<unsigned>(x.size()), bytes);
+
+              switch (can_id) {
+                case 0x641: case 0x649: case 0x5C1: case 0x5C9:
+                case 0x283: case 0x308: case 0x380: case 0x381:
+                case 0x382: case 0x383: case 0x384: case 0x385:
+                case 0x386: case 0x387: case 0x388: case 0x389:
+                case 0x38A: case 0x38B: case 0x38C: case 0x38D:
+                case 0x38E: case 0x38F: case 0x410: case 0x430:
+                case 0x450: case 0x490:
+                  break;
+                default: {
+                  id(trane_unknown_frame_count)++;
+                  char idbuf[12];
+                  snprintf(idbuf, sizeof(idbuf), "0x%03lX", static_cast<unsigned long>(can_id));
+                  id(trane_last_unknown_id).publish_state(idbuf);
+                  char frame[48] = {0};
+                  size_t pos = snprintf(frame, sizeof(frame), "%s ", idbuf);
+                  for (size_t i = 0; i < x.size() && i < 8 && pos + 3 < sizeof(frame); i++)
+                    pos += snprintf(frame + pos, sizeof(frame) - pos, "%02X%s", x[i], i + 1 < x.size() ? " " : "");
+                  id(trane_last_unknown_frame).publish_state(frame);
+                }
               }
-              ESP_LOGI(
-                "trane_wire",
-                "TRANE_CAN_LIVE,S,%lu,%03lX,%u,%s",
-                static_cast<unsigned long>(millis()),
-                static_cast<unsigned long>(can_id),
-                static_cast<unsigned>(x.size()),
-                bytes
-              );
 
       - can_id: 0x00000000
         can_id_mask: 0x00000000
@@ -125,49 +127,294 @@ canbus:
         then:
           - lambda: |-
               char bytes[17] = {0};
-              for (size_t i = 0; i < x.size() && i < 8; i++) {
+              for (size_t i = 0; i < x.size() && i < 8; i++)
                 snprintf(bytes + (i * 2), sizeof(bytes) - (i * 2), "%02X", x[i]);
-              }
-              ESP_LOGI(
-                "trane_wire",
-                "TRANE_CAN_LIVE,E,%lu,%08lX,%u,%s",
-                static_cast<unsigned long>(millis()),
-                static_cast<unsigned long>(can_id),
-                static_cast<unsigned>(x.size()),
-                bytes
-              );
+              ESP_LOGI("trane_wire", "TRANE_CAN_LIVE,E,%lu,%08lX,%u,%s",
+                       static_cast<unsigned long>(millis()),
+                       static_cast<unsigned long>(can_id),
+                       static_cast<unsigned>(x.size()), bytes);
+
+      - can_id: 0x283
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 8) return;
+              float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
+              // Historical captures indicate these two values are Celsius.
+              if (isfinite(a) && a > -50 && a < 100) id(trane_283_float1).publish_state(a * 9.0f / 5.0f + 32.0f);
+              if (isfinite(b) && b > -50 && b < 100) id(trane_283_float2).publish_state(b * 9.0f / 5.0f + 32.0f);
+
+      - can_id: 0x308
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 8) return;
+              float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
+              if (isfinite(a) && a > -100 && a < 250) id(trane_308_float1).publish_state(a);
+              if (isfinite(b) && b > -100 && b < 250) id(trane_308_float2).publish_state(b);
+
+      - can_id: 0x380
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 8) return;
+              float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
+              if (isfinite(a)) id(trane_380_float1).publish_state(a);
+              if (isfinite(b) && b > -80 && b < 180) id(trane_outdoor_air_temp).publish_state(b);
+
+      - can_id: 0x381
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 300) id(trane_suction_temp).publish_state(v);
+
+      - can_id: 0x383
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 400) id(trane_discharge_temp).publish_state(v);
+
+      - can_id: 0x386
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 8) return;
+              float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
+              if (isfinite(a) && a > -100 && a < 300) id(trane_386_float1).publish_state(a);
+              if (isfinite(b) && b > -100 && b < 300) id(trane_386_float2).publish_state(b);
+
+      - can_id: 0x387
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 300) id(trane_387_float1).publish_state(v);
+
+      - can_id: 0x38F
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v >= 0 && v < 1500) id(trane_38f_pressure).publish_state(v);
+
+      - can_id: 0x410
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 300) id(trane_410_temp).publish_state(v);
+      - can_id: 0x430
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 300) id(trane_430_temp).publish_state(v);
+      - can_id: 0x450
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
+              if (isfinite(v) && v > -100 && v < 300) id(trane_450_temp).publish_state(v);
+
+      - can_id: 0x490
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              char buf[32] = {0}; size_t pos = 0;
+              for (size_t i = 0; i < x.size() && i < 8 && pos + 3 < sizeof(buf); i++)
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "%02X%s", x[i], i + 1 < x.size() ? " " : "");
+              id(trane_490_raw).publish_state(buf);
 
 trane_bus:
   id: trane_link
   canbus_id: hvac_can
   command_can_id: 0x641
-
-  # Application-level writes are OFF. NORMAL CAN mode above still permits the
-  # controller to ACK received CAN frames; it does not enable Trane commands.
   tx_enabled: false
   raw_json_enabled: false
   require_sc360_before_tx: true
-
   bus_activity_timeout: 5min
   ack_timeout: 3s
   setpoint_min_f: 50
   setpoint_max_f: 90
   min_deadband_f: 2
-
-  # Bounded in-RAM fallback only. The continuous TRANE_CAN_LIVE host log is
-  # the long-duration recorder.
   capture_capacity: 2048
   capture_enabled: true
+
+  # trane_bus performs segmented reassembly; decode semantic JSON here.
+  on_json:
+    - lambda: |-
+        const std::string &j = json;
+        ESP_LOGI("trane_json", "TRANE_JSON,%03lX,%s",
+                 static_cast<unsigned long>(can_id), j.c_str());
+        if (can_id == 0x649) id(trane_last_json_649).publish_state(j);
+        if (can_id == 0x641) id(trane_last_json_641).publish_state(j);
+
+        auto get_value = [&](const std::string &key, size_t from, size_t limit, std::string &out) -> bool {
+          std::string needle = "\"" + key + "\":\"";
+          size_t p = j.find(needle, from);
+          if (p == std::string::npos || p >= limit) return false;
+          p += needle.size();
+          size_t e = j.find('"', p);
+          if (e == std::string::npos || e > limit) return false;
+          out = j.substr(p, e - p);
+          return true;
+        };
+        auto object_end = [&](size_t key_pos) -> size_t {
+          size_t b = j.find('{', key_pos);
+          if (b == std::string::npos) return j.size();
+          int depth = 0; bool quoted = false; bool esc = false;
+          for (size_t p = b; p < j.size(); p++) {
+            char c = j[p];
+            if (quoted) {
+              if (esc) { esc = false; continue; }
+              if (c == '\\') { esc = true; continue; }
+              if (c == '"') quoted = false;
+            } else {
+              if (c == '"') quoted = true;
+              else if (c == '{') depth++;
+              else if (c == '}' && --depth == 0) return p;
+            }
+          }
+          return j.size();
+        };
+        auto as_float = [&](const std::string &s, float &v) -> bool {
+          if (s.empty()) return false;
+          char *tail = nullptr; v = strtof(s.c_str(), &tail);
+          return tail != s.c_str() && *tail == '\0';
+        };
+
+        std::string v; float f;
+
+        size_t p = j.find("\"SystemOpStatus\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (get_value("B", p, e, v)) {
+            if (v == "A") id(trane_system_mode).publish_state("heat");
+            else if (v == "B") id(trane_system_mode).publish_state("cool");
+            else if (v == "C") id(trane_system_mode).publish_state("off");
+            else id(trane_system_mode).publish_state(v);
+          }
+          if (get_value("C", p, e, v)) id(trane_system_demand_stage).publish_state(v);
+          if (get_value("D", p, e, v)) id(trane_system_status_d_raw).publish_state(v);
+          if (get_value("E", p, e, v)) {
+            id(trane_system_status_e_raw).publish_state(v);
+            if (as_float(v, f)) {
+              if (v.find('.') != std::string::npos && f > -60 && f < 160) id(trane_sc360_outdoor_temp).publish_state(f);
+              else if (f >= 0 && f <= 100) id(trane_indoor_humidity).publish_state(f);
+            }
+          }
+        }
+
+        p = j.find("\"ZoneStatus\"");
+        if (p != std::string::npos) {
+          size_t z = j.find("\"1\":{", p);
+          if (z != std::string::npos) {
+            size_t e = object_end(z);
+            if (get_value("H", z, e, v) && as_float(v, f) && f > 20 && f < 120) id(trane_room_temp).publish_state(f);
+            if (get_value("Hsp", z, e, v) && as_float(v, f)) id(trane_heat_setpoint).publish_state(f);
+            if (get_value("Csp", z, e, v) && as_float(v, f)) id(trane_cool_setpoint).publish_state(f);
+            if (get_value("E", z, e, v) && as_float(v, f) && f >= 0 && f <= 100) id(trane_zone1_airflow).publish_state(f);
+            if (get_value("G", z, e, v) && as_float(v, f)) id(trane_zone1_demand).publish_state(f);
+            if (get_value("F", z, e, v)) id(trane_zone1_state).publish_state(v);
+            if (get_value("HcStatus", z, e, v)) id(trane_zone1_hc_status).publish_state(v);
+            if (get_value("HoldText", z, e, v)) id(trane_zone1_hold_text).publish_state(v);
+          }
+        }
+
+        p = j.find("\"SpOverride\"");
+        if (p != std::string::npos) {
+          size_t z = j.find("\"1\":{", p);
+          if (z != std::string::npos) {
+            size_t e = object_end(z);
+            if (get_value("Hsp", z, e, v) && as_float(v, f)) id(trane_heat_setpoint).publish_state(f);
+            if (get_value("Csp", z, e, v) && as_float(v, f)) id(trane_cool_setpoint).publish_state(f);
+            if (get_value("Source", z, e, v)) id(trane_setpoint_source).publish_state(v);
+            if (get_value("HoldType", z, e, v)) id(trane_hold_type).publish_state(v);
+          }
+        }
+
+        p = j.find("\"OdStatus\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (get_value("B", p, e, v) && as_float(v, f) && f >= 0 && f <= 100) id(trane_compressor_speed).publish_state(f);
+          if (get_value("C", p, e, v)) id(trane_outdoor_state).publish_state(v);
+          if (get_value("D", p, e, v)) id(trane_outdoor_fault).publish_state(v);
+          size_t cdp = j.find("\"CompDemandPercent\":\"", p);
+          if (cdp != std::string::npos && cdp < e && get_value("CompDemandPercent", p, e, v) && as_float(v, f))
+            id(trane_compressor_demand).publish_state(f);
+        }
+
+        p = j.find("\"IndoorStatus\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (get_value("D", p, e, v)) id(trane_indoor_state).publish_state(v);
+          if (get_value("E", p, e, v)) {
+            id(trane_indoor_status_e_raw).publish_state(v);
+            if (as_float(v, f) && f >= 0 && f <= 100) id(trane_blower_speed).publish_state(f);
+            else if (!v.empty()) id(trane_indoor_fault).publish_state(v);
+          }
+          if (get_value("F", p, e, v)) id(trane_indoor_status_f_raw).publish_state(v);
+          if (get_value("HumControl", p, e, v)) id(trane_hum_control).publish_state(v);
+          if (get_value("HumidifierStatus", p, e, v)) id(trane_humidifier_status).publish_state(v);
+          if (get_value("DehumidifierStatus", p, e, v)) id(trane_dehumidifier_status).publish_state(v);
+          if (get_value("VentilatorStatus", p, e, v)) id(trane_ventilator_status).publish_state(v);
+        }
+
+        p = j.find("\"UnitID\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (get_value("ModelNumber", p, e, v)) id(trane_unit_model).publish_state(v);
+          if (get_value("SerialNumber", p, e, v)) id(trane_unit_serial).publish_state(v);
+          if (get_value("BuildInfo", p, e, v)) id(trane_unit_firmware).publish_state(v);
+        }
+
+        p = j.find("\"VersionDetails\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (get_value("ConfigPropertiesVersion", p, e, v)) id(trane_config_version).publish_state(v);
+          if (get_value("AlarmDetailsVersion", p, e, v)) id(trane_alarm_db_version).publish_state(v);
+        }
+
+        p = j.find("\"OdWidget\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (get_value("A", p, e, v) && as_float(v, f) && f > -60 && f < 160) id(trane_od_widget_temp).publish_state(f);
+        }
+
+        p = j.find("\"ScheduleSettings\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (get_value("WeeklySchEnable", p, e, v)) id(trane_schedule_enabled).publish_state(v);
+        }
+
+        p = j.find("\"WeatherData\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (get_value("A", p, e, v)) id(trane_weather_zip).publish_state(v);
+          if (get_value("D", p, e, v)) id(trane_weather_status).publish_state(v);
+        }
+
+        p = j.find("\"WeatherToday\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (get_value("C", p, e, v)) id(trane_weather_city).publish_state(v);
+          if (get_value("D", p, e, v) && as_float(v, f)) id(trane_weather_current_temp).publish_state(f);
+          if (get_value("E", p, e, v) && as_float(v, f)) id(trane_weather_humidity).publish_state(f);
+          if (get_value("F", p, e, v) && as_float(v, f)) id(trane_weather_feels_like).publish_state(f);
+          if (get_value("G", p, e, v) && as_float(v, f)) id(trane_weather_high).publish_state(f);
+          if (get_value("H", p, e, v)) id(trane_weather_condition).publish_state(v);
+          if (get_value("I", p, e, v) && as_float(v, f)) id(trane_weather_low).publish_state(f);
+        }
 
 binary_sensor:
   - platform: template
     name: "SC360 Seen"
     lambda: 'return id(trane_link).has_seen_sc360();'
-
   - platform: template
     name: "SC360 Recently Active"
     lambda: 'return id(trane_link).has_recent_trane_activity();'
-
   - platform: template
     name: "Trane Command Awaiting ACK"
     lambda: 'return id(trane_link).has_pending_ack();'
@@ -178,49 +425,41 @@ sensor:
     accuracy_decimals: 0
     update_interval: 10s
     lambda: 'return id(trane_link).get_rx_frames();'
-
   - platform: template
     name: "Known Trane Frames Seen"
     accuracy_decimals: 0
     update_interval: 10s
     lambda: 'return id(trane_link).get_trane_frames();'
-
   - platform: template
     name: "SC360 RX Frames"
     accuracy_decimals: 0
     update_interval: 10s
     lambda: 'return id(trane_link).get_sc360_frames();'
-
   - platform: template
     name: "Trane TX Messages"
     accuracy_decimals: 0
     update_interval: 10s
     lambda: 'return id(trane_link).get_tx_messages();'
-
   - platform: template
     name: "Trane TX Blocked"
     accuracy_decimals: 0
     update_interval: 10s
     lambda: 'return id(trane_link).get_tx_blocked();'
-
   - platform: template
     name: "Segmented JSON Messages"
     accuracy_decimals: 0
     update_interval: 10s
     lambda: 'return id(trane_link).get_rx_json_messages();'
-
   - platform: template
     name: "RX Transport Errors"
     accuracy_decimals: 0
     update_interval: 10s
     lambda: 'return id(trane_link).get_rx_transport_errors();'
-
   - platform: template
     name: "Captured CAN Frames"
     accuracy_decimals: 0
     update_interval: 10s
     lambda: 'return id(trane_link).get_capture_size();'
-
   - platform: template
     name: "Capture Ring Overwrites"
     accuracy_decimals: 0
