@@ -141,8 +141,8 @@ canbus:
               if (x.size() < 8) return;
               float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
               // Historical captures indicate these two values are Celsius.
-              if (isfinite(a) && a > -50 && a < 100) id(trane_283_float1).publish_state(a * 9.0f / 5.0f + 32.0f);
-              if (isfinite(b) && b > -50 && b < 100) id(trane_283_float2).publish_state(b * 9.0f / 5.0f + 32.0f);
+              if (std::isfinite(a) && a > -50 && a < 100) id(trane_283_float1).publish_state(a * 9.0f / 5.0f + 32.0f);
+              if (std::isfinite(b) && b > -50 && b < 100) id(trane_283_float2).publish_state(b * 9.0f / 5.0f + 32.0f);
 
       - can_id: 0x308
         can_id_mask: 0x7FF
@@ -150,8 +150,8 @@ canbus:
           - lambda: |-
               if (x.size() < 8) return;
               float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
-              if (isfinite(a) && a > -100 && a < 250) id(trane_308_float1).publish_state(a);
-              if (isfinite(b) && b > -100 && b < 250) id(trane_308_float2).publish_state(b);
+              if (std::isfinite(a) && a > -100 && a < 250) id(trane_308_float1).publish_state(a);
+              if (std::isfinite(b) && b > -100 && b < 250) id(trane_308_float2).publish_state(b);
 
       - can_id: 0x380
         can_id_mask: 0x7FF
@@ -159,22 +159,22 @@ canbus:
           - lambda: |-
               if (x.size() < 8) return;
               float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
-              if (isfinite(a)) id(trane_380_float1).publish_state(a);
-              if (isfinite(b) && b > -80 && b < 180) id(trane_outdoor_air_temp).publish_state(b);
+              if (std::isfinite(a)) id(trane_380_float1).publish_state(a);
+              if (std::isfinite(b) && b > -80 && b < 180) id(trane_outdoor_air_temp).publish_state(b);
 
       - can_id: 0x381
         can_id_mask: 0x7FF
         then:
           - lambda: |-
               if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
-              if (isfinite(v) && v > -100 && v < 300) id(trane_suction_temp).publish_state(v);
+              if (std::isfinite(v) && v > -100 && v < 300) id(trane_suction_temp).publish_state(v);
 
       - can_id: 0x383
         can_id_mask: 0x7FF
         then:
           - lambda: |-
               if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
-              if (isfinite(v) && v > -100 && v < 400) id(trane_discharge_temp).publish_state(v);
+              if (std::isfinite(v) && v > -100 && v < 400) id(trane_discharge_temp).publish_state(v);
 
       - can_id: 0x386
         can_id_mask: 0x7FF
@@ -182,41 +182,41 @@ canbus:
           - lambda: |-
               if (x.size() < 8) return;
               float a, b; memcpy(&a, &x[0], 4); memcpy(&b, &x[4], 4);
-              if (isfinite(a) && a > -100 && a < 300) id(trane_386_float1).publish_state(a);
-              if (isfinite(b) && b > -100 && b < 300) id(trane_386_float2).publish_state(b);
+              if (std::isfinite(a) && a > -100 && a < 300) id(trane_386_float1).publish_state(a);
+              if (std::isfinite(b) && b > -100 && b < 300) id(trane_386_float2).publish_state(b);
 
       - can_id: 0x387
         can_id_mask: 0x7FF
         then:
           - lambda: |-
               if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
-              if (isfinite(v) && v > -100 && v < 300) id(trane_387_float1).publish_state(v);
+              if (std::isfinite(v) && v > -100 && v < 300) id(trane_387_float1).publish_state(v);
 
       - can_id: 0x38F
         can_id_mask: 0x7FF
         then:
           - lambda: |-
               if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
-              if (isfinite(v) && v >= 0 && v < 1500) id(trane_38f_pressure).publish_state(v);
+              if (std::isfinite(v) && v >= 0 && v < 1500) id(trane_38f_pressure).publish_state(v);
 
       - can_id: 0x410
         can_id_mask: 0x7FF
         then:
           - lambda: |-
               if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
-              if (isfinite(v) && v > -100 && v < 300) id(trane_410_temp).publish_state(v);
+              if (std::isfinite(v) && v > -100 && v < 300) id(trane_410_temp).publish_state(v);
       - can_id: 0x430
         can_id_mask: 0x7FF
         then:
           - lambda: |-
               if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
-              if (isfinite(v) && v > -100 && v < 300) id(trane_430_temp).publish_state(v);
+              if (std::isfinite(v) && v > -100 && v < 300) id(trane_430_temp).publish_state(v);
       - can_id: 0x450
         can_id_mask: 0x7FF
         then:
           - lambda: |-
               if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
-              if (isfinite(v) && v > -100 && v < 300) id(trane_450_temp).publish_state(v);
+              if (std::isfinite(v) && v > -100 && v < 300) id(trane_450_temp).publish_state(v);
 
       - can_id: 0x490
         can_id_mask: 0x7FF
