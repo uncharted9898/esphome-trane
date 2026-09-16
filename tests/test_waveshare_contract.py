@@ -29,6 +29,10 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("raw_json_enabled: false", HOMEASSISTANT)
         self.assertIn("github://uncharted9898/esphome-trane@dev", HOMEASSISTANT)
 
+    def test_homeassistant_uses_std_isfinite_for_gcc14(self):
+        self.assertIn("std::isfinite", HOMEASSISTANT)
+        self.assertNotIn("if (isfinite(", HOMEASSISTANT)
+
     def test_commissioning_uses_real_full_stack_with_normal_can(self):
         self.assertIn("full_stack: !include waveshare-trane-full.yaml", COMMISSION)
         self.assertIn("mode: NORMAL", COMMISSION)
