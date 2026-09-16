@@ -22,8 +22,12 @@ esphome:
         - lambda: |-
             ESP_LOGI("trane_capture", "TRANE_RECORDER_READY,mode=NORMAL,app_tx=DISARMED,ring=2048");
 
+# The packaged legacy decoder has several intentional per-tag DEBUG loggers.
+# ESPHome 2026.8+ validates those against the global compile-time ceiling, so
+# commissioning must retain DEBUG globally. High-volume generic CAN logging is
+# still explicitly reduced below; the DEBUG decoder tags are useful evidence.
 logger:
-  level: INFO
+  level: DEBUG
   logs:
     canbus: WARN
     trane_bus: INFO
