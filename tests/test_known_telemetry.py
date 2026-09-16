@@ -15,10 +15,10 @@ def without_yaml_comments(text: str) -> str:
 class KnownTelemetryContractTests(unittest.TestCase):
     def test_homeassistant_loads_package_safe_known_telemetry(self):
         self.assertIn("packages:", HA)
-        self.assertIn(
-            "github://uncharted9898/esphome-trane/waveshare-trane-known-telemetry-v2.yaml@dev",
-            HA,
-        )
+        self.assertIn("url: https://github.com/uncharted9898/esphome-trane", HA)
+        self.assertIn("ref: dev", HA)
+        self.assertIn("refresh: always", HA)
+        self.assertIn("- waveshare-trane-known-telemetry-v2.yaml", HA)
 
     def test_package_owns_no_hardware_or_esphome_root(self):
         self.assertNotIn("\nesphome:", TELEMETRY)
