@@ -1,0 +1,179 @@
+# Supplemental read-only telemetry declarations for the Home Assistant profile.
+#
+# These are fields that were already observed/decoded in the upstream capture
+# set but were omitted from the first package-safe telemetry migration. Keep
+# target-only 5TAMX/5TWV0X/A2L values out of this file until target captures
+# prove their protocol locations.
+#
+# This package intentionally owns no esphome:, canbus:, trane_bus:, or TX
+# actions. waveshare-trane-homeassistant.yaml remains the hardware/parser owner.
+
+sensor:
+  # SystemOpStatus.D is numeric upstream but its exact meaning is ambiguous
+  # (runtime-like versus demand-like). Preserve the numeric value without
+  # promoting it to a misleading percent label.
+  - platform: template
+    id: trane_system_status_d_numeric
+    name: "SystemOpStatus D Numeric Candidate"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  # Zones 2-6 setpoints were present in the mature upstream decoder. Keep them
+  # disabled by default so single-zone installs stay clean.
+  - platform: template
+    id: trane_heat_setpoint_z2
+    name: "Heat Setpoint Zone 2"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_cool_setpoint_z2
+    name: "Cool Setpoint Zone 2"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_heat_setpoint_z3
+    name: "Heat Setpoint Zone 3"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_cool_setpoint_z3
+    name: "Cool Setpoint Zone 3"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_heat_setpoint_z4
+    name: "Heat Setpoint Zone 4"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_cool_setpoint_z4
+    name: "Cool Setpoint Zone 4"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_heat_setpoint_z5
+    name: "Heat Setpoint Zone 5"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_cool_setpoint_z5
+    name: "Cool Setpoint Zone 5"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_heat_setpoint_z6
+    name: "Heat Setpoint Zone 6"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_cool_setpoint_z6
+    name: "Cool Setpoint Zone 6"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_od_temp_user_offset
+    name: "Outdoor Temperature User Offset"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+text_sensor:
+  - platform: template
+    id: trane_system_state
+    name: "System State Raw"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  # ActiveAlarms already had two ID/origin slots, but slot 2 lost its level
+  # declaration during the package-safe migration.
+  - platform: template
+    id: trane_alarm_level_2
+    name: "Active Alarm 2 Level"
+    entity_category: diagnostic
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_thermostat_display_name
+    name: "Thermostat Display Name"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_timezone_local_offset
+    name: "Local Timezone Offset"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_timezone_standard_offset
+    name: "Standard Timezone Offset"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_country
+    name: "Weather Country Code"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_region
+    name: "Weather Region Code"
+    entity_category: diagnostic
+    device_id: dev_thermostat
+
+  # Private UX360 <-> SC360 transport is especially valuable during cold boot.
+  # Expose the most recent raw CAN frame in addition to the continuous log and
+  # bounded capture ring.
+  - platform: template
+    id: trane_last_5c1_raw
+    name: "Last 0x5C1 Raw"
+    entity_category: diagnostic
+    device_id: dev_discovery
+  - platform: template
+    id: trane_last_5c9_raw
+    name: "Last 0x5C9 Raw"
+    entity_category: diagnostic
+    device_id: dev_discovery
