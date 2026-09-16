@@ -5,8 +5,8 @@ substitutions:
 
 # Home Assistant / ESPHome Device Builder entrypoint for the
 # Waveshare ESP32-S3-RS485-CAN board.
-# Hardware ownership stays in this file; the remote telemetry package only
-# declares read-only entities. This avoids cross-package !extend ordering.
+# Hardware ownership stays in this file; remote telemetry packages only
+# declare read-only entities. This avoids cross-package !extend ordering.
 #
 # This is a moving development profile. Keep remote dev dependencies fresh so
 # ESPHome cannot silently compile a day-old cached package after a source fix.
@@ -17,6 +17,12 @@ packages:
     refresh: always
     files:
       - waveshare-trane-known-telemetry-v2.yaml
+  known_telemetry_extra:
+    url: https://github.com/uncharted9898/esphome-trane
+    ref: dev
+    refresh: always
+    files:
+      - waveshare-trane-known-telemetry-extra.yaml
 
 esphome:
   name: ${device_name}
@@ -106,14 +112,14 @@ canbus:
                        static_cast<unsigned long>(can_id),
                        static_cast<unsigned>(x.size()), bytes);
 
+              // Exclude only IDs that have a dedicated decoder/raw surface.
+              // Unresolved members of the outdoor 0x380-0x38F family must stay
+              // visible in discovery on the new 5TWV0X generation.
               switch (can_id) {
                 case 0x641: case 0x649: case 0x5C1: case 0x5C9:
                 case 0x283: case 0x308: case 0x380: case 0x381:
-                case 0x382: case 0x383: case 0x384: case 0x385:
-                case 0x386: case 0x387: case 0x388: case 0x389:
-                case 0x38A: case 0x38B: case 0x38C: case 0x38D:
-                case 0x38E: case 0x38F: case 0x410: case 0x430:
-                case 0x450: case 0x490:
+                case 0x383: case 0x386: case 0x387: case 0x38F:
+                case 0x410: case 0x430: case 0x450: case 0x490:
                   break;
                 default: {
                   id(trane_unknown_frame_count)++;
@@ -140,6 +146,24 @@ canbus:
                        static_cast<unsigned long>(millis()),
                        static_cast<unsigned long>(can_id),
                        static_cast<unsigned>(x.size()), bytes);
+
+      - can_id: 0x5C1
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              char buf[32] = {0}; size_t pos = 0;
+              for (size_t i = 0; i < x.size() && i < 8 && pos + 3 < sizeof(buf); i++)
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "%02X%s", x[i], i + 1 < x.size() ? " " : "");
+              id(trane_last_5c1_raw).publish_state(buf);
+
+      - can_id: 0x5C9
+        can_id_mask: 0x7FF
+        then:
+          - lambda: |-
+              char buf[32] = {0}; size_t pos = 0;
+              for (size_t i = 0; i < x.size() && i < 8 && pos + 3 < sizeof(buf); i++)
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "%02X%s", x[i], i + 1 < x.size() ? " " : "");
+              id(trane_last_5c9_raw).publish_state(buf);
 
       - can_id: 0x283
         can_id_mask: 0x7FF
@@ -291,12 +315,17 @@ trane_bus:
           char *tail = nullptr; v = strtof(s.c_str(), &tail);
           return tail != s.c_str() && *tail == '\0';
         };
+        auto zone_object = [&](size_t root, int zone) -> size_t {
+          char needle[10]; snprintf(needle, sizeof(needle), "\"%d\":{", zone);
+          return j.find(needle, root);
+        };
 
         std::string v; float f;
 
         size_t p = j.find("\"SystemOpStatus\"");
         if (p != std::string::npos) {
           size_t e = object_end(p);
+          if (get_value("A", p, e, v)) id(trane_system_state).publish_state(v);
           if (get_value("B", p, e, v)) {
             if (v == "A") id(trane_system_mode).publish_state("heat");
             else if (v == "B") id(trane_system_mode).publish_state("cool");
@@ -304,7 +333,10 @@ trane_bus:
             else id(trane_system_mode).publish_state(v);
           }
           if (get_value("C", p, e, v)) id(trane_system_demand_stage).publish_state(v);
-          if (get_value("D", p, e, v)) id(trane_system_status_d_raw).publish_state(v);
+          if (get_value("D", p, e, v)) {
+            id(trane_system_status_d_raw).publish_state(v);
+            if (as_float(v, f)) id(trane_system_status_d_numeric).publish_state(f);
+          }
           if (get_value("E", p, e, v)) {
             id(trane_system_status_e_raw).publish_state(v);
             if (as_float(v, f)) {
@@ -316,35 +348,70 @@ trane_bus:
 
         p = j.find("\"ZoneStatus\"");
         if (p != std::string::npos) {
-          size_t z = j.find("\"1\":{", p);
-          if (z != std::string::npos) {
+          for (int zone = 1; zone <= 6; zone++) {
+            size_t z = zone_object(p, zone);
+            if (z == std::string::npos) continue;
             size_t e = object_end(z);
-            if (get_value("H", z, e, v) && as_float(v, f) && f > 20 && f < 120) id(trane_room_temp).publish_state(f);
-            if (get_value("Hsp", z, e, v) && as_float(v, f)) id(trane_heat_setpoint).publish_state(f);
-            if (get_value("Csp", z, e, v) && as_float(v, f)) id(trane_cool_setpoint).publish_state(f);
-            if (get_value("E", z, e, v) && as_float(v, f) && f >= 0 && f <= 100) id(trane_zone1_airflow).publish_state(f);
-            if (get_value("G", z, e, v) && as_float(v, f)) id(trane_zone1_demand).publish_state(f);
-            if (get_value("F", z, e, v)) id(trane_zone1_state).publish_state(v);
-            if (get_value("HcStatus", z, e, v)) id(trane_zone1_hc_status).publish_state(v);
-            if (get_value("HoldText", z, e, v)) id(trane_zone1_hold_text).publish_state(v);
+            if (zone == 1) {
+              if (get_value("H", z, e, v) && as_float(v, f) && f > 20 && f < 120) id(trane_room_temp).publish_state(f);
+              if (get_value("E", z, e, v) && as_float(v, f) && f >= 0 && f <= 100) id(trane_zone1_airflow).publish_state(f);
+              if (get_value("G", z, e, v) && as_float(v, f)) id(trane_zone1_demand).publish_state(f);
+              if (get_value("F", z, e, v)) id(trane_zone1_state).publish_state(v);
+              if (get_value("HcStatus", z, e, v)) id(trane_zone1_hc_status).publish_state(v);
+              if (get_value("HoldText", z, e, v)) id(trane_zone1_hold_text).publish_state(v);
+            }
+            if (get_value("Hsp", z, e, v) && as_float(v, f)) {
+              if (zone == 1) id(trane_heat_setpoint).publish_state(f);
+              else if (zone == 2) id(trane_heat_setpoint_z2).publish_state(f);
+              else if (zone == 3) id(trane_heat_setpoint_z3).publish_state(f);
+              else if (zone == 4) id(trane_heat_setpoint_z4).publish_state(f);
+              else if (zone == 5) id(trane_heat_setpoint_z5).publish_state(f);
+              else if (zone == 6) id(trane_heat_setpoint_z6).publish_state(f);
+            }
+            if (get_value("Csp", z, e, v) && as_float(v, f)) {
+              if (zone == 1) id(trane_cool_setpoint).publish_state(f);
+              else if (zone == 2) id(trane_cool_setpoint_z2).publish_state(f);
+              else if (zone == 3) id(trane_cool_setpoint_z3).publish_state(f);
+              else if (zone == 4) id(trane_cool_setpoint_z4).publish_state(f);
+              else if (zone == 5) id(trane_cool_setpoint_z5).publish_state(f);
+              else if (zone == 6) id(trane_cool_setpoint_z6).publish_state(f);
+            }
           }
         }
 
         p = j.find("\"SpOverride\"");
         if (p != std::string::npos) {
-          size_t z = j.find("\"1\":{", p);
-          if (z != std::string::npos) {
+          for (int zone = 1; zone <= 6; zone++) {
+            size_t z = zone_object(p, zone);
+            if (z == std::string::npos) continue;
             size_t e = object_end(z);
-            if (get_value("Hsp", z, e, v) && as_float(v, f)) id(trane_heat_setpoint).publish_state(f);
-            if (get_value("Csp", z, e, v) && as_float(v, f)) id(trane_cool_setpoint).publish_state(f);
-            if (get_value("Source", z, e, v)) id(trane_setpoint_source).publish_state(v);
-            if (get_value("HoldType", z, e, v)) id(trane_hold_type).publish_state(v);
+            if (get_value("Hsp", z, e, v) && as_float(v, f)) {
+              if (zone == 1) id(trane_heat_setpoint).publish_state(f);
+              else if (zone == 2) id(trane_heat_setpoint_z2).publish_state(f);
+              else if (zone == 3) id(trane_heat_setpoint_z3).publish_state(f);
+              else if (zone == 4) id(trane_heat_setpoint_z4).publish_state(f);
+              else if (zone == 5) id(trane_heat_setpoint_z5).publish_state(f);
+              else if (zone == 6) id(trane_heat_setpoint_z6).publish_state(f);
+            }
+            if (get_value("Csp", z, e, v) && as_float(v, f)) {
+              if (zone == 1) id(trane_cool_setpoint).publish_state(f);
+              else if (zone == 2) id(trane_cool_setpoint_z2).publish_state(f);
+              else if (zone == 3) id(trane_cool_setpoint_z3).publish_state(f);
+              else if (zone == 4) id(trane_cool_setpoint_z4).publish_state(f);
+              else if (zone == 5) id(trane_cool_setpoint_z5).publish_state(f);
+              else if (zone == 6) id(trane_cool_setpoint_z6).publish_state(f);
+            }
+            if (zone == 1) {
+              if (get_value("Source", z, e, v)) id(trane_setpoint_source).publish_state(v);
+              if (get_value("HoldType", z, e, v)) id(trane_hold_type).publish_state(v);
+            }
           }
         }
 
         p = j.find("\"OdStatus\"");
         if (p != std::string::npos) {
           size_t e = object_end(p);
+          if (get_value("A", p, e, v)) id(trane_outdoor_active).publish_state(v);
           if (get_value("B", p, e, v) && as_float(v, f) && f >= 0 && f <= 100) id(trane_compressor_speed).publish_state(f);
           if (get_value("C", p, e, v)) id(trane_outdoor_state).publish_state(v);
           if (get_value("D", p, e, v)) id(trane_outdoor_fault).publish_state(v);
@@ -369,6 +436,77 @@ trane_bus:
           if (get_value("VentilatorStatus", p, e, v)) id(trane_ventilator_status).publish_state(v);
         }
 
+        p = j.find("\"ActiveAlarms\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (j.find("\"Deleted\"", p) != std::string::npos && j.find("\"Deleted\"", p) < e) {
+            id(trane_alarm_id_1).publish_state("cleared");
+            id(trane_alarm_origin_1).publish_state("");
+            id(trane_alarm_level_1).publish_state("");
+            id(trane_alarm_id_2).publish_state("cleared");
+            id(trane_alarm_origin_2).publish_state("");
+            id(trane_alarm_level_2).publish_state("");
+          } else {
+            size_t cursor = p;
+            for (int slot = 1; slot <= 2; slot++) {
+              size_t aid = j.find("\"AlarmId\":\"", cursor);
+              if (aid == std::string::npos || aid >= e) break;
+              if (get_value("AlarmId", aid, e, v)) {
+                if (slot == 1) id(trane_alarm_id_1).publish_state(v);
+                else id(trane_alarm_id_2).publish_state(v);
+              }
+              if (get_value("Origin", aid, e, v)) {
+                if (slot == 1) id(trane_alarm_origin_1).publish_state(v);
+                else id(trane_alarm_origin_2).publish_state(v);
+              }
+              if (get_value("Level", aid, e, v)) {
+                if (slot == 1) id(trane_alarm_level_1).publish_state(v);
+                else id(trane_alarm_level_2).publish_state(v);
+              }
+              cursor = aid + 11;
+            }
+          }
+        }
+
+        p = j.find("\"PresetSettings\"");
+        if (p != std::string::npos) {
+          size_t pe = object_end(p);
+          const char *names[] = {"Home", "Away", "Sleep"};
+          for (int preset = 0; preset < 3; preset++) {
+            std::string needle = std::string("\"") + names[preset] + "\":{";
+            size_t q = j.find(needle, p);
+            if (q == std::string::npos || q >= pe) continue;
+            size_t e = object_end(q);
+            if (get_value("Hsp", q, e, v) && as_float(v, f)) {
+              if (preset == 0) id(trane_preset_home_heat).publish_state(f);
+              else if (preset == 1) id(trane_preset_away_heat).publish_state(f);
+              else id(trane_preset_sleep_heat).publish_state(f);
+            }
+            if (get_value("Csp", q, e, v) && as_float(v, f)) {
+              if (preset == 0) id(trane_preset_home_cool).publish_state(f);
+              else if (preset == 1) id(trane_preset_away_cool).publish_state(f);
+              else id(trane_preset_sleep_cool).publish_state(f);
+            }
+          }
+        }
+
+        p = j.find("\"ZoneCardState\"");
+        if (p != std::string::npos) {
+          for (int zone = 1; zone <= 6; zone++) {
+            size_t z = zone_object(p, zone);
+            if (z == std::string::npos) continue;
+            size_t e = object_end(z);
+            if (get_value("B", z, e, v)) {
+              if (zone == 1) id(trane_zone_name_1).publish_state(v);
+              else if (zone == 2) id(trane_zone_name_2).publish_state(v);
+              else if (zone == 3) id(trane_zone_name_3).publish_state(v);
+              else if (zone == 4) id(trane_zone_name_4).publish_state(v);
+              else if (zone == 5) id(trane_zone_name_5).publish_state(v);
+              else if (zone == 6) id(trane_zone_name_6).publish_state(v);
+            }
+          }
+        }
+
         p = j.find("\"UnitID\"");
         if (p != std::string::npos) {
           size_t e = object_end(p);
@@ -384,10 +522,24 @@ trane_bus:
           if (get_value("AlarmDetailsVersion", p, e, v)) id(trane_alarm_db_version).publish_state(v);
         }
 
+        p = j.find("\"SystemSettings\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (get_value("G", p, e, v)) id(trane_thermostat_display_name).publish_state(v);
+          if (get_value("J", p, e, v)) id(trane_timezone_local_offset).publish_state(v);
+          if (get_value("K", p, e, v)) id(trane_timezone_standard_offset).publish_state(v);
+        }
+
         p = j.find("\"OdWidget\"");
         if (p != std::string::npos) {
           size_t e = object_end(p);
           if (get_value("A", p, e, v) && as_float(v, f) && f > -60 && f < 160) id(trane_od_widget_temp).publish_state(f);
+        }
+
+        p = j.find("\"OutdoorSettings\"");
+        if (p != std::string::npos) {
+          size_t e = object_end(p);
+          if (get_value("OdTempUserOffset", p, e, v) && as_float(v, f)) id(trane_od_temp_user_offset).publish_state(f);
         }
 
         p = j.find("\"ScheduleSettings\"");
@@ -400,6 +552,8 @@ trane_bus:
         if (p != std::string::npos) {
           size_t e = object_end(p);
           if (get_value("A", p, e, v)) id(trane_weather_zip).publish_state(v);
+          if (get_value("B", p, e, v)) id(trane_weather_country).publish_state(v);
+          if (get_value("C", p, e, v)) id(trane_weather_region).publish_state(v);
           if (get_value("D", p, e, v)) id(trane_weather_status).publish_state(v);
         }
 
