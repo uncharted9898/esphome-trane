@@ -4,6 +4,7 @@
 #include "esphome/core/log.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -173,6 +174,87 @@ std::string TraneBus::get_last_frame_hex(uint16_t can_id) const {
     pos += snprintf(bytes + pos, sizeof(bytes) - pos, "%02X%s", id_last_data_[can_id][i],
                     i + 1 < id_last_dlc_[can_id] ? " " : "");
   return bytes;
+}
+
+std::string TraneBus::get_last_json_value(const std::string &root, const std::string &scope,
+                                          const std::string &key) const {
+  const JsonSnapshot *snapshot = nullptr;
+  for (const auto &candidate : json_snapshots_) {
+    if (candidate.root == root) {
+      snapshot = &candidate;
+      break;
+    }
+  }
+  if (snapshot == nullptr || snapshot->json.empty())
+    return {};
+
+  const std::string &json = snapshot->json;
+  size_t start = 0;
+  size_t end = json.size();
+
+  auto find_object_range = [&](const std::string &object_key, size_t from, size_t limit, size_t &out_start,
+                               size_t &out_end) -> bool {
+    const std::string needle = "\"" + object_key + "\"";
+    const size_t key_pos = json.find(needle, from);
+    if (key_pos == std::string::npos || key_pos >= limit)
+      return false;
+    const size_t brace = json.find('{', key_pos + needle.size());
+    if (brace == std::string::npos || brace >= limit)
+      return false;
+    int depth = 0;
+    bool quoted = false;
+    bool escaped = false;
+    for (size_t pos = brace; pos < limit; pos++) {
+      const char c = json[pos];
+      if (quoted) {
+        if (escaped) { escaped = false; continue; }
+        if (c == '\\') { escaped = true; continue; }
+        if (c == '"') quoted = false;
+        continue;
+      }
+      if (c == '"') { quoted = true; continue; }
+      if (c == '{') depth++;
+      else if (c == '}' && --depth == 0) {
+        out_start = brace + 1;
+        out_end = pos;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  size_t root_start = 0, root_end = json.size();
+  if (!find_object_range(root, 0, json.size(), root_start, root_end))
+    return {};
+  start = root_start;
+  end = root_end;
+
+  if (!scope.empty()) {
+    size_t scope_start = 0, scope_end = 0;
+    if (!find_object_range(scope, start, end, scope_start, scope_end))
+      return {};
+    start = scope_start;
+    end = scope_end;
+  }
+
+  const std::string field = "\"" + key + "\":\"";
+  size_t pos = json.find(field, start);
+  if (pos == std::string::npos || pos >= end)
+    return {};
+  pos += field.size();
+  const size_t value_end = json.find('"', pos);
+  if (value_end == std::string::npos || value_end > end)
+    return {};
+  return json.substr(pos, value_end - pos);
+}
+
+void TraneBus::dump_json_snapshots() const {
+  ESP_LOGI(TAG, "TRANE_JSON_SNAPSHOTS_BEGIN count=%u", static_cast<unsigned>(json_snapshot_count_));
+  for (const auto &snapshot : json_snapshots_) {
+    if (!snapshot.root.empty())
+      ESP_LOGI(TAG, "TRANE_JSON_SNAPSHOT,%s,%s", snapshot.root.c_str(), snapshot.json.c_str());
+  }
+  ESP_LOGI(TAG, "TRANE_JSON_SNAPSHOTS_END");
 }
 
 bool TraneBus::is_known_trane_id_(uint32_t can_id) const {
@@ -388,6 +470,35 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
   return false;
 }
 
+void TraneBus::remember_json_snapshot_(const std::string &root, const std::string &json) {
+  if (root.empty() || json.empty() || json.size() > MAX_JSON_SNAPSHOT_BYTES ||
+      !std::isalpha(static_cast<unsigned char>(root[0])))
+    return;
+
+  JsonSnapshot *slot = nullptr;
+  for (auto &candidate : json_snapshots_) {
+    if (candidate.root == root) {
+      slot = &candidate;
+      break;
+    }
+    if (slot == nullptr && candidate.root.empty())
+      slot = &candidate;
+  }
+  if (slot == nullptr) {
+    slot = &json_snapshots_[0];
+    for (auto &candidate : json_snapshots_) {
+      if (candidate.sequence < slot->sequence)
+        slot = &candidate;
+    }
+  }
+  const bool was_empty = slot->root.empty();
+  slot->root = root;
+  slot->json = json;
+  slot->sequence = ++json_snapshot_sequence_;
+  if (was_empty && json_snapshot_count_ < JSON_SNAPSHOT_SLOTS)
+    json_snapshot_count_++;
+}
+
 void TraneBus::handle_json_message_(uint32_t can_id, const std::string &json) {
   if (!validate_payload_shape_(json)) {
     rx_transport_errors_++;
@@ -411,6 +522,7 @@ void TraneBus::handle_json_message_(uint32_t can_id, const std::string &json) {
     }
   }
 
+  remember_json_snapshot_(last_json_root_, json);
   rx_json_messages_++;
   json_trigger_.trigger(json, can_id);
   if (can_id == 0x641)
