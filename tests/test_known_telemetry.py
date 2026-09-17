@@ -121,6 +121,8 @@ class KnownTelemetryContractTests(unittest.TestCase):
 
     def test_target_classifier_covers_observed_link_families(self):
         self.assertIn("bool is_known_trane_id(uint32_t can_id) const", BUS_H)
+        self.assertIn("if (!id(trane_link).is_known_trane_id(can_id))", HA)
+        self.assertNotIn("switch (can_id)", HA)
         for token in (
             "can_id >= 0x250 && can_id <= 0x252",
             "can_id >= 0x260 && can_id <= 0x262",
