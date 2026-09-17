@@ -12,16 +12,25 @@ The purpose of this note is to separate three very different things that were pr
 
 ## Stronger correlations from this capture
 
-### Indoor airflow target
+### Indoor airflow command / target family
 
 `0x281` is a four-word little-endian frame. During this capture it is approximately:
 
 - word 0: 630–633 — Actual Airflow, CFM
-- word 1: 500 — stable
+- word 1: 500 — stable command/target candidate
 - word 2: 0
 - word 3: 356 — Blower Speed, RPM
 
-The older Technician point displayed `Target Airflow % = 100%`. The persistent raw value `500` is therefore a strong candidate for a five-count-per-percent representation. The HA surface should preserve raw `500` and expose `500 / 5 = 100%` as **Target Airflow Percent Candidate** rather than call the word 500 CFM.
+An earlier live capture is important here: structured `IndoorStatus.E` was 63–64 while `0x281.word1` remained 500. The older Technician point also showed a distinct `Target Airflow %` concept, while the Technician schema evidence contains separate actual/requested/target airflow concepts.
+
+That makes two interpretations possible:
+
+1. raw 500 could be a five-count-per-percent encoding; or
+2. raw 500 could be target/requested airflow in CFM, with the structured ~63% value being a separately normalized command. On an approximately 800-CFM nominal point, 500 CFM is 62.5%, strikingly close to the observed 63–64 structured value.
+
+The second interpretation currently has the better cross-capture fit. Preserve word1 as a target/requested-airflow candidate rather than hard-code a `/5` conversion. A deliberate blower command sweep is required to distinguish target CFM, requested CFM, and normalized percent cleanly.
+
+The `0x318` trailing words make this family more interesting: bytes 4..5 move around 474–505 across captures, while bytes 6..7 move around 336–356. Those values correlate strongly with blower power and may be additional requested/target airflow and motor-speed fields. They remain raw until the sweep separates them.
 
 ### Outdoor superheat and subcool remain independently derivable
 
@@ -76,7 +85,7 @@ The receive transport now treats 0x601 as a read-only segmented JSON source usin
 | ID | Frames | Unique payloads | Current interpretation |
 | --- | ---: | ---: | --- |
 | 0x200 | 31 | 7 | ID EEV position candidate + second changing word |
-| 0x281 | 30 | 3 | actual airflow / target-airflow candidate / raw / blower RPM |
+| 0x281 | 30 | 3 | actual airflow / target-or-requested airflow candidate / raw / blower RPM |
 | 0x283 | 31 | 3 | two indoor Celsius temperature channels, exact semantics unresolved |
 | 0x2D0 | 31 | 2 | status family; one small field incremented 0x0D -> 0x0E |
 | 0x300 | 36 | 34 | ID gas / evap-liquid temperature candidates |
@@ -170,6 +179,6 @@ The highest-value remaining captures are deliberately state-changing rather than
 
 1. cold boot with listener already active, to retain full 0x5C1/0x5C9 and structured profile exchanges;
 2. synchronized Technician Monitor + CAN while compressor speed changes materially;
-3. indoor blower airflow/static sweep to resolve 0x318 and verify 0x281 word1 scaling;
+3. indoor blower airflow/static sweep to resolve 0x318 and distinguish requested/target airflow from normalized percent in 0x281;
 4. a natural A2L/mitigation self-test or documented state change to identify the mitigation-board frames without inducing a refrigerant leak;
 5. natural defrost / heat-mode capture to distinguish refrigerant-temperature and valve/status channels that are degenerate in steady cooling.
