@@ -5,7 +5,7 @@
 # live separately so qualification work does not churn or erase the historical
 # declarations and comments.
 #
-# Neither child package owns CAN hardware or transmit actions.
+# No child package owns CAN hardware or transmit actions.
 
 packages:
   established_extra:
@@ -21,3 +21,10 @@ packages:
     refresh: always
     files:
       - waveshare-trane-target-discovery.yaml
+
+  target_raw:
+    url: https://github.com/uncharted9898/esphome-trane
+    ref: dev
+    refresh: always
+    files:
+      - waveshare-trane-target-raw.yaml
