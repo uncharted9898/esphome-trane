@@ -23,7 +23,7 @@ The purpose of this note is to separate three very different things that were pr
 
 The older Technician point displayed `Target Airflow % = 100%`. The persistent raw value `500` is therefore a strong candidate for a five-count-per-percent representation. The HA surface should preserve raw `500` and expose `500 / 5 = 100%` as **Target Airflow Percent Candidate** rather than call the word 500 CFM.
 
-### Outdoor superheat and subcool
+### Outdoor superheat and subcool remain independently derivable
 
 At this capture point:
 
@@ -34,7 +34,21 @@ At this capture point:
 - liquid temperature candidate (`0x382.float0`) ~= 64.91–65.01 F
 - derived OD subcool ~= 20.71–20.82 F
 
-`0x3D0.float1` and `0x3E0.float0` carry the same sparse value, 20.065–20.100. `0x3E0` appends status byte `01`. This pair is much closer to the independent subcool calculation than to the independent superheat calculation in this run. It is therefore a strong **OD Subcool Candidate + status** pair, not yet a confirmed mapping because the independent values differ by roughly 0.6–0.75 F.
+These calculations are useful cross-checks but should remain derived values until a synchronized Technician point confirms the underlying temperature mappings.
+
+### 0x3D0 / 0x3E0 — compressor target-min-speed candidate
+
+`0x3D0.float1` and `0x3E0.float0` carry the same sparse value, 20.065–20.100. `0x3E0` appends status byte `01`.
+
+The first-pass temptation was to call this subcool because the derived OD subcool happens to be about 20.7–20.8 F in this operating point. The older Technician Monitor reference provides a substantially better discriminator: **Comp Target Min Speed = 20 RPS**. A slow-moving control value of about 20.08 is therefore a much stronger fit for target minimum compressor speed than for refrigerant subcool.
+
+Current confidence:
+
+- `0x3D0.float1`: Compressor Target Min Speed candidate, RPS
+- `0x3E0.float0`: duplicate Compressor Target Min Speed candidate, RPS
+- `0x3E0.byte4`: associated status candidate (`01` in this capture)
+
+Do not use 0x3D0/0x3E0 as the subcool measurement. Keep subcool independently derived from liquid saturation minus liquid temperature until direct Technician correlation is available.
 
 ### 0x601 / 0x581 segmented transport
 
@@ -77,8 +91,8 @@ The receive transport now treats 0x601 as a read-only segmented JSON source usin
 | 0x385 | 41 | 4 | OD EEV steps / compressor-target-speed candidate |
 | 0x38C | 58 | 19 | zero / input power |
 | 0x38F | 32 | 2 | liquid pressure / ~1.8–1.9 secondary value |
-| 0x3D0 | 3 | 3 | zero / OD subcool candidate |
-| 0x3E0 | 3 | 3 | OD subcool candidate + byte status 1 |
+| 0x3D0 | 3 | 3 | zero / compressor target-min-speed candidate |
+| 0x3E0 | 3 | 3 | compressor target-min-speed candidate + byte status 1 |
 | 0x410 | 4 | 4 | two ~99–100 F drive-temperature candidates |
 | 0x430 | 12 | 12 | float0 ~98.28; float1 ~298–340, exact semantics unresolved |
 | 0x450 | 12 | 12 | two dynamic ~272–316 / ~294–304 scalar channels; not safe to label temperatures |
@@ -132,7 +146,7 @@ These IDs are not `unknown noise`; they are recurring target Link status/config/
 
 Do not assign A2L/mitigation semantics to 0x53D/0x53E or any other stable family solely because an A2L node is installed. The capture proves presence and cadence, not ownership or meaning.
 
-## 0x318 warning
+## 0x318 warning and new torque hypothesis
 
 The earlier `External Static` guess was incorrect and has already been removed. In this capture:
 
@@ -140,13 +154,15 @@ The earlier `External Static` guess was incorrect and has already been removed. 
 - bytes 4..5 interpreted as LE U16 move 474–482;
 - bytes 6..7 interpreted as LE U16 move 336–339.
 
-This is therefore very likely a compound data/status frame rather than two LE floats. Preserve all three components until a blower/static-pressure sweep or Technician synchronization identifies them.
+Across the earlier and current captures, `0x318.float0` tracks blower electrical power unusually well: roughly 0.397–0.430 while `0x320` moves about 22.6–26.0 W at a reported 356 RPM. If the float were motor torque in N·m, `torque * angular_speed` gives roughly 14.8–16.0 W mechanical, corresponding to a plausible ~62–65% operating efficiency for this small ECM point.
+
+That is an interesting **torque hypothesis**, not a promoted mapping. The trailing words also correlate strongly with blower power and need a deliberate blower-speed sweep to distinguish command, speed, torque/current, and airflow-related fields.
 
 ## Why the old Unclassified counter was misleading
 
 The Home Assistant all-frame callback had a historical hard-coded `switch` containing only a small early subset of known IDs. Newer target mappings such as 0x200/0x281/0x300/0x310/0x318/0x320/0x382/0x384/0x385/0x388/0x389/0x38C/0x3D0/0x3E0/0x460 still incremented `Unclassified CAN Frames` even while their decoded entities were displayed elsewhere.
 
-The target transport now owns the authoritative `is_known_trane_id()` classification. Target-observed but not fully decoded families are classified as known Link traffic while their byte semantics remain raw/candidate. A future genuinely unseen ID therefore remains useful discovery signal instead of being buried under thousands of ordinary heartbeat/telemetry frames.
+The target transport now owns the authoritative `is_known_trane_id()` classification and the HA callback consults that same classifier. All 78 standard CAN IDs in this capture are covered by the target-observed classifier. Target-observed but not fully decoded families are classified as known Link traffic while their byte semantics remain raw/candidate. A future genuinely unseen ID therefore remains useful discovery signal instead of being buried under thousands of ordinary heartbeat/telemetry frames.
 
 ## Remaining qualification work
 
