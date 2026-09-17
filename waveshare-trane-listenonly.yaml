@@ -64,9 +64,10 @@ improv_serial:
 canbus:
   - platform: esp32_can
     id: hvac_can
-    # Waveshare ESP32-S3-RS485-CAN schematic: CAN is GPIO17 TX / GPIO18 RX.
-    tx_pin: GPIO17
-    rx_pin: GPIO18
+    # Waveshare ESP32-S3-RS485-CAN schematic: CAN is TXD2/RXD2,
+    # mapped to GPIO15 TX / GPIO16 RX. GPIO17/GPIO18 are TXD1/RXD1.
+    tx_pin: GPIO15
+    rx_pin: GPIO16
     bit_rate: 50kbps
     can_id: 1
     # HARD SAFETY BOUNDARY: TWAI listen-only receives but does not ACK or

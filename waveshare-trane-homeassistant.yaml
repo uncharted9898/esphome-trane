@@ -82,13 +82,14 @@ web_server:
   port: 80
 
 # Waveshare ESP32-S3-RS485-CAN isolated CAN interface, verified from schematic:
-# GPIO17 = CAN TX, GPIO18 = CAN RX.
+# CAN is TXD2/RXD2: GPIO15 = CAN TX, GPIO16 = CAN RX.
+# GPIO17/GPIO18 are the board's other serial path and are not the CAN pair.
 # Field: CAN H -> DH, CAN L -> DL, H1/R19 120-ohm jumper OPEN.
 canbus:
   - platform: esp32_can
     id: hvac_can
-    tx_pin: GPIO17
-    rx_pin: GPIO18
+    tx_pin: GPIO15
+    rx_pin: GPIO16
     can_id: 0x7FF
     use_extended_id: false
     bit_rate: 50kbps

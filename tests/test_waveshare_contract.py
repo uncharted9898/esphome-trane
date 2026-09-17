@@ -14,10 +14,10 @@ BUS_PY = (ROOT / "components/trane_bus/__init__.py").read_text()
 class WaveshareSafetyContractTests(unittest.TestCase):
     def test_reference_can_pins_and_rate(self):
         for config in (LISTEN, FULL, HOMEASSISTANT):
-            self.assertIn("tx_pin: GPIO17", config)
-            self.assertIn("rx_pin: GPIO18", config)
-            self.assertNotIn("tx_pin: GPIO15", config)
-            self.assertNotIn("rx_pin: GPIO16", config)
+            self.assertIn("tx_pin: GPIO15", config)
+            self.assertIn("rx_pin: GPIO16", config)
+            self.assertNotIn("tx_pin: GPIO17", config)
+            self.assertNotIn("rx_pin: GPIO18", config)
             self.assertIn("bit_rate: 50kbps", config)
 
     def test_homeassistant_profile_targets_s3_and_has_required_can_id(self):
