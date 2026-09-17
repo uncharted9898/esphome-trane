@@ -141,9 +141,29 @@ sensor:
     lambda: 'return id(trane_link).get_json_snapshot_count();'
     device_id: dev_discovery
 
-  # 5TAMX target discovery --------------------------------------------------
-  # The 2026-09-17 target captures show these channels moving coherently with
-  # blower start/stop. Names are hypotheses, never hidden promotions.
+  # 5TAMX target telemetry --------------------------------------------------
+  # Cross-operating-point correlation against a Technician monitor capture is
+  # documented in docs/TARGET-TECHNICIAN-CORRELATION-2026-09-17.md.
+  - platform: template
+    id: trane_200_u16_0
+    name: "0x200 Indoor EEV Position Candidate"
+    unit_of_measurement: "steps"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x200, 0);'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_200_u16_1
+    name: "0x200 U16 1 Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x200, 2);'
+    device_id: dev_air_handler
+
   - platform: template
     id: trane_280_float1
     name: "0x280 Float 1 Candidate"
@@ -165,7 +185,7 @@ sensor:
 
   - platform: template
     id: trane_281_u16_0
-    name: "0x281 U16 0 Candidate Actual Airflow"
+    name: "0x281 Actual Airflow"
     unit_of_measurement: "cfm"
     state_class: measurement
     accuracy_decimals: 0
@@ -175,8 +195,7 @@ sensor:
     device_id: dev_air_handler
   - platform: template
     id: trane_281_u16_1
-    name: "0x281 U16 1 Candidate Target Airflow"
-    unit_of_measurement: "cfm"
+    name: "0x281 U16 1 Candidate"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
@@ -194,7 +213,8 @@ sensor:
     device_id: dev_air_handler
   - platform: template
     id: trane_281_u16_3
-    name: "0x281 U16 3 Candidate Actual Speed"
+    name: "0x281 Blower Speed"
+    unit_of_measurement: "rpm"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
@@ -204,7 +224,9 @@ sensor:
 
   - platform: template
     id: trane_300_float1
-    name: "0x300 Float 1 Candidate"
+    name: "0x300 ID Gas Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -213,7 +235,9 @@ sensor:
     device_id: dev_air_handler
   - platform: template
     id: trane_300_float2
-    name: "0x300 Float 2 Candidate"
+    name: "0x300 ID Evap Liquid Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -221,8 +245,23 @@ sensor:
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x300, 4);'
     device_id: dev_air_handler
   - platform: template
+    id: trane_300_superheat
+    name: "0x300 ID Superheat Candidate"
+    unit_of_measurement: "°F"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    update_interval: 2s
+    lambda: |-
+      const float gas = id(trane_link).get_last_float_le_or_nan(0x300, 0);
+      const float liquid = id(trane_link).get_last_float_le_or_nan(0x300, 4);
+      if (!std::isfinite(gas) || !std::isfinite(liquid)) return NAN;
+      return gas - liquid;
+    device_id: dev_air_handler
+  - platform: template
     id: trane_310_float1
-    name: "0x310 Float 1 Candidate Return Static"
+    name: "0x310 Total Static Pressure"
+    unit_of_measurement: "inWC"
     state_class: measurement
     accuracy_decimals: 4
     entity_category: diagnostic
@@ -231,7 +270,7 @@ sensor:
     device_id: dev_air_handler
   - platform: template
     id: trane_318_float1
-    name: "0x318 Float 1 Candidate External Static"
+    name: "0x318 Float 1 Candidate"
     state_class: measurement
     accuracy_decimals: 4
     entity_category: diagnostic
@@ -240,7 +279,9 @@ sensor:
     device_id: dev_air_handler
   - platform: template
     id: trane_320_float1
-    name: "0x320 Float 1 Candidate Motor Power"
+    name: "0x320 Blower Power"
+    unit_of_measurement: "W"
+    device_class: power
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -248,22 +289,23 @@ sensor:
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x320, 0);'
     device_id: dev_air_handler
 
-  # 5TWV0X outdoor discovery ------------------------------------------------
-  # Expose the halves the first target profile discarded. Most are left as
-  # scalars until Technician/capture correlation distinguishes temperature,
-  # pressure, EEV, current and power.
+  # 5TWV0X outdoor telemetry ------------------------------------------------
   - platform: template
     id: trane_381_float2
-    name: "0x381 Float 2 Candidate"
+    name: "0x381 Suction Pressure"
+    unit_of_measurement: "psi"
+    device_class: pressure
     state_class: measurement
-    accuracy_decimals: 2
+    accuracy_decimals: 1
     entity_category: diagnostic
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x381, 4);'
     device_id: dev_heat_pump
   - platform: template
     id: trane_382_float1
-    name: "0x382 Float 1 Candidate"
+    name: "0x382 Liquid Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -272,7 +314,9 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_382_float2
-    name: "0x382 Float 2 Candidate"
+    name: "0x382 OD Coil Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -281,16 +325,19 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_383_float2
-    name: "0x383 Float 2 Candidate"
+    name: "0x383 Line Voltage"
+    unit_of_measurement: "V"
+    device_class: voltage
     state_class: measurement
-    accuracy_decimals: 2
+    accuracy_decimals: 1
     entity_category: diagnostic
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x383, 4);'
     device_id: dev_heat_pump
   - platform: template
     id: trane_384_float1
-    name: "0x384 Float 1 Candidate"
+    name: "0x384 Compressor Target Max Speed Candidate"
+    unit_of_measurement: "RPS"
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -299,7 +346,9 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_384_u16_2
-    name: "0x384 U16 2 Raw"
+    name: "0x384 Drive DC Voltage"
+    unit_of_measurement: "V"
+    device_class: voltage
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
@@ -308,7 +357,8 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_384_u16_3
-    name: "0x384 U16 3 Raw"
+    name: "0x384 Outdoor Fan Speed"
+    unit_of_measurement: "rpm"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
@@ -317,7 +367,8 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_385_float1
-    name: "0x385 Float 1 Candidate EEV Steps"
+    name: "0x385 Outdoor EEV Position"
+    unit_of_measurement: "steps"
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
@@ -326,7 +377,8 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_385_float2
-    name: "0x385 Float 2 Candidate EEV Position"
+    name: "0x385 Compressor Target Speed Candidate"
+    unit_of_measurement: "RPS"
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
@@ -335,7 +387,9 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_387_float2
-    name: "0x387 Float 2 Candidate"
+    name: "0x387 Fan Phase Current Candidate"
+    unit_of_measurement: "A"
+    device_class: current
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -343,8 +397,23 @@ sensor:
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x387, 4);'
     device_id: dev_heat_pump
   - platform: template
+    id: trane_387_rpm
+    name: "0x387 Compressor Speed RPM"
+    unit_of_measurement: "rpm"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    update_interval: 2s
+    lambda: |-
+      const float rps = id(trane_link).get_last_float_le_or_nan(0x387, 0);
+      if (!std::isfinite(rps)) return NAN;
+      return rps * 60.0f;
+    device_id: dev_heat_pump
+  - platform: template
     id: trane_388_float1
-    name: "0x388 Float 1 Candidate Current"
+    name: "0x388 Current 1 Candidate"
+    unit_of_measurement: "A"
+    device_class: current
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -353,7 +422,9 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_388_float2
-    name: "0x388 Float 2 Candidate Current"
+    name: "0x388 Current 2 Candidate"
+    unit_of_measurement: "A"
+    device_class: current
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -362,7 +433,9 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_389_float1
-    name: "0x389 Float 1 Candidate Current"
+    name: "0x389 Drive Current Candidate"
+    unit_of_measurement: "A"
+    device_class: current
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -371,7 +444,9 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_389_float2
-    name: "0x389 Float 2 Candidate Current"
+    name: "0x389 Input AC Current Candidate"
+    unit_of_measurement: "A"
+    device_class: current
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -380,7 +455,9 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_38c_float2
-    name: "0x38C Float 2 Candidate Input Power"
+    name: "0x38C Input Power"
+    unit_of_measurement: "W"
+    device_class: power
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
@@ -396,10 +473,30 @@ sensor:
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x38F, 4);'
     device_id: dev_heat_pump
+  - platform: template
+    id: trane_3d0_float2
+    name: "0x3D0 Float 2 Candidate"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x3D0, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_3e0_float1
+    name: "0x3E0 Float 1 Candidate"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x3E0, 0);'
+    device_id: dev_heat_pump
 
   - platform: template
     id: trane_410_float2
-    name: "0x410 Float 2 Candidate"
+    name: "0x410 Drive Temperature 2 Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -426,20 +523,20 @@ sensor:
     device_id: dev_discovery
   - platform: template
     id: trane_460_float1
-    name: "0x460 Float 1 Candidate"
+    name: "0x460 Liquid Saturation Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
     update_interval: 5s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x460, 0);'
-    device_id: dev_discovery
+    device_id: dev_heat_pump
 
   # UX360/zone sensor family ------------------------------------------------
-  # 0x490 tracks ZoneStatus.H exactly in the target capture. Byte 4 moved from
-  # 75 toward 58 while the float stayed 82F; RH/quality remains a hypothesis.
   - platform: template
     id: trane_490_float1
-    name: "0x490 Zone 1 Temperature Candidate"
+    name: "0x490 Zone 1 Room Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -450,8 +547,9 @@ sensor:
     device_id: dev_thermostat
   - platform: template
     id: trane_490_byte4
-    name: "0x490 Byte 4 Candidate RH"
+    name: "0x490 Zone 1 Relative Humidity"
     unit_of_measurement: "%"
+    device_class: humidity
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
@@ -581,8 +679,6 @@ text_sensor:
     entity_category: diagnostic
     device_id: dev_sc360
 
-  # ActiveAlarms already had two ID/origin slots, but slot 2 lost its level
-  # declaration during the package-safe migration.
   - platform: template
     id: trane_alarm_level_2
     name: "Active Alarm 2 Level"
@@ -615,9 +711,6 @@ text_sensor:
     entity_category: diagnostic
     device_id: dev_thermostat
 
-  # Private UX360 <-> SC360 transport is especially valuable during cold boot.
-  # Expose the most recent raw CAN frame in addition to the continuous log and
-  # bounded capture ring.
   - platform: template
     id: trane_last_5c1_raw
     name: "Last 0x5C1 Raw"
@@ -629,9 +722,6 @@ text_sensor:
     entity_category: diagnostic
     device_id: dev_discovery
 
-  # The transport component now remembers structured-message metadata without
-  # changing or transmitting anything. This preserves one-shot profile requests
-  # such as the target-observed THERMOSETTINGS request.
   - platform: template
     id: trane_last_json_root
     name: "Last Structured JSON Root"
@@ -680,10 +770,7 @@ text_sensor:
     lambda: 'return {id(trane_link).get_last_frame_hex(0x38C)};'
     device_id: dev_discovery
 
-  # Raw compact-profile fields ------------------------------------------------
-  # These deliberately expose compact keys as compact keys. They are retained
-  # from one-shot boot profiles by trane_bus and must not be globally mapped to
-  # Technician monitor letters without object-specific evidence.
+  # Raw compact-profile fields ----------------------------------------------
   - platform: template
     id: trane_indoor_settings_a
     name: "IndoorSettings 1 A Raw"
