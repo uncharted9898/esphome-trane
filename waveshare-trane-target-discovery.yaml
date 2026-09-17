@@ -7,12 +7,14 @@
 
 sensor:
   # Indoor blower electrical block -----------------------------------------
-  # Cross-capture identity:
-  #   line_voltage * 0x318.current * physical_0x280_pf ~= 0x320.real_power
-  # See docs/TARGET-BLOWER-ELECTRICAL-2026-09-17.md.
+  # 0x318.float[0] follows blower operation and remains the leading input-
+  # current candidate. The former V*I*PF derived-power entity is intentionally
+  # gone: the high-load 2026-09-17 capture disproved 0x383.float[1] as line
+  # voltage, so keeping that calculation would turn an old coincidence into a
+  # misleading runtime value. See TARGET-HIGH-LOAD-REQUALIFICATION-2026-09-17.
   - platform: template
     id: trane_318_blower_input_current
-    name: "0x318 Blower Input Current"
+    name: "0x318 Blower Input Current Candidate"
     unit_of_measurement: "A"
     device_class: current
     state_class: measurement
@@ -24,35 +26,19 @@ sensor:
 
   - platform: template
     id: trane_280_pf_candidate_physical
-    name: "0x280 Blower Power Factor Candidate"
+    name: "0x280 Blower Power-Factor-Like Candidate"
     state_class: measurement
     accuracy_decimals: 3
     entity_category: diagnostic
     update_interval: 2s
     lambda: |-
-      const float pf = id(trane_link).get_last_float_le_or_nan(0x280, 4);
-      // The same raw field has been observed as 2.5 during shutdown. Do not
-      // publish that sentinel/state encoding as a physical power factor.
-      if (!std::isfinite(pf) || pf <= 0.0f || pf > 1.0f) return NAN;
-      return pf;
-    device_id: dev_air_handler
-
-  - platform: template
-    id: trane_blower_vi_pf_calculated_power
-    name: "Blower V I PF Calculated Power"
-    unit_of_measurement: "W"
-    device_class: power
-    state_class: measurement
-    accuracy_decimals: 2
-    entity_category: diagnostic
-    update_interval: 2s
-    lambda: |-
-      const float volts = id(trane_link).get_last_float_le_or_nan(0x383, 4);
-      const float amps = id(trane_link).get_last_float_le_or_nan(0x318, 0);
-      const float pf = id(trane_link).get_last_float_le_or_nan(0x280, 4);
-      if (!std::isfinite(volts) || !std::isfinite(amps) || !std::isfinite(pf) ||
-          volts <= 0.0f || amps < 0.0f || pf <= 0.0f || pf > 1.0f) return NAN;
-      return volts * amps * pf;
+      const float value = id(trane_link).get_last_float_le_or_nan(0x280, 4);
+      // The same raw field has been observed as 2.5 during shutdown. Publish
+      // only its physically bounded operating-state value, while preserving
+      // Candidate wording because the high-load pass invalidated the previous
+      // electrical identity that had been used to infer a literal PF.
+      if (!std::isfinite(value) || value <= 0.0f || value > 1.0f) return NAN;
+      return value;
     device_id: dev_air_handler
 
   # 0x318 is compound. These two words track the blower strongly but are not
