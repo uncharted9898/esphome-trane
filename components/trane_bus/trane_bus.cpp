@@ -12,7 +12,8 @@ namespace esphome {
 namespace trane_bus {
 
 static const char *const TAG = "trane_bus";
-static constexpr size_t MAX_JSON_PAYLOAD = 512;
+static constexpr size_t MAX_RX_JSON_PAYLOAD = 4096;
+static constexpr size_t MAX_TX_JSON_PAYLOAD = 512;
 static constexpr uint32_t INTER_FRAME_DELAY_MS = 2;
 
 void TraneBus::setup() {
@@ -48,7 +49,8 @@ void TraneBus::dump_config() {
   ESP_LOGCONFIG(TAG, "  ACK timeout: %u ms", static_cast<unsigned>(ack_timeout_ms_));
   ESP_LOGCONFIG(TAG, "  Setpoint bounds: %.1f..%.1f degF, min deadband %.1f degF", setpoint_min_f_, setpoint_max_f_,
                 min_deadband_f_);
-  ESP_LOGCONFIG(TAG, "  Max JSON payload: %u bytes", static_cast<unsigned>(MAX_JSON_PAYLOAD));
+  ESP_LOGCONFIG(TAG, "  Max RX JSON payload: %u bytes", static_cast<unsigned>(MAX_RX_JSON_PAYLOAD));
+  ESP_LOGCONFIG(TAG, "  Max TX JSON payload: %u bytes", static_cast<unsigned>(MAX_TX_JSON_PAYLOAD));
   ESP_LOGCONFIG(TAG, "  Capture: %s, capacity %u frames", YESNO(capture_enabled_),
                 static_cast<unsigned>(capture_capacity_));
 }
@@ -177,71 +179,62 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
     return static_cast<size_t>(wire_len - 1U);
   };
 
-  // SC360 0x649 broadcast framing: Cx header, 01/02/... continuation frames,
-  // then an 0x8n final frame. Older experimental TX code in this repo encoded
-  // JSON length in bytes 1..2, so retain that as a receive fallback while the
-  // target-system wire format takes precedence.
-  if ((marker & 0xF0) == 0xC0) {
-    state.reset();
-    size_t payload_len = target_payload_length();
-    if (payload_len == 0 || payload_len > MAX_JSON_PAYLOAD) {
-      if (data.size() >= 3)
-        payload_len = static_cast<size_t>(data[1]) | (static_cast<size_t>(data[2]) << 8);
-    }
-    if (payload_len == 0 || payload_len > MAX_JSON_PAYLOAD) {
-      rx_transport_errors_++;
-      state.reset();
-      return false;
-    }
-    state.expected_len = payload_len;
-    state.expected_seq = 1;
-    state.buffer.reserve(state.expected_len);
-    return false;
-  }
-
-  // Target SC360 short 0x641 response framing uses a 0x2n header followed by
-  // 0x0n continuation frames and an 0x1n final frame. Store the short-framing
-  // flag in expected_seq bit 7 so the state structure stays compact; the low
-  // nibble carries the next sequence number. A live 2026-09-16 capture decodes
-  // 21/00/11 into {"Ack":"200"}.
-  if ((marker & 0xF0) == 0x20) {
-    const size_t payload_len = target_payload_length();
-    if (payload_len == 0 || payload_len > MAX_JSON_PAYLOAD) {
-      rx_transport_errors_++;
-      state.reset();
-      return false;
-    }
-    state.reset();
-    state.expected_len = payload_len;
-    state.expected_seq = 0x80;  // short framing flag + expected sequence 0
-    state.buffer.reserve(state.expected_len);
-    return false;
-  }
-
-  if (state.expected_len == 0)
-    return false;
-
-  if (state.expected_seq & 0x80) {
-    const uint8_t expected = state.expected_seq & 0x0F;
-    const uint8_t frame_type = marker & 0xF0;
-    const uint8_t sequence = marker & 0x0F;
-    if ((frame_type != 0x00 && frame_type != 0x10) || sequence != expected) {
-      rx_transport_errors_++;
-      state.reset();
-      return false;
-    }
-
-    bool saw_nul = false;
-    for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
-      if (data[i] == 0) {
-        saw_nul = true;
-        break;
+  // Process an in-flight payload before interpreting an otherwise ambiguous
+  // marker as a new header. Long transfers legitimately use sequence 0x21,
+  // for example, which is also the short-response header when the receiver is
+  // idle. The long sequence is seven-bit 1..0x7F and wraps 0x7F -> 0x01.
+  if (state.expected_len != 0) {
+    if (state.expected_seq & 0x80) {
+      // Short 0x641 response framing: 0x0n continuation, 0x1n final.
+      const uint8_t expected = state.expected_seq & 0x0F;
+      const uint8_t frame_type = marker & 0xF0;
+      const uint8_t sequence = marker & 0x0F;
+      if ((frame_type != 0x00 && frame_type != 0x10) || sequence != expected) {
+        rx_transport_errors_++;
+        state.reset();
+        return false;
       }
-      state.buffer.push_back(static_cast<char>(data[i]));
+
+      bool saw_nul = false;
+      for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
+        if (data[i] == 0) {
+          saw_nul = true;
+          break;
+        }
+        state.buffer.push_back(static_cast<char>(data[i]));
+      }
+
+      const bool final_frame = frame_type == 0x10 || saw_nul || state.buffer.size() == state.expected_len;
+      if (final_frame) {
+        if (state.buffer.size() == state.expected_len) {
+          complete = state.buffer;
+          state.reset();
+          return true;
+        }
+        rx_transport_errors_++;
+        state.reset();
+        return false;
+      }
+
+      state.expected_seq = static_cast<uint8_t>(0x80 | ((expected + 1U) & 0x0F));
+      return false;
     }
 
-    const bool final_frame = frame_type == 0x10 || saw_nul || state.buffer.size() == state.expected_len;
-    if (final_frame) {
+    // Long 0x641/0x649 framing. Bit 7 marks the final frame; the lower seven
+    // bits are the sequence number, not a byte-count. This is why final marker
+    // 0xAD means sequence 45 rather than "44 payload bytes in this frame".
+    if (marker & 0x80) {
+      const uint8_t sequence = marker & 0x7F;
+      if (sequence != state.expected_seq) {
+        rx_transport_errors_++;
+        state.reset();
+        return false;
+      }
+      for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
+        if (data[i] == 0)
+          break;
+        state.buffer.push_back(static_cast<char>(data[i]));
+      }
       if (state.buffer.size() == state.expected_len) {
         complete = state.buffer;
         state.reset();
@@ -252,49 +245,55 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
       return false;
     }
 
-    state.expected_seq = static_cast<uint8_t>(0x80 | ((expected + 1U) & 0x0F));
-    return false;
-  }
-
-  if (marker & 0x80) {
-    size_t used = marker & 0x7F;
-    if (used == 0) {
+    if (marker != state.expected_seq) {
       rx_transport_errors_++;
       state.reset();
       return false;
     }
-    used -= 1;
-    if (used > 7) {
-      rx_transport_errors_++;
-      state.reset();
-      return false;
-    }
-    for (size_t i = 1; i < data.size() && i <= used && state.buffer.size() < state.expected_len; i++) {
+    for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
       if (data[i] == 0)
         break;
       state.buffer.push_back(static_cast<char>(data[i]));
     }
-    if (state.buffer.size() == state.expected_len) {
-      complete = state.buffer;
-      state.reset();
-      return true;
-    }
-    rx_transport_errors_++;
-    state.reset();
+    state.expected_seq = state.expected_seq == 0x7F ? 1 : static_cast<uint8_t>(state.expected_seq + 1U);
     return false;
   }
 
-  if (marker != state.expected_seq) {
-    rx_transport_errors_++;
-    state.reset();
+  // Idle-state header recognition is deliberately exact. C1/CD/D1/D5/D9 and
+  // similar markers observed on the target are transport control/status frames,
+  // not payload starts, and should not inflate RX transport errors.
+  if (marker == 0xC2) {
+    size_t payload_len = target_payload_length();
+    if (payload_len == 0 || payload_len > MAX_RX_JSON_PAYLOAD) {
+      // Backward-compatible receive fallback for earlier experimental captures
+      // that encoded JSON length in bytes 1..2.
+      if (data.size() >= 3)
+        payload_len = static_cast<size_t>(data[1]) | (static_cast<size_t>(data[2]) << 8);
+    }
+    if (payload_len == 0 || payload_len > MAX_RX_JSON_PAYLOAD) {
+      rx_transport_errors_++;
+      state.reset();
+      return false;
+    }
+    state.expected_len = payload_len;
+    state.expected_seq = 1;
+    state.buffer.reserve(state.expected_len);
     return false;
   }
-  state.expected_seq++;
-  for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
-    if (data[i] == 0)
-      break;
-    state.buffer.push_back(static_cast<char>(data[i]));
+
+  if (marker == 0x21) {
+    const size_t payload_len = target_payload_length();
+    if (payload_len == 0 || payload_len > MAX_RX_JSON_PAYLOAD) {
+      rx_transport_errors_++;
+      state.reset();
+      return false;
+    }
+    state.expected_len = payload_len;
+    state.expected_seq = 0x80;  // short framing flag + expected sequence 0
+    state.buffer.reserve(state.expected_len);
+    return false;
   }
+
   return false;
 }
 
@@ -382,7 +381,7 @@ bool TraneBus::send_json_internal_(const std::string &payload, bool expect_ack, 
     ESP_LOGW(TAG, "TX blocked: waiting for ACK for %s", pending_kind_.c_str());
     return false;
   }
-  if (!validate_payload_shape_(payload) || payload.size() > MAX_JSON_PAYLOAD) {
+  if (!validate_payload_shape_(payload) || payload.size() > MAX_TX_JSON_PAYLOAD) {
     tx_errors_++;
     ESP_LOGE(TAG, "Refusing malformed or oversized JSON payload for %s", kind);
     return false;
