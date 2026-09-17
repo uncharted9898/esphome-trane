@@ -4,7 +4,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 HA = (ROOT / "waveshare-trane-homeassistant.yaml").read_text()
 TELEMETRY = (ROOT / "waveshare-trane-known-telemetry-v2.yaml").read_text()
-EXTRA = (ROOT / "waveshare-trane-known-telemetry-extra.yaml").read_text()
+EXTRA_AGGREGATOR = (ROOT / "waveshare-trane-known-telemetry-extra.yaml").read_text()
+EXTRA_BASE = (ROOT / "waveshare-trane-known-telemetry-extra-base.yaml").read_text()
+TARGET_DISCOVERY = (ROOT / "waveshare-trane-target-discovery.yaml").read_text()
+# Semantic assertions should see the composed package exactly as ESPHome does.
+EXTRA = EXTRA_BASE + "\n" + TARGET_DISCOVERY
 BUS_H = (ROOT / "components" / "trane_bus" / "trane_bus.h").read_text()
 BUS_CPP = (ROOT / "components" / "trane_bus" / "trane_bus.cpp").read_text()
 
@@ -25,9 +29,11 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertGreaterEqual(HA.count("refresh: always"), 3)
         self.assertIn("- waveshare-trane-known-telemetry-v2.yaml", HA)
         self.assertIn("- waveshare-trane-known-telemetry-extra.yaml", HA)
+        self.assertIn("waveshare-trane-known-telemetry-extra-base.yaml", EXTRA_AGGREGATOR)
+        self.assertIn("waveshare-trane-target-discovery.yaml", EXTRA_AGGREGATOR)
 
     def test_packages_own_no_hardware_or_esphome_root(self):
-        for package in (TELEMETRY, EXTRA):
+        for package in (TELEMETRY, EXTRA_AGGREGATOR, EXTRA_BASE, TARGET_DISCOVERY):
             self.assertNotIn("\nesphome:", package)
             self.assertNotIn("\ncanbus:", package)
             self.assertNotIn("\ntrane_bus:", package)
@@ -48,7 +54,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn("can_id_mask: 0x000", HA)
 
     def test_package_is_read_only(self):
-        for package in (TELEMETRY, EXTRA):
+        for package in (TELEMETRY, EXTRA_AGGREGATOR, EXTRA_BASE, TARGET_DISCOVERY):
             self.assertNotIn("trane_bus.set_tx_enabled", package)
             self.assertNotIn("trane_bus.set_mode", package)
             self.assertNotIn("trane_bus.set_setpoints", package)
@@ -149,6 +155,22 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertIn(token, BUS_CPP)
 
+        # Cold-boot CANopen traffic is deliberately kept in the public target
+        # classifier so HA reports only genuinely novel IDs.
+        for token in (
+            "can_id == 0x000",
+            "can_id == 0x081",
+            "can_id == 0x083",
+            "can_id >= 0x200 && can_id <= 0x210",
+            "can_id == 0x496",
+            "can_id == 0x540",
+            "can_id == 0x560",
+            "can_id == 0x5A1",
+            "can_id == 0x621",
+            "can_id == 0x7E4",
+        ):
+            self.assertIn(token, BUS_H)
+
     def test_601_segmented_json_is_receive_only_and_reassembled(self):
         self.assertIn("SegmentedRxState rx_601_{};", BUS_H)
         self.assertIn("can_id == 0x601 || can_id == 0x641 || can_id == 0x649", BUS_CPP)
@@ -171,13 +193,18 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x200 Indoor EEV Position Candidate",
             "0x490 Zone 1 Room Temperature",
             "0x490 Zone 1 Relative Humidity",
+            "0x318 Blower Input Current",
+            "0x280 Blower Power Factor Candidate",
+            "Blower V I PF Calculated Power",
         ):
             self.assertIn(f'name: "{label}"', combined)
         self.assertIn('unit_of_measurement: "cfm"', EXTRA)
         self.assertIn('unit_of_measurement: "inWC"', EXTRA)
         self.assertIn('unit_of_measurement: "rpm"', EXTRA)
         self.assertIn('unit_of_measurement: "W"', EXTRA)
+        self.assertIn('unit_of_measurement: "A"', TARGET_DISCOVERY)
         self.assertIn("return gas - liquid;", EXTRA)
+        self.assertIn("return volts * amps * pf;", TARGET_DISCOVERY)
 
     def test_target_correlated_outdoor_channels_are_exposed(self):
         combined = TELEMETRY + EXTRA
@@ -196,6 +223,19 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x460 Liquid Saturation Temperature Candidate",
         ):
             self.assertIn(f'name: "{label}"', combined)
+
+    def test_canopen_diagnostics_are_exposed_without_physical_role_guessing(self):
+        for label in (
+            "CANopen Node 1 State",
+            "CANopen Node 3 State",
+            "Last CANopen NMT 0x000 Raw",
+            "Last CANopen EMCY Node 1 0x081 Raw",
+            "Last CANopen LSS Server 0x7E4 Raw",
+            "Last CANopen LSS Manager 0x7E5 Raw",
+            "0x53E Active Link Nodes Candidate",
+            "Debug IDBLE State",
+        ):
+            self.assertIn(f'name: "{label}"', TARGET_DISCOVERY)
 
     def test_disproven_old_labels_do_not_regress(self):
         combined = TELEMETRY + EXTRA
