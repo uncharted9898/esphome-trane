@@ -4,6 +4,7 @@
 #include "esphome/core/component.h"
 #include "esphome/components/canbus/canbus.h"
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -49,6 +50,25 @@ class TraneBus : public Component {
   void clear_capture();
   void dump_capture() const;
 
+  // Discovery/census helpers. These are observation-only and never transmit.
+  // They keep the latest standard-frame payload for every 11-bit CAN ID so
+  // candidate telemetry can be exposed in YAML without teaching the transport
+  // layer unproven semantics.
+  void clear_id_census();
+  void dump_id_census() const;
+  uint16_t get_unique_standard_ids_seen() const { return unique_standard_ids_seen_; }
+  uint32_t get_can_id_count(uint16_t can_id) const;
+  uint8_t get_last_can_dlc(uint16_t can_id) const;
+  float get_last_float_le_or_nan(uint16_t can_id, uint8_t offset) const;
+  float get_last_u16_le_or_nan(uint16_t can_id, uint8_t offset) const;
+  float get_last_byte_or_nan(uint16_t can_id, uint8_t offset) const;
+  uint32_t get_last_u32_le_or_zero(uint16_t can_id, uint8_t offset) const;
+  std::string get_last_frame_hex(uint16_t can_id) const;
+
+  const std::string &get_last_json_root() const { return last_json_root_; }
+  const std::string &get_last_profile_request() const { return last_profile_request_; }
+  uint32_t get_last_json_can_id() const { return last_json_can_id_; }
+
   uint32_t get_rx_frames() const { return rx_frames_; }
   uint32_t get_trane_frames() const { return trane_frames_; }
   uint32_t get_sc360_frames() const { return sc360_frames_; }
@@ -69,6 +89,8 @@ class TraneBus : public Component {
   uint32_t get_capture_overwrites() const { return capture_overwrites_; }
 
  protected:
+  static constexpr size_t STANDARD_CAN_ID_COUNT = 0x800;
+
   struct SegmentedRxState {
     std::string buffer{};
     size_t expected_len{0};
@@ -93,6 +115,7 @@ class TraneBus : public Component {
   bool validate_profile_name_(const std::string &profile) const;
   bool is_known_trane_id_(uint32_t can_id) const;
   void on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const std::vector<uint8_t> &data);
+  void observe_standard_frame_(uint32_t can_id, const std::vector<uint8_t> &data);
   void capture_frame_(uint32_t can_id, const std::vector<uint8_t> &data);
   bool feed_segmented_json_(SegmentedRxState &state, const std::vector<uint8_t> &data, std::string &complete);
   void handle_json_message_(uint32_t can_id, const std::string &json);
@@ -119,6 +142,9 @@ class TraneBus : public Component {
   float min_deadband_f_{2.0f};
 
   std::string pending_kind_{};
+  std::string last_json_root_{};
+  std::string last_profile_request_{};
+  uint32_t last_json_can_id_{0};
   SegmentedRxState rx_641_{};
   SegmentedRxState rx_649_{};
   Trigger<std::string, uint32_t> json_trigger_;
@@ -127,6 +153,14 @@ class TraneBus : public Component {
   size_t capture_write_index_{0};
   std::vector<CapturedFrame> capture_frames_{};
   uint32_t capture_overwrites_{0};
+
+  // Compact 11-bit CAN census: ~27 KiB total for counts, DLCs and last data.
+  // This is intentionally fixed-size so observation cannot fragment heap or
+  // grow without bound during long commissioning runs.
+  std::array<uint32_t, STANDARD_CAN_ID_COUNT> id_counts_{};
+  std::array<uint8_t, STANDARD_CAN_ID_COUNT> id_last_dlc_{};
+  std::array<std::array<uint8_t, 8>, STANDARD_CAN_ID_COUNT> id_last_data_{};
+  uint16_t unique_standard_ids_seen_{0};
 
   uint32_t rx_frames_{0};
   uint32_t trane_frames_{0};
