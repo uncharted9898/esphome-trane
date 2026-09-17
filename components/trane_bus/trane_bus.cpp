@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
+#include <limits>
 #include <vector>
 
 namespace esphome {
@@ -53,6 +55,8 @@ void TraneBus::dump_config() {
   ESP_LOGCONFIG(TAG, "  Max TX JSON payload: %u bytes", static_cast<unsigned>(MAX_TX_JSON_PAYLOAD));
   ESP_LOGCONFIG(TAG, "  Capture: %s, capacity %u frames", YESNO(capture_enabled_),
                 static_cast<unsigned>(capture_capacity_));
+  ESP_LOGCONFIG(TAG, "  CAN census: fixed 11-bit table, %u IDs currently seen",
+                static_cast<unsigned>(unique_standard_ids_seen_));
 }
 
 bool TraneBus::has_recent_trane_activity() const {
@@ -98,11 +102,97 @@ void TraneBus::dump_capture() const {
   ESP_LOGI(TAG, "TRANE_CAPTURE_END");
 }
 
+void TraneBus::clear_id_census() {
+  id_counts_.fill(0);
+  id_last_dlc_.fill(0);
+  for (auto &payload : id_last_data_)
+    payload.fill(0);
+  unique_standard_ids_seen_ = 0;
+  ESP_LOGI(TAG, "CAN ID census cleared");
+}
+
+void TraneBus::dump_id_census() const {
+  ESP_LOGI(TAG, "TRANE_ID_CENSUS_BEGIN unique=%u", static_cast<unsigned>(unique_standard_ids_seen_));
+  for (uint16_t can_id = 0; can_id < STANDARD_CAN_ID_COUNT; can_id++) {
+    if (id_counts_[can_id] == 0)
+      continue;
+    char bytes[17] = {0};
+    for (uint8_t i = 0; i < id_last_dlc_[can_id] && i < 8; i++)
+      snprintf(bytes + i * 2, sizeof(bytes) - i * 2, "%02X", id_last_data_[can_id][i]);
+    ESP_LOGI(TAG, "TRANE_ID,%03X,%lu,%u,%s", static_cast<unsigned>(can_id),
+             static_cast<unsigned long>(id_counts_[can_id]), static_cast<unsigned>(id_last_dlc_[can_id]), bytes);
+  }
+  ESP_LOGI(TAG, "TRANE_ID_CENSUS_END");
+}
+
+uint32_t TraneBus::get_can_id_count(uint16_t can_id) const {
+  return can_id < STANDARD_CAN_ID_COUNT ? id_counts_[can_id] : 0;
+}
+
+uint8_t TraneBus::get_last_can_dlc(uint16_t can_id) const {
+  return can_id < STANDARD_CAN_ID_COUNT ? id_last_dlc_[can_id] : 0;
+}
+
+float TraneBus::get_last_float_le_or_nan(uint16_t can_id, uint8_t offset) const {
+  if (can_id >= STANDARD_CAN_ID_COUNT || offset > 4 || id_last_dlc_[can_id] < static_cast<uint8_t>(offset + 4))
+    return std::numeric_limits<float>::quiet_NaN();
+  float value;
+  std::memcpy(&value, &id_last_data_[can_id][offset], sizeof(value));
+  return std::isfinite(value) ? value : std::numeric_limits<float>::quiet_NaN();
+}
+
+float TraneBus::get_last_u16_le_or_nan(uint16_t can_id, uint8_t offset) const {
+  if (can_id >= STANDARD_CAN_ID_COUNT || offset > 6 || id_last_dlc_[can_id] < static_cast<uint8_t>(offset + 2))
+    return std::numeric_limits<float>::quiet_NaN();
+  const uint16_t value = static_cast<uint16_t>(id_last_data_[can_id][offset]) |
+                         (static_cast<uint16_t>(id_last_data_[can_id][offset + 1]) << 8);
+  return static_cast<float>(value);
+}
+
+float TraneBus::get_last_byte_or_nan(uint16_t can_id, uint8_t offset) const {
+  if (can_id >= STANDARD_CAN_ID_COUNT || offset >= 8 || id_last_dlc_[can_id] <= offset)
+    return std::numeric_limits<float>::quiet_NaN();
+  return static_cast<float>(id_last_data_[can_id][offset]);
+}
+
+uint32_t TraneBus::get_last_u32_le_or_zero(uint16_t can_id, uint8_t offset) const {
+  if (can_id >= STANDARD_CAN_ID_COUNT || offset > 4 || id_last_dlc_[can_id] < static_cast<uint8_t>(offset + 4))
+    return 0;
+  return static_cast<uint32_t>(id_last_data_[can_id][offset]) |
+         (static_cast<uint32_t>(id_last_data_[can_id][offset + 1]) << 8) |
+         (static_cast<uint32_t>(id_last_data_[can_id][offset + 2]) << 16) |
+         (static_cast<uint32_t>(id_last_data_[can_id][offset + 3]) << 24);
+}
+
+std::string TraneBus::get_last_frame_hex(uint16_t can_id) const {
+  if (can_id >= STANDARD_CAN_ID_COUNT || id_counts_[can_id] == 0)
+    return {};
+  char bytes[24] = {0};
+  size_t pos = 0;
+  for (uint8_t i = 0; i < id_last_dlc_[can_id] && i < 8 && pos + 3 < sizeof(bytes); i++)
+    pos += snprintf(bytes + pos, sizeof(bytes) - pos, "%02X%s", id_last_data_[can_id][i],
+                    i + 1 < id_last_dlc_[can_id] ? " " : "");
+  return bytes;
+}
+
 bool TraneBus::is_known_trane_id_(uint32_t can_id) const {
   if (can_id == 0x641 || can_id == 0x649 || can_id == 0x5C1 || can_id == 0x5C9 || can_id == 0x283 ||
       can_id == 0x308 || can_id == 0x490 || can_id == 0x410 || can_id == 0x430 || can_id == 0x450)
     return true;
   return can_id >= 0x380 && can_id <= 0x38F;
+}
+
+void TraneBus::observe_standard_frame_(uint32_t can_id, const std::vector<uint8_t> &data) {
+  if (can_id >= STANDARD_CAN_ID_COUNT)
+    return;
+  if (id_counts_[can_id] == 0)
+    unique_standard_ids_seen_++;
+  id_counts_[can_id]++;
+  const uint8_t dlc = static_cast<uint8_t>(std::min<size_t>(data.size(), 8));
+  id_last_dlc_[can_id] = dlc;
+  id_last_data_[can_id].fill(0);
+  for (uint8_t i = 0; i < dlc; i++)
+    id_last_data_[can_id][i] = data[i];
 }
 
 void TraneBus::capture_frame_(uint32_t can_id, const std::vector<uint8_t> &data) {
@@ -133,6 +223,7 @@ void TraneBus::on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const 
   if (extended_id || rtr)
     return;
 
+  observe_standard_frame_(can_id, data);
   capture_frame_(can_id, data);
 
   if (is_known_trane_id_(can_id)) {
@@ -303,6 +394,23 @@ void TraneBus::handle_json_message_(uint32_t can_id, const std::string &json) {
     ESP_LOGW(TAG, "Discarding non-JSON segmented payload on 0x%03" PRIX32, can_id);
     return;
   }
+
+  last_json_can_id_ = can_id;
+  const size_t root_start = json.find('"');
+  if (root_start != std::string::npos) {
+    const size_t root_end = json.find('"', root_start + 1);
+    if (root_end != std::string::npos) {
+      last_json_root_ = json.substr(root_start + 1, root_end - root_start - 1);
+      if (can_id == 0x641 && last_json_root_ == "GetProfile") {
+        const size_t colon = json.find(':', root_end + 1);
+        const size_t value_start = colon == std::string::npos ? std::string::npos : json.find('"', colon + 1);
+        const size_t value_end = value_start == std::string::npos ? std::string::npos : json.find('"', value_start + 1);
+        if (value_start != std::string::npos && value_end != std::string::npos)
+          last_profile_request_ = json.substr(value_start + 1, value_end - value_start - 1);
+      }
+    }
+  }
+
   rx_json_messages_++;
   json_trigger_.trigger(json, can_id);
   if (can_id == 0x641)
@@ -356,7 +464,8 @@ bool TraneBus::validate_payload_shape_(const std::string &payload) const {
 
 bool TraneBus::validate_profile_name_(const std::string &profile) const {
   static const char *const ALLOWED[] = {"SYSOP", "INDOOR", "ZONE", "ALARMS", "SPOVERRIDE", "PRESET", "SYSTEM",
-                                         "SCHEDULE", "VERSION", "ZONECARD", "ZONING", "WEATHERDATA", "UNITID"};
+                                         "SCHEDULE", "VERSION", "ZONECARD", "ZONING", "WEATHERDATA", "UNITID",
+                                         "THERMOSETTINGS"};
   for (const char *allowed : ALLOWED) {
     if (profile == allowed)
       return true;
