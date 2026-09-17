@@ -118,9 +118,6 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn("id(trane_last_5c9_raw).publish_state", HA)
 
     def test_unresolved_outdoor_ids_remain_discoverable(self):
-        # Only decoded outdoor IDs are excluded from the generic unknown-frame
-        # path. These unresolved IDs must not be swallowed merely because they
-        # live inside the broad 0x380-0x38F family.
         switch_block = HA.split("switch (can_id)", 1)[1].split("default:", 1)[0]
         for unresolved in (
             "0x382", "0x384", "0x385", "0x388", "0x389", "0x38A",
@@ -128,20 +125,63 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertNotIn(f"case {unresolved}", switch_block)
 
-    def test_candidate_channels_are_not_mislabeled_as_confirmed(self):
+    def test_target_correlated_indoor_channels_are_exposed(self):
+        combined = TELEMETRY + EXTRA
+        for label in (
+            "0x281 Actual Airflow",
+            "0x281 Blower Speed",
+            "0x308 Return Air Temperature",
+            "0x308 Supply Air Temperature",
+            "0x310 Total Static Pressure",
+            "0x320 Blower Power",
+            "0x300 ID Gas Temperature Candidate",
+            "0x300 ID Evap Liquid Temperature Candidate",
+            "0x300 ID Superheat Candidate",
+            "0x200 Indoor EEV Position Candidate",
+            "0x490 Zone 1 Room Temperature",
+            "0x490 Zone 1 Relative Humidity",
+        ):
+            self.assertIn(f'name: "{label}"', combined)
+        self.assertIn('unit_of_measurement: "cfm"', EXTRA)
+        self.assertIn('unit_of_measurement: "inWC"', EXTRA)
+        self.assertIn('unit_of_measurement: "rpm"', EXTRA)
+        self.assertIn('unit_of_measurement: "W"', EXTRA)
+        self.assertIn("return gas - liquid;", EXTRA)
+
+    def test_target_correlated_outdoor_channels_are_exposed(self):
+        combined = TELEMETRY + EXTRA
+        for label in (
+            "0x381 Suction Pressure",
+            "0x38F Liquid Pressure",
+            "0x383 Line Voltage",
+            "0x384 Drive DC Voltage",
+            "0x384 Outdoor Fan Speed",
+            "0x387 Actual Compressor Speed",
+            "0x387 Compressor Speed RPM",
+            "0x385 Outdoor EEV Position",
+            "0x385 Compressor Target Speed Candidate",
+            "0x389 Input AC Current Candidate",
+            "0x38C Input Power",
+            "0x460 Liquid Saturation Temperature Candidate",
+        ):
+            self.assertIn(f'name: "{label}"', combined)
+
+    def test_disproven_old_labels_do_not_regress(self):
+        combined = TELEMETRY + EXTRA
         for label in (
             "0x283 Float 1 Candidate ET GT",
             "0x283 Float 2 Candidate ET GT",
-            "0x308 Float 1 Candidate Return Air",
-            "0x308 Float 2 Candidate Supply Air",
-            "0x386 Float 2 Refrigerant Temperature Candidate",
+            "0x310 Float 1 Candidate Return Static",
+            "0x318 Float 1 Candidate External Static",
+            "0x320 Float 1 Candidate Motor Power",
             "0x387 Float 1 Temperature Candidate",
             "0x38F Refrigerant Pressure Candidate",
-            "0x410 Temperature Candidate",
             "0x430 Temperature Candidate",
             "0x450 Temperature Candidate",
+            "0x385 Float 2 Candidate EEV Position",
+            "0x281 U16 1 Candidate Target Airflow",
         ):
-            self.assertIn(f'name: "{label}"', TELEMETRY)
+            self.assertNotIn(f'name: "{label}"', combined)
 
     def test_raw_discovery_surfaces_exist(self):
         combined = TELEMETRY + EXTRA
@@ -173,7 +213,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertNotIn(f"id: trane_{fake_id}", combined)
 
-    def test_283_candidate_is_converted_from_historical_celsius_capture(self):
+    def test_283_raw_temperatures_retain_historical_celsius_conversion(self):
         self.assertIn("a * 9.0f / 5.0f + 32.0f", HA)
         self.assertIn("b * 9.0f / 5.0f + 32.0f", HA)
 
