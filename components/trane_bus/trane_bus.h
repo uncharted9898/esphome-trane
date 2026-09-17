@@ -56,6 +56,7 @@ class TraneBus : public Component {
   // layer unproven semantics.
   void clear_id_census();
   void dump_id_census() const;
+  void dump_json_snapshots() const;
   uint16_t get_unique_standard_ids_seen() const { return unique_standard_ids_seen_; }
   uint32_t get_can_id_count(uint16_t can_id) const;
   uint8_t get_last_can_dlc(uint16_t can_id) const;
@@ -64,6 +65,8 @@ class TraneBus : public Component {
   float get_last_byte_or_nan(uint16_t can_id, uint8_t offset) const;
   uint32_t get_last_u32_le_or_zero(uint16_t can_id, uint8_t offset) const;
   std::string get_last_frame_hex(uint16_t can_id) const;
+  std::string get_last_json_value(const std::string &root, const std::string &scope, const std::string &key) const;
+  uint8_t get_json_snapshot_count() const { return json_snapshot_count_; }
 
   const std::string &get_last_json_root() const { return last_json_root_; }
   const std::string &get_last_profile_request() const { return last_profile_request_; }
@@ -90,6 +93,8 @@ class TraneBus : public Component {
 
  protected:
   static constexpr size_t STANDARD_CAN_ID_COUNT = 0x800;
+  static constexpr size_t JSON_SNAPSHOT_SLOTS = 16;
+  static constexpr size_t MAX_JSON_SNAPSHOT_BYTES = 2048;
 
   struct SegmentedRxState {
     std::string buffer{};
@@ -109,6 +114,12 @@ class TraneBus : public Component {
     uint8_t data[8]{0};
   };
 
+  struct JsonSnapshot {
+    std::string root{};
+    std::string json{};
+    uint32_t sequence{0};
+  };
+
   bool send_frame_(const std::vector<uint8_t> &frame);
   bool send_json_internal_(const std::string &payload, bool expect_ack, const char *kind);
   bool validate_payload_shape_(const std::string &payload) const;
@@ -119,6 +130,7 @@ class TraneBus : public Component {
   void capture_frame_(uint32_t can_id, const std::vector<uint8_t> &data);
   bool feed_segmented_json_(SegmentedRxState &state, const std::vector<uint8_t> &data, std::string &complete);
   void handle_json_message_(uint32_t can_id, const std::string &json);
+  void remember_json_snapshot_(const std::string &root, const std::string &json);
   void handle_641_message_(const std::string &json);
   void clear_pending_ack_();
 
@@ -161,6 +173,10 @@ class TraneBus : public Component {
   std::array<uint8_t, STANDARD_CAN_ID_COUNT> id_last_dlc_{};
   std::array<std::array<uint8_t, 8>, STANDARD_CAN_ID_COUNT> id_last_data_{};
   uint16_t unique_standard_ids_seen_{0};
+
+  std::array<JsonSnapshot, JSON_SNAPSHOT_SLOTS> json_snapshots_{};
+  uint32_t json_snapshot_sequence_{0};
+  uint8_t json_snapshot_count_{0};
 
   uint32_t rx_frames_{0};
   uint32_t trane_frames_{0};
