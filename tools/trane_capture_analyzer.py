@@ -3,7 +3,9 @@
 
 The analyzer intentionally separates wire decoding from HVAC semantic labels. It
 parses TRANE_CAN_LIVE records, reports cadence/ranges for standard 11-bit IDs,
-and reassembles the proprietary segmented JSON observed on 0x601/0x641/0x649.
+reassembles the proprietary segmented JSON observed on 0x601/0x641/0x649, and
+decodes standards-backed CANopen management traffic without assigning physical
+Trane roles to node IDs.
 """
 
 from __future__ import annotations
@@ -26,6 +28,13 @@ LIVE_RE = re.compile(
 )
 
 SEGMENTED_JSON_IDS = (0x601, 0x641, 0x649)
+
+HEARTBEAT_STATES = {
+    0x00: "boot-up",
+    0x04: "stopped",
+    0x05: "operational",
+    0x7F: "pre-operational",
+}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -328,6 +337,103 @@ def typed_ranges(frames: Sequence[Frame]) -> dict[str, object]:
     return output
 
 
+def decode_canopen_management(frames: Sequence[Frame]) -> dict[str, object]:
+    """Decode standards-backed CANopen management traffic on Trane Link.
+
+    This deliberately does not map node IDs to physical Trane products. It only
+    names protocol-level NMT heartbeat and CiA-305 LSS behavior.
+    """
+    heartbeats: list[dict[str, object]] = []
+    lss: list[dict[str, object]] = []
+    nmt: list[dict[str, object]] = []
+
+    for frame in frames:
+        if frame.kind != "S":
+            continue
+
+        if 0x701 <= frame.can_id <= 0x77F and frame.data:
+            state = frame.data[0]
+            heartbeats.append(
+                {
+                    "line": frame.line_no,
+                    "tick_ms": frame.tick_ms,
+                    "node_id": frame.can_id - 0x700,
+                    "state": HEARTBEAT_STATES.get(state, f"0x{state:02X}"),
+                    "state_raw": state,
+                }
+            )
+            continue
+
+        if frame.can_id == 0x000 and len(frame.data) >= 2:
+            nmt.append(
+                {
+                    "line": frame.line_no,
+                    "tick_ms": frame.tick_ms,
+                    "command": frame.data[0],
+                    "target_node": frame.data[1],
+                }
+            )
+            continue
+
+        if frame.can_id not in (0x7E4, 0x7E5) or len(frame.data) != 8:
+            continue
+
+        entry: dict[str, object] = {
+            "line": frame.line_no,
+            "tick_ms": frame.tick_ms,
+            "can_id": f"0x{frame.can_id:03X}",
+            "direction": (
+                "manager_to_server" if frame.can_id == 0x7E5 else "server_to_manager"
+            ),
+            "command": frame.data[0],
+            "raw": frame.data.hex().upper(),
+        }
+
+        # CiA-305 Fastscan request. After command specifier 0x51 the layout is
+        # IDNumber[0..3], BitCheck, LSSSub, LSSNext. BitCheck 0x80 with the
+        # remaining selection fields zero is the Fastscan initialization form.
+        if frame.can_id == 0x7E5 and frame.data[0] == 0x51:
+            id_number = u32_le(frame.data, 1) or 0
+            bit_check = frame.data[5]
+            lss_sub = frame.data[6]
+            lss_next = frame.data[7]
+            entry.update(
+                {
+                    "service": "lss_fastscan",
+                    "id_number": id_number,
+                    "bit_check": bit_check,
+                    "lss_sub": lss_sub,
+                    "lss_next": lss_next,
+                    "phase": (
+                        "initialize"
+                        if id_number == 0
+                        and bit_check == 0x80
+                        and lss_sub == 0
+                        and lss_next == 0
+                        else "probe"
+                    ),
+                }
+            )
+        elif frame.can_id == 0x7E4 and frame.data[0] == 0x4F:
+            entry["service"] = "lss_fastscan_response"
+        else:
+            entry["service"] = "lss_raw"
+        lss.append(entry)
+
+    latest_heartbeat_by_node: dict[int, dict[str, object]] = {}
+    for heartbeat in heartbeats:
+        latest_heartbeat_by_node[int(heartbeat["node_id"])] = heartbeat
+
+    return {
+        "nmt": nmt,
+        "heartbeats_latest": [
+            latest_heartbeat_by_node[node_id]
+            for node_id in sorted(latest_heartbeat_by_node)
+        ],
+        "lss": lss,
+    }
+
+
 def id_summary(frames: Sequence[Frame]) -> list[dict[str, object]]:
     grouped: dict[tuple[str, int], list[Frame]] = defaultdict(list)
     for frame in frames:
@@ -361,6 +467,7 @@ def analyze(frames: Sequence[Frame]) -> dict[str, object]:
         "ids": id_summary(frames),
         "typed_ranges": typed_ranges(frames),
         "structured_json": reassemble_json(frames),
+        "canopen_management": decode_canopen_management(frames),
     }
 
 
@@ -379,6 +486,8 @@ def _print_text(report: dict[str, object]) -> None:
         )
     print("\nTyped ranges (wire interpretation only):")
     print(json.dumps(report["typed_ranges"], indent=2, sort_keys=True))
+    print("\nCANopen management:")
+    print(json.dumps(report["canopen_management"], indent=2, sort_keys=True))
     print("\nReassembled structured JSON:")
     print(json.dumps(report["structured_json"], indent=2, sort_keys=True))
 
