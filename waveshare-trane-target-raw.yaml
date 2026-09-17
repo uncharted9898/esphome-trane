@@ -1,0 +1,280 @@
+# Raw target-system diagnostics for unresolved but repeatedly observed Link IDs.
+#
+# Everything here is disabled by default. These surfaces exist so a field can
+# be correlated over time without promoting speculative HVAC semantics. This
+# package is observation-only and owns no CAN hardware or TX actions.
+
+text_sensor:
+  # Indoor / low-ID application family -------------------------------------
+  - platform: template
+    name: "Last 0x201 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x201)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x202 Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x202)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x204 Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x204)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x205 Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x205)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x206 Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x206)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x207 Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x207)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x209 Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x209)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x20A Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x20A)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x20B Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x20B)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x20C Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x20C)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x20E Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x20E)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x20F Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x20F)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x210 Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x210)};'
+    device_id: dev_discovery
+
+  # Stable/status groups ----------------------------------------------------
+  - platform: template
+    name: "Last 0x240 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x240)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x250 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x250)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x251 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x251)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x252 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x252)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x260 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x260)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x261 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x261)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x262 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x262)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x282 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x282)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x2D0 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x2D0)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x328 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x328)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x330 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x330)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x420 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x420)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x430 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x430)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x450 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x450)};'
+    device_id: dev_discovery
+
+  # Six-slot unresolved family ---------------------------------------------
+  - platform: template
+    name: "Last 0x4C0 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x4C0)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x4C1 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x4C1)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x4C2 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x4C2)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x4C3 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x4C3)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x4C4 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x4C4)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x4C5 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x4C5)};'
+    device_id: dev_discovery
+
+  # Boot-only / secondary SDO-like channels -------------------------------
+  - platform: template
+    name: "Last 0x496 Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x496)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x540 Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x540)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last 0x560 Cold Boot Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x560)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last SDO-like 0x5A1 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x5A1)};'
+    device_id: dev_discovery
+  - platform: template
+    name: "Last SDO-like 0x621 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x621)};'
+    device_id: dev_discovery
