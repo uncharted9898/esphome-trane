@@ -5,6 +5,8 @@ ROOT = Path(__file__).resolve().parents[1]
 HA = (ROOT / "waveshare-trane-homeassistant.yaml").read_text()
 TELEMETRY = (ROOT / "waveshare-trane-known-telemetry-v2.yaml").read_text()
 EXTRA = (ROOT / "waveshare-trane-known-telemetry-extra.yaml").read_text()
+BUS_H = (ROOT / "components" / "trane_bus" / "trane_bus.h").read_text()
+BUS_CPP = (ROOT / "components" / "trane_bus" / "trane_bus.cpp").read_text()
 
 
 def without_yaml_comments(text: str) -> str:
@@ -117,13 +119,40 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn("id(trane_last_5c1_raw).publish_state", HA)
         self.assertIn("id(trane_last_5c9_raw).publish_state", HA)
 
-    def test_unresolved_outdoor_ids_remain_discoverable(self):
-        switch_block = HA.split("switch (can_id)", 1)[1].split("default:", 1)[0]
-        for unresolved in (
-            "0x382", "0x384", "0x385", "0x388", "0x389", "0x38A",
-            "0x38B", "0x38C", "0x38D", "0x38E",
+    def test_target_classifier_covers_observed_link_families(self):
+        self.assertIn("bool is_known_trane_id(uint32_t can_id) const", BUS_H)
+        for token in (
+            "can_id >= 0x250 && can_id <= 0x252",
+            "can_id >= 0x260 && can_id <= 0x262",
+            "can_id >= 0x280 && can_id <= 0x285",
+            "can_id >= 0x2D0 && can_id <= 0x2D2",
+            "can_id >= 0x380 && can_id <= 0x38F",
+            "can_id >= 0x490 && can_id <= 0x495",
+            "can_id >= 0x4B0 && can_id <= 0x4B4",
+            "can_id >= 0x4C0 && can_id <= 0x4C5",
+            "can_id >= 0x701 && can_id <= 0x705",
+            "case 0x200:",
+            "case 0x300:",
+            "case 0x310:",
+            "case 0x318:",
+            "case 0x320:",
+            "case 0x3D0:",
+            "case 0x3E0:",
+            "case 0x460:",
+            "case 0x53D:",
+            "case 0x53E:",
+            "case 0x581:",
+            "case 0x601:",
+            "case 0x7E5:",
         ):
-            self.assertNotIn(f"case {unresolved}", switch_block)
+            self.assertIn(token, BUS_CPP)
+
+    def test_601_segmented_json_is_receive_only_and_reassembled(self):
+        self.assertIn("SegmentedRxState rx_601_{};", BUS_H)
+        self.assertIn("can_id == 0x601 || can_id == 0x641 || can_id == 0x649", BUS_CPP)
+        self.assertIn("state = &rx_601_;", BUS_CPP)
+        self.assertIn("0x601: C2 0A 30 00 25 00 00 00", BUS_CPP)
+        self.assertNotIn("command_can_id_{0x601}", BUS_H)
 
     def test_target_correlated_indoor_channels_are_exposed(self):
         combined = TELEMETRY + EXTRA
