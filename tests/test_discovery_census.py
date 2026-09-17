@@ -4,7 +4,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CPP = (ROOT / "components/trane_bus/trane_bus.cpp").read_text()
 HEADER = (ROOT / "components/trane_bus/trane_bus.h").read_text()
-EXTRA = (ROOT / "waveshare-trane-known-telemetry-extra.yaml").read_text()
+EXTRA_AGGREGATOR = (ROOT / "waveshare-trane-known-telemetry-extra.yaml").read_text()
+EXTRA_BASE = (ROOT / "waveshare-trane-known-telemetry-extra-base.yaml").read_text()
+TARGET_DISCOVERY = (ROOT / "waveshare-trane-target-discovery.yaml").read_text()
+TARGET_RAW = (ROOT / "waveshare-trane-target-raw.yaml").read_text()
+# Match the semantic surface ESPHome receives from the aggregator's children.
+# The aggregator itself intentionally contains package references, not the
+# child entity declarations.
+EXTRA = EXTRA_BASE + "\n" + TARGET_DISCOVERY + "\n" + TARGET_RAW
 
 
 class DiscoveryCensusContractTests(unittest.TestCase):
@@ -24,6 +31,14 @@ class DiscoveryCensusContractTests(unittest.TestCase):
             function.index("observe_standard_frame_(can_id, data);"),
             function.index("is_known_trane_id_(can_id)"),
         )
+
+    def test_aggregator_loads_all_discovery_children(self):
+        for child in (
+            "waveshare-trane-known-telemetry-extra-base.yaml",
+            "waveshare-trane-target-discovery.yaml",
+            "waveshare-trane-target-raw.yaml",
+        ):
+            self.assertIn(child, EXTRA_AGGREGATOR)
 
     def test_census_dump_is_compact_and_machine_parseable(self):
         self.assertIn("TRANE_ID_CENSUS_BEGIN", CPP)
@@ -74,12 +89,13 @@ class DiscoveryCensusContractTests(unittest.TestCase):
             self.assertIn(token, EXTRA)
 
     def test_discovery_package_remains_read_only(self):
-        self.assertNotIn("\ncanbus:", EXTRA)
-        self.assertNotIn("\ntrane_bus:", EXTRA)
-        self.assertNotIn("send_data(", EXTRA)
-        self.assertNotIn("trane_bus.set_tx_enabled", EXTRA)
-        self.assertNotIn("trane_bus.set_mode", EXTRA)
-        self.assertNotIn("trane_bus.set_setpoints", EXTRA)
+        for package in (EXTRA_AGGREGATOR, EXTRA_BASE, TARGET_DISCOVERY, TARGET_RAW):
+            self.assertNotIn("\ncanbus:", package)
+            self.assertNotIn("\ntrane_bus:", package)
+            self.assertNotIn("send_data(", package)
+            self.assertNotIn("trane_bus.set_tx_enabled", package)
+            self.assertNotIn("trane_bus.set_mode", package)
+            self.assertNotIn("trane_bus.set_setpoints", package)
 
 
 if __name__ == "__main__":
