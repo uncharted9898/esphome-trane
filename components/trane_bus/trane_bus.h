@@ -38,6 +38,11 @@ class TraneBus : public Component {
   bool has_recent_trane_activity() const;
   bool is_capture_enabled() const { return capture_enabled_; }
 
+  // Public observation-only classifier used by the HA discovery surface.
+  // Keep one source of truth for target-observed Trane Link IDs so the UI does
+  // not count already-understood telemetry/status traffic as "unknown".
+  bool is_known_trane_id(uint32_t can_id) const { return is_known_trane_id_(can_id); }
+
   Trigger<std::string, uint32_t> *get_json_trigger() { return &json_trigger_; }
 
   bool send_json(const std::string &payload);
@@ -157,6 +162,7 @@ class TraneBus : public Component {
   std::string last_json_root_{};
   std::string last_profile_request_{};
   uint32_t last_json_can_id_{0};
+  SegmentedRxState rx_601_{};
   SegmentedRxState rx_641_{};
   SegmentedRxState rx_649_{};
   Trigger<std::string, uint32_t> json_trigger_;
