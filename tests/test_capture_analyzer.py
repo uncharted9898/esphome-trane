@@ -34,6 +34,44 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertEqual(messages[0]["can_id"], "0x641")
         self.assertEqual(messages[0]["json"], {"Ack": "200"})
 
+    def test_canopen_lss_fastscan_initialize_decode(self):
+        frames = analyzer.parse_frames(
+            ["TRANE_CAN_LIVE,S,1000,7E5,8,5100000000800000"]
+        )
+        management = analyzer.decode_canopen_management(frames)
+        self.assertEqual(len(management["lss"]), 1)
+        event = management["lss"][0]
+        self.assertEqual(event["direction"], "manager_to_server")
+        self.assertEqual(event["service"], "lss_fastscan")
+        self.assertEqual(event["phase"], "initialize")
+        self.assertEqual(event["id_number"], 0)
+        self.assertEqual(event["bit_check"], 0x80)
+        self.assertEqual(event["lss_sub"], 0)
+        self.assertEqual(event["lss_next"], 0)
+
+    def test_canopen_lss_fastscan_response_decode(self):
+        frames = analyzer.parse_frames(
+            ["TRANE_CAN_LIVE,S,1000,7E4,8,4F00000000000000"]
+        )
+        management = analyzer.decode_canopen_management(frames)
+        self.assertEqual(len(management["lss"]), 1)
+        event = management["lss"][0]
+        self.assertEqual(event["direction"], "server_to_manager")
+        self.assertEqual(event["service"], "lss_fastscan_response")
+
+    def test_canopen_heartbeat_state_decode(self):
+        frames = analyzer.parse_frames(
+            [
+                "TRANE_CAN_LIVE,S,1000,701,1,05",
+                "TRANE_CAN_LIVE,S,1100,703,1,7F",
+            ]
+        )
+        management = analyzer.decode_canopen_management(frames)
+        self.assertEqual(
+            [(row["node_id"], row["state"]) for row in management["heartbeats_latest"]],
+            [(1, "operational"), (3, "pre-operational")],
+        )
+
     def test_malformed_short_record_is_ignored(self):
         frames = analyzer.parse_frames(
             ["TRANE_CAN_LIVE,S,1000,281,8,0603F401"]
@@ -47,6 +85,7 @@ class CaptureAnalyzerTests(unittest.TestCase):
         report = analyzer.analyze(frames)
         encoded = json.dumps(report)
         self.assertIn('"0x490"', encoded)
+        self.assertIn('"canopen_management"', encoded)
         self.assertEqual(report["unique_standard_ids"], 1)
 
 
