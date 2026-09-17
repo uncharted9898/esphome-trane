@@ -113,26 +113,20 @@ canbus:
                        static_cast<unsigned long>(can_id),
                        static_cast<unsigned>(x.size()), bytes);
 
-              // Exclude only IDs that have a dedicated decoder/raw surface.
-              // Unresolved members of the outdoor 0x380-0x38F family must stay
-              // visible in discovery on the new 5TWV0X generation.
-              switch (can_id) {
-                case 0x641: case 0x649: case 0x5C1: case 0x5C9:
-                case 0x283: case 0x308: case 0x380: case 0x381:
-                case 0x383: case 0x386: case 0x387: case 0x38F:
-                case 0x410: case 0x430: case 0x450: case 0x490:
-                  break;
-                default: {
-                  id(trane_unknown_frame_count)++;
-                  char idbuf[12];
-                  snprintf(idbuf, sizeof(idbuf), "0x%03lX", static_cast<unsigned long>(can_id));
-                  id(trane_last_unknown_id).publish_state(idbuf);
-                  char frame[48] = {0};
-                  size_t pos = snprintf(frame, sizeof(frame), "%s ", idbuf);
-                  for (size_t i = 0; i < x.size() && i < 8 && pos + 3 < sizeof(frame); i++)
-                    pos += snprintf(frame + pos, sizeof(frame) - pos, "%02X%s", x[i], i + 1 < x.size() ? " " : "");
-                  id(trane_last_unknown_frame).publish_state(frame);
-                }
+              // Count only CAN IDs that are genuinely novel to the target
+              // system. The transport component owns the authoritative target
+              // ID census/classifier; semantic candidates may remain raw while
+              // still being recognized as ordinary Trane Link traffic.
+              if (!id(trane_link).is_known_trane_id(can_id)) {
+                id(trane_unknown_frame_count)++;
+                char idbuf[12];
+                snprintf(idbuf, sizeof(idbuf), "0x%03lX", static_cast<unsigned long>(can_id));
+                id(trane_last_unknown_id).publish_state(idbuf);
+                char frame[48] = {0};
+                size_t pos = snprintf(frame, sizeof(frame), "%s ", idbuf);
+                for (size_t i = 0; i < x.size() && i < 8 && pos + 3 < sizeof(frame); i++)
+                  pos += snprintf(frame + pos, sizeof(frame) - pos, "%02X%s", x[i], i + 1 < x.size() ? " " : "");
+                id(trane_last_unknown_frame).publish_state(frame);
               }
 
       - can_id: 0x00000000
