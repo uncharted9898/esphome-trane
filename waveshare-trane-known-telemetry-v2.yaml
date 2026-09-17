@@ -89,7 +89,7 @@ sensor:
     device_id: dev_air_handler
   - platform: template
     id: trane_283_float1
-    name: "0x283 Float 1 Candidate ET GT"
+    name: "0x283 Indoor Temperature 1 Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -98,7 +98,7 @@ sensor:
     device_id: dev_air_handler
   - platform: template
     id: trane_283_float2
-    name: "0x283 Float 2 Candidate ET GT"
+    name: "0x283 Indoor Temperature 2 Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -107,7 +107,7 @@ sensor:
     device_id: dev_air_handler
   - platform: template
     id: trane_308_float1
-    name: "0x308 Float 1 Candidate Return Air"
+    name: "0x308 Return Air Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -116,7 +116,7 @@ sensor:
     device_id: dev_air_handler
   - platform: template
     id: trane_308_float2
-    name: "0x308 Float 2 Candidate Supply Air"
+    name: "0x308 Supply Air Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -157,7 +157,7 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_discharge_temp
-    name: "0x383 Discharge Temperature"
+    name: "0x383 Compressor Dome Discharge Temperature Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -172,16 +172,14 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_386_float1
-    name: "0x386 Float 1 Candidate"
-    unit_of_measurement: "°F"
-    device_class: temperature
+    name: "0x386 Float 1 Raw"
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
     device_id: dev_heat_pump
   - platform: template
     id: trane_386_float2
-    name: "0x386 Float 2 Refrigerant Temperature Candidate"
+    name: "0x386 Vapor Saturation Temperature Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -190,16 +188,15 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_387_float1
-    name: "0x387 Float 1 Temperature Candidate"
-    unit_of_measurement: "°F"
-    device_class: temperature
+    name: "0x387 Actual Compressor Speed"
+    unit_of_measurement: "RPS"
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
     device_id: dev_heat_pump
   - platform: template
     id: trane_38f_pressure
-    name: "0x38F Refrigerant Pressure Candidate"
+    name: "0x38F Liquid Pressure"
     unit_of_measurement: "psi"
     device_class: pressure
     state_class: measurement
@@ -209,7 +206,7 @@ sensor:
 
   - platform: template
     id: trane_410_temp
-    name: "0x410 Temperature Candidate"
+    name: "0x410 Drive Temperature 1 Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -218,18 +215,14 @@ sensor:
     device_id: dev_discovery
   - platform: template
     id: trane_430_temp
-    name: "0x430 Temperature Candidate"
-    unit_of_measurement: "°F"
-    device_class: temperature
+    name: "0x430 Float 1 Candidate"
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
     device_id: dev_discovery
   - platform: template
     id: trane_450_temp
-    name: "0x450 Temperature Candidate"
-    unit_of_measurement: "°F"
-    device_class: temperature
+    name: "0x450 Float 1 Candidate"
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
