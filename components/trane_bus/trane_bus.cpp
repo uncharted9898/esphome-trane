@@ -159,28 +159,102 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
     return false;
 
   const uint8_t marker = data[0];
+
+  // Target-system SC360 headers carry a uint32 little-endian wire length in
+  // bytes 4..7. The wire length includes the trailing NUL, while expected_len
+  // tracks JSON bytes only. Example captures:
+  //   0x649: C2 0A 30 00 2D 00 00 00  -> 45 wire bytes / 44 JSON bytes
+  //   0x641: 21 0A 30 00 0E 00 00 00  -> 14 wire bytes / 13 JSON bytes
+  auto target_payload_length = [&]() -> size_t {
+    if (data.size() < 8)
+      return 0;
+    const uint32_t wire_len = static_cast<uint32_t>(data[4]) |
+                              (static_cast<uint32_t>(data[5]) << 8) |
+                              (static_cast<uint32_t>(data[6]) << 16) |
+                              (static_cast<uint32_t>(data[7]) << 24);
+    if (wire_len == 0)
+      return 0;
+    return static_cast<size_t>(wire_len - 1U);
+  };
+
+  // SC360 0x649 broadcast framing: Cx header, 01/02/... continuation frames,
+  // then an 0x8n final frame. Older experimental TX code in this repo encoded
+  // JSON length in bytes 1..2, so retain that as a receive fallback while the
+  // target-system wire format takes precedence.
   if ((marker & 0xF0) == 0xC0) {
     state.reset();
-    if (data.size() < 3) {
-      rx_transport_errors_++;
-      return false;
+    size_t payload_len = target_payload_length();
+    if (payload_len == 0 || payload_len > MAX_JSON_PAYLOAD) {
+      if (data.size() >= 3)
+        payload_len = static_cast<size_t>(data[1]) | (static_cast<size_t>(data[2]) << 8);
     }
-    state.expected_len = static_cast<size_t>(data[1]) | (static_cast<size_t>(data[2]) << 8);
-    if (state.expected_len == 0 || state.expected_len > MAX_JSON_PAYLOAD) {
+    if (payload_len == 0 || payload_len > MAX_JSON_PAYLOAD) {
       rx_transport_errors_++;
       state.reset();
       return false;
     }
+    state.expected_len = payload_len;
+    state.expected_seq = 1;
     state.buffer.reserve(state.expected_len);
-    for (size_t i = 5; i < data.size() && state.buffer.size() < state.expected_len; i++) {
-      if (data[i] != 0)
-        state.buffer.push_back(static_cast<char>(data[i]));
+    return false;
+  }
+
+  // Target SC360 short 0x641 response framing uses a 0x2n header followed by
+  // 0x0n continuation frames and an 0x1n final frame. Store the short-framing
+  // flag in expected_seq bit 7 so the state structure stays compact; the low
+  // nibble carries the next sequence number. A live 2026-09-16 capture decodes
+  // 21/00/11 into {"Ack":"200"}.
+  if ((marker & 0xF0) == 0x20) {
+    const size_t payload_len = target_payload_length();
+    if (payload_len == 0 || payload_len > MAX_JSON_PAYLOAD) {
+      rx_transport_errors_++;
+      state.reset();
+      return false;
     }
+    state.reset();
+    state.expected_len = payload_len;
+    state.expected_seq = 0x80;  // short framing flag + expected sequence 0
+    state.buffer.reserve(state.expected_len);
     return false;
   }
 
   if (state.expected_len == 0)
     return false;
+
+  if (state.expected_seq & 0x80) {
+    const uint8_t expected = state.expected_seq & 0x0F;
+    const uint8_t frame_type = marker & 0xF0;
+    const uint8_t sequence = marker & 0x0F;
+    if ((frame_type != 0x00 && frame_type != 0x10) || sequence != expected) {
+      rx_transport_errors_++;
+      state.reset();
+      return false;
+    }
+
+    bool saw_nul = false;
+    for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
+      if (data[i] == 0) {
+        saw_nul = true;
+        break;
+      }
+      state.buffer.push_back(static_cast<char>(data[i]));
+    }
+
+    const bool final_frame = frame_type == 0x10 || saw_nul || state.buffer.size() == state.expected_len;
+    if (final_frame) {
+      if (state.buffer.size() == state.expected_len) {
+        complete = state.buffer;
+        state.reset();
+        return true;
+      }
+      rx_transport_errors_++;
+      state.reset();
+      return false;
+    }
+
+    state.expected_seq = static_cast<uint8_t>(0x80 | ((expected + 1U) & 0x0F));
+    return false;
+  }
 
   if (marker & 0x80) {
     size_t used = marker & 0x7F;
