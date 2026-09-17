@@ -5,12 +5,14 @@ ROOT = Path(__file__).resolve().parents[1]
 AGGREGATOR = (ROOT / "waveshare-trane-known-telemetry-extra.yaml").read_text()
 BASE = (ROOT / "waveshare-trane-known-telemetry-extra-base.yaml").read_text()
 TARGET = (ROOT / "waveshare-trane-target-discovery.yaml").read_text()
+RAW = (ROOT / "waveshare-trane-target-raw.yaml").read_text()
 
 
 def test_extra_package_preserves_established_surface_and_adds_target_discovery():
     assert "waveshare-trane-known-telemetry-extra-base.yaml" in AGGREGATOR
     assert "waveshare-trane-target-discovery.yaml" in AGGREGATOR
-    assert "refresh: always" in AGGREGATOR
+    assert "waveshare-trane-target-raw.yaml" in AGGREGATOR
+    assert AGGREGATOR.count("refresh: always") >= 3
 
     # Representative historical declarations prove that the original package
     # was preserved instead of being replaced by a reduced discovery-only file.
@@ -50,7 +52,28 @@ def test_target_discovery_surfaces_canopen_without_guessing_device_roles():
     ):
         assert token in TARGET
 
-    # The package is observation-only. Hardware and TX ownership remain in the
-    # main HA wrapper / trane_bus component.
-    for forbidden in ("canbus:", "trane_bus:", "send_data(", "tx_enabled:"):
-        assert forbidden not in TARGET
+
+def test_unresolved_target_families_stay_raw_and_disabled():
+    for token in (
+        'name: "Last 0x202 Cold Boot Raw"',
+        'name: "Last 0x20E Cold Boot Raw"',
+        'name: "Last 0x2D0 Raw"',
+        'name: "Last 0x420 Raw"',
+        'name: "Last 0x430 Raw"',
+        'name: "Last 0x450 Raw"',
+        'name: "Last 0x4C0 Raw"',
+        'name: "Last 0x4C5 Raw"',
+        'name: "Last 0x540 Cold Boot Raw"',
+        'name: "Last SDO-like 0x5A1 Raw"',
+        'name: "Last SDO-like 0x621 Raw"',
+    ):
+        assert token in RAW
+    assert RAW.count("disabled_by_default: true") >= 30
+
+
+def test_all_target_packages_are_observation_only():
+    # Hardware and TX ownership remain in the main HA wrapper / trane_bus
+    # component; discovery packages can only read the observation cache.
+    for package in (TARGET, RAW):
+        for forbidden in ("canbus:", "trane_bus:", "send_data(", "tx_enabled:"):
+            assert forbidden not in package
