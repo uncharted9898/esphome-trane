@@ -57,6 +57,22 @@ class DiscoveryCensusContractTests(unittest.TestCase):
         self.assertIn("Last Structured JSON Root", EXTRA)
         self.assertIn("Last OEM GetProfile Request", EXTRA)
 
+    def test_structured_snapshots_are_bounded_and_raw(self):
+        self.assertIn("JSON_SNAPSHOT_SLOTS = 16", HEADER)
+        self.assertIn("MAX_JSON_SNAPSHOT_BYTES = 2048", HEADER)
+        self.assertIn("get_last_json_value", HEADER)
+        self.assertIn("remember_json_snapshot_", CPP)
+        self.assertIn("Dump Structured Profile Snapshots", EXTRA)
+        for token in (
+            "IndoorSettings 1 A Raw",
+            "IndoorSettings 1 U Raw",
+            "ZoneSettings 1 ZoneMode Raw",
+            "SystemSettings B Raw",
+            "SystemSettings N Raw",
+            "VersionDetails D Raw",
+        ):
+            self.assertIn(token, EXTRA)
+
     def test_discovery_package_remains_read_only(self):
         self.assertNotIn("\ncanbus:", EXTRA)
         self.assertNotIn("\ntrane_bus:", EXTRA)
