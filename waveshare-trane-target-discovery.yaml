@@ -1,0 +1,300 @@
+# Target-system discovery/qualification telemetry.
+#
+# This package owns only passive template entities backed by the trane_bus
+# observation cache. It never transmits CAN frames. Mature/legacy entities stay
+# in waveshare-trane-known-telemetry-extra-base.yaml; this file adds mappings
+# learned from the installed 5TAMX/5TWV0X/UX360/SC360 target captures.
+
+sensor:
+  # Indoor blower electrical block -----------------------------------------
+  # Cross-capture identity:
+  #   line_voltage * 0x318.current * physical_0x280_pf ~= 0x320.real_power
+  # See docs/TARGET-BLOWER-ELECTRICAL-2026-09-17.md.
+  - platform: template
+    id: trane_318_blower_input_current
+    name: "0x318 Blower Input Current"
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 4
+    entity_category: diagnostic
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x318, 0);'
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_280_pf_candidate_physical
+    name: "0x280 Blower Power Factor Candidate"
+    state_class: measurement
+    accuracy_decimals: 3
+    entity_category: diagnostic
+    update_interval: 2s
+    lambda: |-
+      const float pf = id(trane_link).get_last_float_le_or_nan(0x280, 4);
+      // The same raw field has been observed as 2.5 during shutdown. Do not
+      // publish that sentinel/state encoding as a physical power factor.
+      if (!std::isfinite(pf) || pf <= 0.0f || pf > 1.0f) return NAN;
+      return pf;
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_blower_vi_pf_calculated_power
+    name: "Blower V I PF Calculated Power"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    update_interval: 2s
+    lambda: |-
+      const float volts = id(trane_link).get_last_float_le_or_nan(0x383, 4);
+      const float amps = id(trane_link).get_last_float_le_or_nan(0x318, 0);
+      const float pf = id(trane_link).get_last_float_le_or_nan(0x280, 4);
+      if (!std::isfinite(volts) || !std::isfinite(amps) || !std::isfinite(pf) ||
+          volts <= 0.0f || amps < 0.0f || pf <= 0.0f || pf > 1.0f) return NAN;
+      return volts * amps * pf;
+    device_id: dev_air_handler
+
+  # 0x318 is compound. These two words track the blower strongly but are not
+  # qualified enough for units yet. Requested-airflow and target/feedback RPM
+  # are leading hypotheses.
+  - platform: template
+    id: trane_318_u16_2
+    name: "0x318 U16 2 Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x318, 4);'
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_318_u16_3
+    name: "0x318 U16 3 Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x318, 6);'
+    device_id: dev_air_handler
+
+  # Compressor minimum-target family. Technician previously displayed a
+  # target minimum speed near 20 RPS; both target frames sit at ~20.1 RPS.
+  - platform: template
+    id: trane_3d0_target_min_speed_candidate
+    name: "0x3D0 Compressor Target Minimum Speed Candidate"
+    unit_of_measurement: "RPS"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x3D0, 4);'
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_3e0_target_min_speed_candidate
+    name: "0x3E0 Compressor Target Minimum Speed Mirror Candidate"
+    unit_of_measurement: "RPS"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x3E0, 0);'
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_3e0_status_candidate
+    name: "0x3E0 Status Byte Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x3E0, 4);'
+    device_id: dev_heat_pump
+
+  # CANopen/network-management observations --------------------------------
+  # 0x53E.byte5 fell 5 -> 4 while node 3 rebooted and returned to 5 after the
+  # node reached NMT operational. Treat this as an active/available-node count
+  # candidate until a topology test proves the exact contract.
+  - platform: template
+    id: trane_53e_active_nodes_candidate
+    name: "0x53E Active Link Nodes Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x53E, 5);'
+    device_id: dev_discovery
+
+  # Indoor digital/status adjacency. The target has both external switches
+  # closed in the Technician reference, and 0x201 bytes 1/2 remain 1/1. Keep
+  # this disabled and explicitly candidate until a switch transition is seen.
+  - platform: template
+    id: trane_201_ext_switch_1_candidate
+    name: "0x201 External Switch 1 Candidate"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x201, 1);'
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_201_ext_switch_2_candidate
+    name: "0x201 External Switch 2 Candidate"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x201, 2);'
+    device_id: dev_air_handler
+
+text_sensor:
+  # 0x601 segmented JSON currently exposes the IDBLE advertising debug state.
+  - platform: template
+    id: trane_debug_idble
+    name: "Debug IDBLE State"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("Debug", "", "IDBLE")};'
+    device_id: dev_discovery
+
+  # Standard CANopen heartbeat state bytes. Do not attach physical Trane device
+  # identities to node 1..5 until a topology-qualified capture proves them.
+  - platform: template
+    id: trane_canopen_node_1_state
+    name: "CANopen Node 1 State"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: |-
+      const float raw = id(trane_link).get_last_byte_or_nan(0x701, 0);
+      if (!std::isfinite(raw)) return {std::string{}};
+      const uint8_t v = static_cast<uint8_t>(raw);
+      if (v == 0x00) return {"boot-up"};
+      if (v == 0x04) return {"stopped"};
+      if (v == 0x05) return {"operational"};
+      if (v == 0x7F) return {"pre-operational"};
+      char out[12]; snprintf(out, sizeof(out), "0x%02X", v); return {std::string(out)};
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_node_2_state
+    name: "CANopen Node 2 State"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: |-
+      const float raw = id(trane_link).get_last_byte_or_nan(0x702, 0);
+      if (!std::isfinite(raw)) return {std::string{}};
+      const uint8_t v = static_cast<uint8_t>(raw);
+      if (v == 0x00) return {"boot-up"}; if (v == 0x04) return {"stopped"};
+      if (v == 0x05) return {"operational"}; if (v == 0x7F) return {"pre-operational"};
+      char out[12]; snprintf(out, sizeof(out), "0x%02X", v); return {std::string(out)};
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_node_3_state
+    name: "CANopen Node 3 State"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: |-
+      const float raw = id(trane_link).get_last_byte_or_nan(0x703, 0);
+      if (!std::isfinite(raw)) return {std::string{}};
+      const uint8_t v = static_cast<uint8_t>(raw);
+      if (v == 0x00) return {"boot-up"}; if (v == 0x04) return {"stopped"};
+      if (v == 0x05) return {"operational"}; if (v == 0x7F) return {"pre-operational"};
+      char out[12]; snprintf(out, sizeof(out), "0x%02X", v); return {std::string(out)};
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_node_4_state
+    name: "CANopen Node 4 State"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: |-
+      const float raw = id(trane_link).get_last_byte_or_nan(0x704, 0);
+      if (!std::isfinite(raw)) return {std::string{}};
+      const uint8_t v = static_cast<uint8_t>(raw);
+      if (v == 0x00) return {"boot-up"}; if (v == 0x04) return {"stopped"};
+      if (v == 0x05) return {"operational"}; if (v == 0x7F) return {"pre-operational"};
+      char out[12]; snprintf(out, sizeof(out), "0x%02X", v); return {std::string(out)};
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_node_5_state
+    name: "CANopen Node 5 State"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: |-
+      const float raw = id(trane_link).get_last_byte_or_nan(0x705, 0);
+      if (!std::isfinite(raw)) return {std::string{}};
+      const uint8_t v = static_cast<uint8_t>(raw);
+      if (v == 0x00) return {"boot-up"}; if (v == 0x04) return {"stopped"};
+      if (v == 0x05) return {"operational"}; if (v == 0x7F) return {"pre-operational"};
+      char out[12]; snprintf(out, sizeof(out), "0x%02X", v); return {std::string(out)};
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_nmt_raw
+    name: "Last CANopen NMT 0x000 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x000)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_emcy_1_raw
+    name: "Last CANopen EMCY Node 1 0x081 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x081)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_emcy_3_raw
+    name: "Last CANopen EMCY Node 3 0x083 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x083)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_lss_server_raw
+    name: "Last CANopen LSS Server 0x7E4 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x7E4)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_lss_manager_raw
+    name: "Last CANopen LSS Manager 0x7E5 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x7E5)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_53d_raw
+    name: "Last 0x53D Network Status Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x53D)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_53e_raw
+    name: "Last 0x53E Network Status Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x53E)};'
+    device_id: dev_discovery
