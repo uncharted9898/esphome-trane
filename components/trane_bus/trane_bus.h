@@ -39,9 +39,18 @@ class TraneBus : public Component {
   bool is_capture_enabled() const { return capture_enabled_; }
 
   // Public observation-only classifier used by the HA discovery surface.
-  // Keep one source of truth for target-observed Trane Link IDs so the UI does
-  // not count already-understood telemetry/status traffic as "unknown".
-  bool is_known_trane_id(uint32_t can_id) const { return is_known_trane_id_(can_id); }
+  // Keep the target-observed CANopen management/configuration vocabulary out
+  // of the "novel ID" counter even when an individual proprietary payload has
+  // not yet been semantically decoded. Deliberately classify only IDs actually
+  // observed on this target rather than broad CANopen ranges.
+  bool is_known_trane_id(uint32_t can_id) const {
+    if (can_id == 0x000 || can_id == 0x081 || can_id == 0x083 ||
+        (can_id >= 0x200 && can_id <= 0x210) || can_id == 0x496 ||
+        can_id == 0x540 || can_id == 0x560 || can_id == 0x5A1 ||
+        can_id == 0x621 || can_id == 0x7E4 || can_id == 0x7E5)
+      return true;
+    return is_known_trane_id_(can_id);
+  }
 
   Trigger<std::string, uint32_t> *get_json_trigger() { return &json_trigger_; }
 
