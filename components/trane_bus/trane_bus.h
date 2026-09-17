@@ -87,7 +87,14 @@ class TraneBus : public Component {
   uint32_t get_last_json_can_id() const { return last_json_can_id_; }
 
   uint32_t get_rx_frames() const { return rx_frames_; }
-  uint32_t get_trane_frames() const { return trane_frames_; }
+  uint32_t get_trane_frames() const {
+    uint32_t total = 0;
+    for (uint16_t can_id = 0; can_id < STANDARD_CAN_ID_COUNT; can_id++) {
+      if (is_known_trane_id(can_id))
+        total += id_counts_[can_id];
+    }
+    return total;
+  }
   uint32_t get_sc360_frames() const { return sc360_frames_; }
   uint32_t get_rx_json_messages() const { return rx_json_messages_; }
   uint32_t get_tx_attempts() const { return tx_attempts_; }
@@ -193,6 +200,9 @@ class TraneBus : public Component {
   uint32_t json_snapshot_sequence_{0};
   uint8_t json_snapshot_count_{0};
 
+  // Retained for low-cost runtime/diagnostic compatibility. Public reporting
+  // uses the census-derived get_trane_frames() so it cannot drift from the
+  // authoritative target classifier above.
   uint32_t rx_frames_{0};
   uint32_t trane_frames_{0};
   uint32_t sc360_frames_{0};
