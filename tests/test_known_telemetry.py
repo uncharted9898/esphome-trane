@@ -193,9 +193,8 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x200 Indoor EEV Position Candidate",
             "0x490 Zone 1 Room Temperature",
             "0x490 Zone 1 Relative Humidity",
-            "0x318 Blower Input Current",
-            "0x280 Blower Power Factor Candidate",
-            "Blower V I PF Calculated Power",
+            "0x318 Blower Input Current Candidate",
+            "0x280 Blower Power-Factor-Like Candidate",
         ):
             self.assertIn(f'name: "{label}"', combined)
         self.assertIn('unit_of_measurement: "cfm"', EXTRA)
@@ -204,25 +203,43 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn('unit_of_measurement: "W"', EXTRA)
         self.assertIn('unit_of_measurement: "A"', TARGET_DISCOVERY)
         self.assertIn("return gas - liquid;", EXTRA)
-        self.assertIn("return volts * amps * pf;", TARGET_DISCOVERY)
 
-    def test_target_correlated_outdoor_channels_are_exposed(self):
-        combined = TELEMETRY + EXTRA
+        # The high-load capture invalidated the earlier assumption that
+        # 0x383.float[1] was line voltage, so the derived V*I*PF entity must
+        # remain absent until an actual line-voltage source is qualified.
+        self.assertNotIn("Blower V I PF Calculated Power", TARGET_DISCOVERY)
+        self.assertNotIn("return volts * amps * pf;", TARGET_DISCOVERY)
+
+    def test_high_load_requalified_core_outdoor_channels_are_exposed(self):
+        # Core entities should no longer claim the meanings disproved by the
+        # later high-load operating point.
         for label in (
-            "0x381 Suction Pressure",
-            "0x38F Liquid Pressure",
-            "0x383 Line Voltage",
+            "0x381 Outdoor Coil Temperature Candidate",
+            "0x383 Compressor Dome Discharge Temperature Candidate",
+            "0x38F Line Voltage Candidate",
+            "0x387 Actual Compressor Speed",
+        ):
+            self.assertIn(f'name: "{label}"', TELEMETRY)
+
+        for stale in (
+            'name: "0x381 Suction Temperature"',
+            'name: "0x386 Vapor Saturation Temperature Candidate"',
+            'name: "0x38F Liquid Pressure"',
+        ):
+            self.assertNotIn(stale, TELEMETRY)
+
+        # The compound/raw extension still exposes useful channels while its
+        # remaining candidates are requalified against synchronized Technician
+        # data in a follow-up capture.
+        for label in (
             "0x384 Drive DC Voltage",
             "0x384 Outdoor Fan Speed",
-            "0x387 Actual Compressor Speed",
             "0x387 Compressor Speed RPM",
-            "0x385 Outdoor EEV Position",
             "0x385 Compressor Target Speed Candidate",
             "0x389 Input AC Current Candidate",
             "0x38C Input Power",
-            "0x460 Liquid Saturation Temperature Candidate",
         ):
-            self.assertIn(f'name: "{label}"', combined)
+            self.assertIn(f'name: "{label}"', EXTRA)
 
     def test_canopen_diagnostics_are_exposed_without_physical_role_guessing(self):
         for label in (
