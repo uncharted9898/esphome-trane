@@ -132,6 +132,14 @@ sensor:
     update_interval: 5s
     lambda: 'return id(trane_link).get_unique_standard_ids_seen();'
     device_id: dev_discovery
+  - platform: template
+    id: trane_json_snapshot_count
+    name: "Structured Profile Snapshots Retained"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_json_snapshot_count();'
+    device_id: dev_discovery
 
   # 5TAMX target discovery --------------------------------------------------
   # The 2026-09-17 target captures show these channels moving coherently with
@@ -672,7 +680,298 @@ text_sensor:
     lambda: 'return {id(trane_link).get_last_frame_hex(0x38C)};'
     device_id: dev_discovery
 
+  # Raw compact-profile fields ------------------------------------------------
+  # These deliberately expose compact keys as compact keys. They are retained
+  # from one-shot boot profiles by trane_bus and must not be globally mapped to
+  # Technician monitor letters without object-specific evidence.
+  - platform: template
+    id: trane_indoor_settings_a
+    name: "IndoorSettings 1 A Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "A")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_b
+    name: "IndoorSettings 1 B Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "B")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_c
+    name: "IndoorSettings 1 C Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "C")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_d
+    name: "IndoorSettings 1 D Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "D")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_e
+    name: "IndoorSettings 1 E Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "E")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_f
+    name: "IndoorSettings 1 F Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "F")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_g
+    name: "IndoorSettings 1 G Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "G")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_h
+    name: "IndoorSettings 1 H Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "H")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_i
+    name: "IndoorSettings 1 I Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "I")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_j
+    name: "IndoorSettings 1 J Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "J")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_k
+    name: "IndoorSettings 1 K Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "K")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_l
+    name: "IndoorSettings 1 L Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "L")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_m
+    name: "IndoorSettings 1 M Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "M")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_n
+    name: "IndoorSettings 1 N Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "N")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_o
+    name: "IndoorSettings 1 O Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "O")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_p
+    name: "IndoorSettings 1 P Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "P")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_q
+    name: "IndoorSettings 1 Q Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "Q")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_r
+    name: "IndoorSettings 1 R Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "R")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_s
+    name: "IndoorSettings 1 S Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "S")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_t
+    name: "IndoorSettings 1 T Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "T")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_u
+    name: "IndoorSettings 1 U Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "U")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_zone_settings_1_mode
+    name: "ZoneSettings 1 ZoneMode Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("ZoneSettings", "1", "ZoneMode")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_b
+    name: "SystemSettings B Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "B")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_c
+    name: "SystemSettings C Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "C")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_d
+    name: "SystemSettings D Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "D")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_e
+    name: "SystemSettings E Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "E")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_f
+    name: "SystemSettings F Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "F")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_g
+    name: "SystemSettings G Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "G")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_h
+    name: "SystemSettings H Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "H")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_i
+    name: "SystemSettings I Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "I")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_j
+    name: "SystemSettings J Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "J")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_k
+    name: "SystemSettings K Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "K")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_l
+    name: "SystemSettings L Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "L")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_m
+    name: "SystemSettings M Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "M")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_n
+    name: "SystemSettings N Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "N")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_version_raw_configpropertiesversion
+    name: "VersionDetails ConfigPropertiesVersion Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("VersionDetails", "", "ConfigPropertiesVersion")};'
+    device_id: dev_sc360
+  - platform: template
+    id: trane_version_raw_alarmdetailsversion
+    name: "VersionDetails AlarmDetailsVersion Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("VersionDetails", "", "AlarmDetailsVersion")};'
+    device_id: dev_sc360
+  - platform: template
+    id: trane_version_raw_a
+    name: "VersionDetails A Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("VersionDetails", "", "A")};'
+    device_id: dev_sc360
+  - platform: template
+    id: trane_version_raw_b
+    name: "VersionDetails B Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("VersionDetails", "", "B")};'
+    device_id: dev_sc360
+  - platform: template
+    id: trane_version_raw_d
+    name: "VersionDetails D Raw"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("VersionDetails", "", "D")};'
+    device_id: dev_sc360
+
 button:
+  - platform: template
+    name: "Dump Structured Profile Snapshots"
+    entity_category: diagnostic
+    on_press:
+      - lambda: 'id(trane_link).dump_json_snapshots();'
+
   - platform: template
     name: "Dump CAN ID Census"
     entity_category: diagnostic
