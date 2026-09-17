@@ -148,7 +148,7 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_suction_temp
-    name: "0x381 Suction Temperature"
+    name: "0x381 Outdoor Coil Temperature Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -179,9 +179,7 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_386_float2
-    name: "0x386 Vapor Saturation Temperature Candidate"
-    unit_of_measurement: "°F"
-    device_class: temperature
+    name: "0x386 Float 2 Raw"
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
@@ -196,9 +194,9 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_38f_pressure
-    name: "0x38F Liquid Pressure"
-    unit_of_measurement: "psi"
-    device_class: pressure
+    name: "0x38F Line Voltage Candidate"
+    unit_of_measurement: "V"
+    device_class: voltage
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
