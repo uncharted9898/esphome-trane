@@ -258,10 +258,51 @@ void TraneBus::dump_json_snapshots() const {
 }
 
 bool TraneBus::is_known_trane_id_(uint32_t can_id) const {
-  if (can_id == 0x641 || can_id == 0x649 || can_id == 0x5C1 || can_id == 0x5C9 || can_id == 0x283 ||
-      can_id == 0x308 || can_id == 0x490 || can_id == 0x410 || can_id == 0x430 || can_id == 0x450)
+  // Target-observed 11-bit Trane Link families. "Known" here means observed
+  // and classified as belonging to this HVAC bus, not that every byte has a
+  // promoted semantic name. Keeping this list in the transport component gives
+  // the HA discovery surface one authoritative novel-ID boundary.
+  if ((can_id >= 0x250 && can_id <= 0x252) || (can_id >= 0x260 && can_id <= 0x262) ||
+      (can_id >= 0x280 && can_id <= 0x285) || (can_id >= 0x2D0 && can_id <= 0x2D2) ||
+      (can_id >= 0x380 && can_id <= 0x38F) || (can_id >= 0x490 && can_id <= 0x495) ||
+      (can_id >= 0x4B0 && can_id <= 0x4B4) || (can_id >= 0x4C0 && can_id <= 0x4C5) ||
+      (can_id >= 0x701 && can_id <= 0x705))
     return true;
-  return can_id >= 0x380 && can_id <= 0x38F;
+
+  switch (can_id) {
+    case 0x200:
+    case 0x201:
+    case 0x203:
+    case 0x208:
+    case 0x20D:
+    case 0x240:
+    case 0x300:
+    case 0x308:
+    case 0x310:
+    case 0x318:
+    case 0x320:
+    case 0x328:
+    case 0x330:
+    case 0x3D0:
+    case 0x3E0:
+    case 0x410:
+    case 0x420:
+    case 0x430:
+    case 0x450:
+    case 0x460:
+    case 0x53D:
+    case 0x53E:
+    case 0x581:
+    case 0x5C1:
+    case 0x5C9:
+    case 0x601:
+    case 0x641:
+    case 0x649:
+    case 0x7E5:
+      return true;
+    default:
+      return false;
+  }
 }
 
 void TraneBus::observe_standard_frame_(uint32_t can_id, const std::vector<uint8_t> &data) {
@@ -319,10 +360,16 @@ void TraneBus::on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const 
     last_sc360_frame_ms_ = millis();
   }
 
-  if (can_id == 0x641 || can_id == 0x649) {
+  if (can_id == 0x601 || can_id == 0x641 || can_id == 0x649) {
     std::string complete;
-    SegmentedRxState &state = can_id == 0x641 ? rx_641_ : rx_649_;
-    if (feed_segmented_json_(state, data, complete))
+    SegmentedRxState *state = nullptr;
+    if (can_id == 0x601)
+      state = &rx_601_;
+    else if (can_id == 0x641)
+      state = &rx_641_;
+    else
+      state = &rx_649_;
+    if (feed_segmented_json_(*state, data, complete))
       handle_json_message_(can_id, complete);
   }
 }
@@ -335,9 +382,10 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
 
   const uint8_t marker = data[0];
 
-  // Target-system SC360 headers carry a uint32 little-endian wire length in
-  // bytes 4..7. The wire length includes the trailing NUL, while expected_len
-  // tracks JSON bytes only. Example captures:
+  // Target-system segmented channels (0x601/0x641/0x649) carry a uint32
+  // little-endian wire length in bytes 4..7. The wire length includes the
+  // trailing NUL, while expected_len tracks JSON bytes only. Example captures:
+  //   0x601: C2 0A 30 00 25 00 00 00  -> 37 wire bytes / 36 JSON bytes
   //   0x649: C2 0A 30 00 2D 00 00 00  -> 45 wire bytes / 44 JSON bytes
   //   0x641: 21 0A 30 00 0E 00 00 00  -> 14 wire bytes / 13 JSON bytes
   auto target_payload_length = [&]() -> size_t {
@@ -393,7 +441,7 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
       return false;
     }
 
-    // Long 0x641/0x649 framing. Bit 7 marks the final frame; the lower seven
+    // Long segmented framing. Bit 7 marks the final frame; the lower seven
     // bits are the sequence number, not a byte-count. This is why final marker
     // 0xAD means sequence 45 rather than "44 payload bytes in this frame".
     if (marker & 0x80) {
