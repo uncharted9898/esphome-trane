@@ -7,11 +7,11 @@ CPP = (ROOT / "components/trane_bus/trane_bus.cpp").read_text()
 
 
 class ReferenceTargetDecoder:
-    """Small executable contract for the target SC360 receive framing.
+    """Small executable contract for Trane JSON carried by CANopen SDO.
 
-    This deliberately mirrors protocol invariants, not C++ implementation
-    structure. It lets regression fixtures cover final-sequence semantics,
-    seven-bit rollover, idle control markers, and the short 0x641 response.
+    This mirrors the payload-bearing portions of standard CANopen block and
+    segmented SDO downloads to object 0x300A:00. Server acknowledgements are
+    decoded separately by the capture analyzer.
     """
 
     MAX_RX = 4096
@@ -117,11 +117,11 @@ class ReferenceTargetDecoder:
             self.expected_seq = 0
             return None
 
-        # C1/CD/D1/D5/D9 and similar target control frames are idle metadata.
+        # CANopen block-download end requests are idle to the JSON extractor.
         return None
 
 
-def encode_target_long(payload):
+def encode_sdo_block_download_payload(payload):
     raw = payload.encode()
     wire_len = len(raw) + 1
     frames = [[0xC2, 0x0A, 0x30, 0x00, *wire_len.to_bytes(4, "little")]]
@@ -148,10 +148,21 @@ class TransportSourceContractTests(unittest.TestCase):
         self.assertLessEqual(int(tx.group(1)), 512)
         self.assertIn("payload.size() > MAX_TX_JSON_PAYLOAD", CPP)
 
-    def test_target_headers_are_exact_not_generic_c_nibble(self):
+    def test_target_headers_are_exact_canopen_sdo_download_headers(self):
         self.assertIn("if (marker == 0xC2)", CPP)
         self.assertIn("if (marker == 0x21)", CPP)
+        self.assertIn("standard CANopen SDO downloads", CPP)
+        self.assertIn("0x300A:00", CPP)
         self.assertNotIn("if ((marker & 0xF0) == 0xC0)", CPP)
+
+    def test_legacy_guessed_tx_framing_is_fail_closed(self):
+        tx = CPP.split("bool TraneBus::send_json_internal_", 1)[1].split(
+            "bool TraneBus::send_json(const std::string &payload)", 1
+        )[0]
+        self.assertIn("CANopen SDO writer for Trane object 0x300A:00 is not yet qualified", tx)
+        self.assertNotIn("std::vector<uint8_t> header", tx)
+        self.assertNotIn("send_frame_(header)", tx)
+        self.assertNotIn("frame[0] = seq", tx)
 
     def test_active_state_is_processed_before_idle_headers(self):
         state_pos = CPP.index("if (state.expected_len != 0)")
@@ -191,7 +202,7 @@ class TargetTransportFixtureTests(unittest.TestCase):
 
     def test_target_long_indoor_status(self):
         payload = '{"IndoorStatus":{"Update":{"1":{"D":"A"}}}}'
-        frames = encode_target_long(payload)
+        frames = encode_sdo_block_download_payload(payload)
         self.assertGreater(frames[-1][0], 0x80)
         decoder, messages = self.decode_all(frames)
         self.assertEqual(messages, [payload])
@@ -199,7 +210,7 @@ class TargetTransportFixtureTests(unittest.TestCase):
 
     def test_final_marker_above_0x88_is_valid(self):
         payload = '{"IndoorStatus":{"Update":{"1":{"E":"40","Pad":"' + ("x" * 180) + '"}}}}'
-        frames = encode_target_long(payload)
+        frames = encode_sdo_block_download_payload(payload)
         self.assertGreater(frames[-1][0] & 0x7F, 8)
         decoder, messages = self.decode_all(frames)
         self.assertEqual(messages, [payload])
@@ -207,7 +218,7 @@ class TargetTransportFixtureTests(unittest.TestCase):
 
     def test_sequence_0x21_inside_long_message_is_not_short_header(self):
         payload = '{"Long":"' + ("a" * 260) + '"}'
-        frames = encode_target_long(payload)
+        frames = encode_sdo_block_download_payload(payload)
         self.assertIn(0x21, [frame[0] for frame in frames])
         decoder, messages = self.decode_all(frames)
         self.assertEqual(messages, [payload])
@@ -215,7 +226,7 @@ class TargetTransportFixtureTests(unittest.TestCase):
 
     def test_long_sequence_rollover_0x7f_to_0x01(self):
         payload = '{"CertificateLike":"' + ("A" * 1500) + '"}'
-        frames = encode_target_long(payload)
+        frames = encode_sdo_block_download_payload(payload)
         markers = [frame[0] for frame in frames[1:]]
         rollover = markers.index(0x7F)
         self.assertEqual(markers[rollover + 1], 0x01)
@@ -225,7 +236,7 @@ class TargetTransportFixtureTests(unittest.TestCase):
 
     def test_idle_control_markers_do_not_count_as_errors(self):
         payload = '{"ZoneStatus":{"Update":{"1":{"H":"82.00"}}}}'
-        frames = encode_target_long(payload)
+        frames = encode_sdo_block_download_payload(payload)
         frames.extend(
             [
                 [0xC1, 0, 0, 0, 0, 0, 0, 0],
