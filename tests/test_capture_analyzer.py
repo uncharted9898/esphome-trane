@@ -85,9 +85,6 @@ class CaptureAnalyzerTests(unittest.TestCase):
     def test_block_download_reassembly_resets_sequence_after_a2(self):
         payload = '{"Long":"abcdefghijklmnop"}'
         wire = payload.encode() + b"\x00"
-        lines = [
-            f"TRANE_CAN_LIVE,S,1000,649,8,{bytes([0xC2,0x0A,0x30,0x00]) + len(wire).to_bytes(4,'little')!s}",
-        ]
         # Use exact hex records so the fixture mirrors a captured CAN log.
         lines = [
             "TRANE_CAN_LIVE,S,1000,649,8,"
