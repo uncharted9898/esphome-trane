@@ -75,7 +75,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "System Mode",
             "System State Raw",
             "System Demand Stage",
-            "SystemOpStatus D Numeric Candidate",
+            "System Demand Percent Candidate",
             "Indoor Blower Speed",
             "Compressor Speed",
             "Compressor Demand",
@@ -88,6 +88,20 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "Outdoor Temperature User Offset",
         ):
             self.assertIn(f'name: "{name}"', combined)
+
+    def test_system_status_d_is_demand_percent_candidate(self):
+        self.assertIn('name: "System Demand Percent Candidate"', EXTRA_BASE)
+        self.assertIn('unit_of_measurement: "%"', EXTRA_BASE)
+        self.assertNotIn('name: "SystemOpStatus D Numeric Candidate"', EXTRA_BASE)
+
+    def test_system_status_e_no_longer_fakes_outdoor_temp_or_humidity(self):
+        self.assertIn('name: "System Compressor Speed Ceiling Candidate"', TELEMETRY)
+        self.assertNotIn('name: "SC360 Outdoor Temperature"', TELEMETRY)
+        self.assertIn('name: "Indoor Humidity"', TELEMETRY)
+        self.assertIn("get_last_byte_or_nan(0x490, 4)", TELEMETRY)
+        self.assertIn("value > 100.0f", TELEMETRY)
+        self.assertNotIn("id(trane_indoor_humidity).publish_state(f);", HA)
+        self.assertIn("id(trane_sc360_outdoor_temp).publish_state(f);", HA)
 
     def test_restored_profiles_are_actually_published(self):
         for token in (
