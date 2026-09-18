@@ -426,3 +426,26 @@ the target-observed sources that actually support them:
 node startup it can take the invalid value 157. The user-facing Indoor Humidity
 entity therefore filters values outside 0..100 to NaN, while the raw/candidate
 byte remains available diagnostically.
+
+## 17:22 log-14 validation capture
+
+Log 14 validates the environmental-source split across a full steady-state minute:
+
+- Indoor Humidity remains 57 percent from 0x490 byte 4.
+- Room Temperature remains 79 F from 0x490.float[0].
+- Outdoor Air Temperature stays roughly 88.3-88.5 F from 0x380.float[1].
+
+The friendly Room Temperature entity now reads the live 0x490 frame directly,
+matching the already-corrected Indoor Humidity behavior. Sparse ZoneStatus.H
+updates remain useful structured evidence but no longer overwrite the live
+friendly room-temperature sensor.
+
+The raw 0x490 humidity byte is retained diagnostically as
+`0x490 Zone 1 Humidity Byte Raw`. The user-facing Indoor Humidity entity
+accepts only 0..100 and rejects the previously observed startup value 157.
+
+Application traffic remains sparse in this capture. The only fresh structured
+update is `IndoorStatus.E=98`, followed by the normal application-level
+`{"Ack":"200"}` on the 0x641 path. No JSON object containing `Put`, no fresh
+`SpOverride`, and no setpoint Csp/Hsp transaction appears in the 5000-line
+capture. Application TX therefore remains fail-closed.
