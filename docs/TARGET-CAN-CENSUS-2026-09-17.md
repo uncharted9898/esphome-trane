@@ -1,5 +1,7 @@
 # Target CAN census — 2026-09-17
 
+> **Superseded mapping warning:** This document predates the later cool-ambient requalification and standards-backed SDO/LSS decode. Its raw payload/cadence observations remain useful, but older labels such as `0x281.word3 = blower RPM`, `0x383.float1 = line voltage`, `0x385 = outdoor EEV`, saturation-temperature guesses, and the unresolved `0x7E4/0x7E5` interpretation are superseded. Current conclusions live in `TARGET-COOL-AMBIENT-REQUALIFICATION-2026-09-17.md`, `CANOPEN-LINK-TRANSPORT.md`, and `TARGET-CANOPEN-LSS-FASTSCAN-2026-09-17.md`.
+
 This pass analyzes the 62.338-second target capture collected from the installed 5TAMXC03 / 5TWV0X24 / UX360 / SC360 system. It contains 1,938 standard CAN frames across 78 unique 11-bit IDs.
 
 The purpose of this note is to separate three very different things that were previously all shown as `Unclassified CAN Frames`:
