@@ -51,14 +51,20 @@ The unclassified counter is intentional. The target R-454B system contains hardw
 
 ### `waveshare-trane-control.yaml`
 
-Minimal guarded control/transport image.
+Guarded transport/control-development image.
 
 - TWAI NORMAL;
 - TX disabled by repository default;
-- typed mode/setpoint/profile actions;
-- SC360-presence gate;
-- ACK serialization and timeout counters;
+- typed mode/setpoint/profile actions retained as the intended API surface;
+- SC360-presence gate remains;
+- **application writes currently fail closed even when manually armed** because
+  passive target captures proved the historical writer was not a valid CANopen
+  SDO transaction;
 - no raw JSON by default.
+
+The next active-control implementation must be a nonblocking CANopen SDO client
+writing the Trane JSON mailbox at object `0x300A:00`, with command direction
+qualified from a captured stock UX360 command transaction before hardware use.
 
 ### `waveshare-trane-full.yaml`
 
@@ -74,31 +80,35 @@ Preferred full integration target.
 
 ## Guarded transport contract
 
-`components/trane_bus` now owns safety-critical TX behavior.
+Passive captures now prove the Trane JSON transport is standard CANopen SDO
+download to manufacturer object `0x300A:00`.
 
-Default policy:
+The old transmitter generated a guessed segmented stream and skipped mandatory
+SDO server handshakes. That path is intentionally fail-closed on `dev`; it is
+not counted as working control.
 
-- `tx_enabled = false`;
-- `raw_json_enabled = false`;
-- require recent SC360 activity before transmitting;
-- reject unsupported system modes;
-- validate setpoint range/deadband/zone/hold/source;
-- allow one write command outstanding at a time;
-- wait for SC360 ACK;
-- track ACK success/error/timeouts;
-- bound payload size;
-- check CAN send errors frame by frame.
+Current policy:
 
-Typed actions:
+- `tx_enabled = false` by default;
+- raw JSON disabled by default;
+- typed action validation remains in place;
+- even if TX is manually armed, `send_json_internal_` refuses application
+  writes until a qualified SDO client replaces the legacy writer;
+- passive SDO/JSON receive, telemetry, capture, and discovery remain active;
+- climate state stays non-optimistic.
 
-- `trane_bus.set_mode`;
-- `trane_bus.set_setpoints`;
-- `trane_bus.get_profile`;
-- `trane_bus.set_tx_enabled`.
+Required before re-enabling writes:
 
-Raw action remains available only when explicitly enabled:
+1. capture a stock UX360 mode/setpoint command with both SDO request and server
+   response frames;
+2. confirm the correct request/response COB-ID pair and application-level Ack
+   behavior;
+3. implement a nonblocking SDO download state machine for object `0x300A:00`
+   (block and/or segmented transfer as the server negotiates);
+4. handle SDO abort, timeout, toggle/sequence, block ACK, and end response;
+5. retain the existing SC360-presence, validation, serialization, and fail-safe
+   guards around that real transport.
 
-- `trane_bus.send_json`.
 
 ## Climate contract
 
@@ -130,8 +140,8 @@ The R-454B 5TAMX also contains refrigerant-detection/mitigation hardware absent 
 ## Important known CAN details
 
 - bus rate: 50 kbit/s;
-- 0x641 / 0x649: SC360 command/response/broadcast transport;
-- 0x5C1 / 0x5C9: UX360-SC360 private segmented transport;
+- 0x601/0x581, 0x641/0x5C1 and 0x649/0x5C9: CANopen SDO channel pairs;
+- Trane JSON is downloaded to manufacturer object 0x300A:00;
 - 0x380-0x38F: outdoor equipment float/status frames;
 - 0x490 and related indoor IDs: air-handler data;
 - commands observed include `SystemMode Put`, `SpOverride Put`, `GetProfile`;
@@ -150,7 +160,9 @@ Important pre-install findings:
 5. The current project exposes one generic refrigerant pressure, while the 5TWV0X hardware/service information gives us a reason to hunt separate suction and liquid/high-side pressure signals.
 6. Existing `0x283` names are probably too air-centric; target 5TAMX has ET/GT refrigerant/coil thermistors plus separate supply/return air sensors. Controlled target-system correlation is required.
 7. `0x490` remains multiplexed/undecoded and is a high-priority target during blower-CFM and electric-heat tests.
-8. `0x5C1/0x5C9` boot/private transport contains richer profile data than the current parser exposes and is a major target for passive cold-boot capture.
+8. The CANopen SDO layer is now decoded; the remaining work is the Trane JSON
+   schema/profile content carried through object `0x300A:00` and the exact
+   application command direction/acknowledgement contract.
 9. Controlled UX360/Diagnostics tests provide known stimuli for blower CFM, compressor demand, and indoor electric heat stages, making deterministic field correlation possible without custom CAN control frames.
 10. A natural defrost capture and the installer-required A2L mitigation verification are especially valuable because both should create distinctive state transitions absent from the upstream R-410A/gas-aux baseline.
 
