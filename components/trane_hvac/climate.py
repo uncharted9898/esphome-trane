@@ -5,11 +5,6 @@ from esphome.components.climate import ClimateMode, ClimatePreset
 from esphome.const import CONF_ID
 from esphome import automation
 
-# The guarded climate control path references the sibling trane_bus C++ type.
-# Declare it here as well as in the package module because ESPHome loads
-# platform modules independently when materializing external components.
-AUTO_LOAD = ["trane_bus"]
-
 trane_hvac_ns = cg.esphome_ns.namespace("trane_hvac")
 TraneClimate = trane_hvac_ns.class_("TraneClimate", climate.Climate, cg.Component)
 trane_bus_ns = cg.esphome_ns.namespace("trane_bus")
@@ -67,6 +62,10 @@ async def to_code(config):
         cg.add(var.set_indoor_unit_state_sensor(ius))
 
     if CONF_TRANE_BUS_ID in config:
+        # Only guarded profiles that actually configure a TraneBus need the
+        # sibling C++ implementation. Legacy observation-only configs keep the
+        # climate component independent and use the automation fallback.
+        cg.add_define("USE_TRANE_HVAC_GUARDED_BUS")
         bus = await cg.get_variable(config[CONF_TRANE_BUS_ID])
         cg.add(var.set_trane_bus(bus))
 
