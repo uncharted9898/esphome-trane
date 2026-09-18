@@ -213,13 +213,32 @@ sensor:
     device_id: dev_air_handler
   - platform: template
     id: trane_281_u16_3
-    name: "0x281 Blower Speed"
-    unit_of_measurement: "rpm"
+    name: "0x281 Tail Word Raw"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x281, 6);'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_281_byte6
+    name: "0x281 Byte 6 Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x281, 6);'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_281_byte7
+    name: "0x281 Byte 7 State Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x281, 7);'
     device_id: dev_air_handler
 
   - platform: template
@@ -303,7 +322,7 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_382_float1
-    name: "0x382 Liquid Temperature Candidate"
+    name: "0x382 Temperature 1 Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -314,7 +333,7 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_382_float2
-    name: "0x382 OD Coil Temperature Candidate"
+    name: "0x382 Liquid Temperature Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -325,9 +344,9 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_383_float2
-    name: "0x383 Line Voltage"
-    unit_of_measurement: "V"
-    device_class: voltage
+    name: "0x383 Liquid Pressure Candidate"
+    unit_of_measurement: "psi"
+    device_class: pressure
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
@@ -367,8 +386,9 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_385_float1
-    name: "0x385 Outdoor EEV Position"
-    unit_of_measurement: "steps"
+    name: "0x385 Compressor Power Candidate"
+    unit_of_measurement: "W"
+    device_class: power
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
@@ -523,7 +543,7 @@ sensor:
     device_id: dev_discovery
   - platform: template
     id: trane_460_float1
-    name: "0x460 Liquid Saturation Temperature Candidate"
+    name: "0x460 Temperature Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
