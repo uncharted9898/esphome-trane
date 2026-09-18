@@ -122,13 +122,24 @@ sensor:
     device_id: dev_air_handler
 
 text_sensor:
-  # 0x601 segmented JSON currently exposes the IDBLE advertising debug state.
+  # 0x601/0x621 are CANopen SDO downloads to the same Trane JSON mailbox.
+  # Both use the Debug root, so retain IDBLE and ODBLE independently instead of
+  # relying on the generic root snapshot (where one partial Debug update would
+  # overwrite the other).
   - platform: template
     id: trane_debug_idble
     name: "Debug IDBLE State"
     entity_category: diagnostic
     update_interval: 5s
-    lambda: 'return {id(trane_link).get_last_json_value("Debug", "", "IDBLE")};'
+    lambda: 'return {id(trane_link).get_debug_idble()};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_debug_odble
+    name: "Debug ODBLE State"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_debug_odble()};'
     device_id: dev_discovery
 
   # Standard CANopen heartbeat state bytes. Do not attach physical Trane device
