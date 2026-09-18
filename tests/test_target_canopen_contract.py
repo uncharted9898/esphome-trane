@@ -34,7 +34,7 @@ def test_cold_boot_canopen_ids_are_not_reported_as_novel():
 def test_target_sdo_json_channels_remain_receive_only():
     # 0x601 is a target-observed CANopen SDO JSON receive channel. The legacy
     # application writer is fail-closed until a qualified SDO client exists.
-    assert "can_id == 0x601 || can_id == 0x641 || can_id == 0x649" in CPP
+    assert "can_id == 0x601 || can_id == 0x621 || can_id == 0x641 || can_id == 0x649" in CPP
     assert "state = &rx_601_" in CPP
     assert "send_data(0x601" not in CPP
     tx = CPP.split("bool TraneBus::send_json_internal_", 1)[1].split(
