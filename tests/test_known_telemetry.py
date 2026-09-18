@@ -266,6 +266,20 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertIn(f'name: "{label}"', EXTRA)
 
+    def test_structured_json_freshness_diagnostics_are_exposed(self):
+        for label in (
+            "Last Structured JSON Age",
+            "SystemOpStatus Snapshot Age",
+            "IndoorStatus Snapshot Age",
+            "SpOverride Snapshot Age",
+        ):
+            self.assertIn(f'name: "{label}"', TARGET_DISCOVERY)
+        self.assertIn("get_last_json_age_seconds()", BUS_H)
+        self.assertIn("get_json_snapshot_age_seconds", BUS_H)
+        self.assertIn("updated_ms{0}", BUS_H)
+        self.assertIn("last_json_ms_ = millis();", BUS_CPP)
+        self.assertIn("slot->updated_ms = millis();", BUS_CPP)
+
     def test_canopen_diagnostics_are_exposed_without_physical_role_guessing(self):
         for label in (
             "CANopen Node 1 State",
