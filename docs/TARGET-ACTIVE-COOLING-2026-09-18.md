@@ -329,6 +329,16 @@ Across operating states:
   30s and finally zero.
 
 That lead/lag behavior is substantially stronger than a generic correlation.
+The structured `OdStatus.B` speed percentage also scales directly against this
+request. Four consecutive modulation points imply nearly the same full-scale
+request ceiling:
+
+- B=70%, request ~=40.69 RPS -> 58.13 RPS full scale
+- B=71%, request ~=41.22 RPS -> 58.06 RPS full scale
+- B=72%, request ~=41.80 RPS -> 58.06 RPS full scale
+- B=73%, request ~=42.35 RPS -> 58.01 RPS full scale
+
+That ~58.05 RPS consistency strongly suggests the relationship is intentional.
 The entity is now `0x280 Compressor Speed Request Candidate`. It remains
 separate from the outdoor-drive target family at 0x385.float[1]; the captures
 show all three channels can diverge during a transition.
