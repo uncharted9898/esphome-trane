@@ -47,6 +47,13 @@ class DiscoveryCensusContractTests(unittest.TestCase):
         self.assertIn("Dump CAN ID Census", EXTRA)
         self.assertIn("Clear CAN ID Census", EXTRA)
 
+    def test_raw_frame_hex_preserves_eight_byte_payloads(self):
+        function = CPP.split("std::string TraneBus::get_last_frame_hex", 1)[1].split(
+            "void TraneBus::dump_json_snapshots", 1
+        )[0]
+        self.assertIn("char bytes[3 * 8 + 1] = {0};", function)
+        self.assertIn("i < id_last_dlc_[can_id] && i < 8", function)
+
     def test_generic_observation_getters_feed_candidate_entities(self):
         for getter in (
             "get_last_float_le_or_nan",
