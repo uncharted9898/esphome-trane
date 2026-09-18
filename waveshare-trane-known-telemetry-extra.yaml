@@ -1,0 +1,30 @@
+# Supplemental read-only telemetry package aggregator.
+#
+# The original mature/candidate surface is preserved byte-for-byte in
+# waveshare-trane-known-telemetry-extra-base.yaml. Target-specific discoveries
+# live separately so qualification work does not churn or erase the historical
+# declarations and comments.
+#
+# No child package owns CAN hardware or transmit actions.
+
+packages:
+  established_extra:
+    url: https://github.com/uncharted9898/esphome-trane
+    ref: dev
+    refresh: always
+    files:
+      - waveshare-trane-known-telemetry-extra-base.yaml
+
+  target_discovery:
+    url: https://github.com/uncharted9898/esphome-trane
+    ref: dev
+    refresh: always
+    files:
+      - waveshare-trane-target-discovery.yaml
+
+  target_raw:
+    url: https://github.com/uncharted9898/esphome-trane
+    ref: dev
+    refresh: always
+    files:
+      - waveshare-trane-target-raw.yaml
