@@ -168,7 +168,10 @@ uint32_t TraneBus::get_last_u32_le_or_zero(uint16_t can_id, uint8_t offset) cons
 std::string TraneBus::get_last_frame_hex(uint16_t can_id) const {
   if (can_id >= STANDARD_CAN_ID_COUNT || id_counts_[can_id] == 0)
     return {};
-  char bytes[24] = {0};
+  // Eight bytes rendered as "AA BB CC DD EE FF 00 11" require 23
+  // characters plus the terminating NUL. Keep one extra byte of slack so the
+  // conservative pos + 3 < sizeof(bytes) guard does not reject byte eight.
+  char bytes[3 * 8 + 1] = {0};
   size_t pos = 0;
   for (uint8_t i = 0; i < id_last_dlc_[can_id] && i < 8 && pos + 3 < sizeof(bytes); i++)
     pos += snprintf(bytes + pos, sizeof(bytes) - pos, "%02X%s", id_last_data_[can_id][i],
