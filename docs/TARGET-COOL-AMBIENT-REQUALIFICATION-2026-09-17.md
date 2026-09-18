@@ -210,50 +210,86 @@ The paired 0x641 response is again:
 
     {"Ack":"200"}
 
-## Private segmented-transport companion channels
+## CANopen SDO transport identified
 
-The new capture reveals a repeatable control-plane relationship around the segmented JSON payload IDs.
+The same capture upgrades the JSON transport from "companion channel" inference
+to a standards-backed decode.
 
-Observed pairs:
+Observed JSON SDO pairs:
 
-    0x581 <-> 0x601
-    0x5C1 <-> 0x641
-    0x5C9 <-> 0x649
+    0x601 <-> 0x581
+    0x641 <-> 0x5C1
+    0x649 <-> 0x5C9
 
-### Long transfer controls
+The request-side IDs carry standard CANopen SDO download commands and the
+response-side IDs carry the corresponding standard SDO server responses.
 
-For the 0x649 ZoneStatus transfer:
+All three decoded JSON transfers target manufacturer object:
 
-    0x649 C2 0A 30 00 2E 00 00 00    payload header
-    0x5C9 A0 0A 30 00 07 00 00 00    announces 7 segments
+    index    0x300A
+    subindex 0x00
+
+### Block SDO: 0x649 / 0x5C9 ZoneStatus
+
+    0x649 C2 0A 30 00 2E 00 00 00
+    0x5C9 A0 0A 30 00 07 00 00 00
     0x649 01 ...
     ...
-    0x649 87 ...                       final sequence 7
-    0x5C9 A2 07 00 00 00 00 00 00    repeats completed segment count 7
-    0x649 CD 00 00 00 00 00 00 00    payload-channel control/status
-    0x5C9 A1 00 00 00 00 00 00 00    companion release/idle control
+    0x649 87 ...
+    0x5C9 A2 07 00 00 00 00 00 00
+    0x649 CD 00 00 00 00 00 00 00
+    0x5C9 A1 00 00 00 00 00 00 00
 
-The same relationship appears on the 0x601 Debug transfers:
+This is standard CANopen block download:
 
-- one message uses six data segments and companion 0x581 A0 ... 06 / A2 06;
-- the next uses five data segments and companion 0x581 A0 ... 05 / A2 05.
+- C2: initiate block download with indicated size;
+- 0A 30 00: object 0x300A:00;
+- 2E 00 00 00: 46 transferred bytes;
+- A0 ... 07: server accepts with block size seven;
+- 01..06/87: seven data segments, final bit on sequence seven;
+- A2 07: server acknowledges all seven;
+- CD: end request with three unused bytes in the final segment;
+- A1: successful end response.
 
-This makes the segment-count interpretation very strong.
+The 46 bytes are the 45-byte ZoneStatus JSON plus a trailing NUL.
 
-### Short 0x641 control sequence
+The same command-byte arithmetic validates the 0x601 Debug messages. A 37-byte
+transfer occupies six segments (42-byte capacity), leaving five unused bytes;
+the observed end command is D5, exactly C1 | (5 << 2).
 
-The short Ack transfer uses:
+### Segmented SDO: 0x641 / 0x5C1 Ack
 
-    0x641 21 ...                       short payload header
-    0x5C1 60 0A 30 00 ...
-    0x641 00 ...                       continuation/data
+    0x641 21 0A 30 00 0E 00 00 00
+    0x5C1 60 0A 30 00 00 00 00 00
+    0x641 00 <7 data bytes>
     0x5C1 20 ...
-    0x641 11 ...                       final
+    0x641 11 <7 data bytes>
     0x5C1 30 ...
 
-The exact OEM names for 0x60/0x20/0x30 are not known, so the analyzer labels them descriptively as short announce/data/complete rather than inventing semantics.
+This is standard segmented SDO download:
 
-tools/trane_capture_analyzer.py now decodes these companion controls separately from CANopen management and the JSON payload itself.
+- 21: initiate with a 14-byte indicated size;
+- 60: server initiate response;
+- 00 / 20: first data segment and matching toggle-0 response;
+- 11 / 30: final toggle-1 segment and matching response.
+
+The transferred payload is the NUL-terminated JSON document:
+
+    {"Ack":"200"}
+
+The analyzer now reports these as CANopen SDO events rather than proprietary
+transport controls.
+
+### Safety consequence for active writes
+
+The historical repository transmitter was based on the earlier guessed framing.
+It did not address object 0x300A:00 and did not wait for the mandatory CANopen
+SDO server responses.
+
+That writer is now fail-closed. Passive decode remains unaffected. A future
+active writer must be a real asynchronous SDO client, and command direction must
+first be qualified against a captured stock UX360 command transaction.
+
 
 ## Raw diagnostic rendering bug found and fixed
 
