@@ -1,5 +1,7 @@
 # 2026-09-17 target CAN census — 5TAMX + 5TWV0X + UX360/SC360
 
+> **Superseded mapping warning:** This is an early capture inventory, not the current semantic map. Later cross-load captures and the CANopen SDO decode supersede several candidate labels below. In particular, use `TARGET-COOL-AMBIENT-REQUALIFICATION-2026-09-17.md` for current `0x281/0x318/0x381–0x38F` mappings and `CANOPEN-LINK-TRANSPORT.md` for `0x581/0x5A1/0x5C1/0x5C9/0x601/0x621/0x641/0x649` plus LSS. Preserve the observations below as history, but do not promote their old candidate names back into runtime entities.
+
 This note records observations from the first live captures on the target system:
 
 - outdoor: `5TWV0X24A1000B`
