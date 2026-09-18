@@ -151,6 +151,10 @@ class WaveshareSafetyContractTests(unittest.TestCase):
             self.assertIn(f'"{profile}"', BUS_CPP)
         self.assertIn("JSON_SNAPSHOT_SLOTS = 32", BUS_H)
 
+    def test_custom_actions_match_esphome_2026_9_play_signature(self):
+        self.assertGreaterEqual(BUS_H.count("void play(const Ts &...x) override"), 5)
+        self.assertNotIn("void play(Ts... x) override", BUS_H)
+
     def test_transport_requires_recent_sc360_and_legacy_writer_fails_closed(self):
         self.assertIn("require_sc360_before_tx_ && !has_recent_trane_activity()", BUS_CPP)
         self.assertIn("if (pending_ack_)", BUS_CPP)
