@@ -37,7 +37,7 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertEqual(messages[0]["can_id"], "0x641")
         self.assertEqual(messages[0]["json"], {"Ack": "200"})
 
-    def test_zone_status_long_reassembly_and_companion_counts(self):
+    def test_zone_status_is_canopen_sdo_block_download(self):
         lines = [
             "TRANE_CAN_LIVE,S,1000,649,8,C20A30002E000000",
             "TRANE_CAN_LIVE,S,1002,5C9,8,A00A300007000000",
@@ -59,18 +59,30 @@ class CaptureAnalyzerTests(unittest.TestCase):
             {"ZoneStatus": {"Update": {"1": {"H": "76.00"}}}},
         )
 
-        controls = analyzer.decode_private_transport_controls(frames)
-        self.assertEqual(
-            [(row["phase"], row.get("segment_count")) for row in controls],
-            [
-                ("long_announce", 7),
-                ("long_complete_count", 7),
-                ("long_release", None),
-            ],
-        )
-        self.assertTrue(all(row["payload_can_id"] == "0x649" for row in controls))
+        sdo = analyzer.decode_canopen_sdo_transport(frames)
+        self.assertEqual(sdo[0]["phase"], "block_download_initiate_request")
+        self.assertEqual(sdo[0]["index"], 0x300A)
+        self.assertEqual(sdo[0]["subindex"], 0)
+        self.assertEqual(sdo[0]["size"], 46)
+        self.assertTrue(sdo[0]["trane_json_object"])
 
-    def test_short_ack_companion_control_sequence(self):
+        init_rsp = next(row for row in sdo if row["phase"] == "block_download_initiate_response")
+        self.assertEqual(init_rsp["block_size"], 7)
+        self.assertTrue(init_rsp["trane_json_object"])
+
+        segments = [row for row in sdo if row["phase"] == "block_download_segment"]
+        self.assertEqual([row["sequence"] for row in segments], list(range(1, 8)))
+        self.assertFalse(any(row["last"] for row in segments[:-1]))
+        self.assertTrue(segments[-1]["last"])
+
+        block_ack = next(row for row in sdo if row["phase"] == "block_download_subblock_response")
+        self.assertEqual(block_ack["ack_sequence"], 7)
+
+        end_req = next(row for row in sdo if row["phase"] == "block_download_end_request")
+        self.assertEqual(end_req["unused_bytes"], 3)
+        self.assertEqual(sdo[-1]["phase"], "block_download_end_response")
+
+    def test_short_ack_is_canopen_sdo_segmented_download(self):
         lines = [
             "TRANE_CAN_LIVE,S,1000,641,8,210A30000E000000",
             "TRANE_CAN_LIVE,S,1002,5C1,8,600A300000000000",
@@ -79,14 +91,26 @@ class CaptureAnalyzerTests(unittest.TestCase):
             "TRANE_CAN_LIVE,S,1008,641,8,1122323030227D00",
             "TRANE_CAN_LIVE,S,1010,5C1,8,3000000000000000",
         ]
-        controls = analyzer.decode_private_transport_controls(
-            analyzer.parse_frames(lines)
-        )
+        sdo = analyzer.decode_canopen_sdo_transport(analyzer.parse_frames(lines))
         self.assertEqual(
-            [row["phase"] for row in controls],
-            ["short_announce", "short_data", "short_complete"],
+            [row["phase"] for row in sdo],
+            [
+                "segmented_download_initiate_request",
+                "segmented_download_initiate_response",
+                "segmented_download_segment",
+                "segmented_download_segment_response",
+                "segmented_download_segment",
+                "segmented_download_segment_response",
+            ],
         )
-        self.assertTrue(all(row["payload_can_id"] == "0x641" for row in controls))
+        self.assertEqual(sdo[0]["index"], 0x300A)
+        self.assertEqual(sdo[0]["subindex"], 0)
+        self.assertEqual(sdo[0]["size"], 14)
+        self.assertTrue(sdo[0]["trane_json_object"])
+        self.assertFalse(sdo[2]["toggle"])
+        self.assertFalse(sdo[2]["last"])
+        self.assertTrue(sdo[4]["toggle"])
+        self.assertTrue(sdo[4]["last"])
 
     def test_canopen_lss_fastscan_initialize_decode(self):
         frames = analyzer.parse_frames(
@@ -140,7 +164,7 @@ class CaptureAnalyzerTests(unittest.TestCase):
         encoded = json.dumps(report)
         self.assertIn('"0x490"', encoded)
         self.assertIn('"canopen_management"', encoded)
-        self.assertIn('"private_transport_controls"', encoded)
+        self.assertIn('"canopen_sdo_transport"', encoded)
         self.assertEqual(report["unique_standard_ids"], 1)
 
 
