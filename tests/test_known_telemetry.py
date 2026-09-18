@@ -182,7 +182,9 @@ class KnownTelemetryContractTests(unittest.TestCase):
         combined = TELEMETRY + EXTRA
         for label in (
             "0x281 Actual Airflow",
-            "0x281 Blower Speed",
+            "0x281 Tail Word Raw",
+            "0x281 Byte 6 Candidate",
+            "0x281 Byte 7 State Candidate",
             "0x308 Return Air Temperature",
             "0x308 Supply Air Temperature",
             "0x310 Total Static Pressure",
@@ -194,7 +196,8 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x490 Zone 1 Room Temperature",
             "0x490 Zone 1 Relative Humidity",
             "0x318 Blower Input Current Candidate",
-            "0x280 Blower Power-Factor-Like Candidate",
+            "0x318 Airflow Candidate",
+            "0x318 Blower Speed Candidate",
         ):
             self.assertIn(f'name: "{label}"', combined)
         self.assertIn('unit_of_measurement: "cfm"', EXTRA)
@@ -214,7 +217,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         # Core entities should no longer claim the meanings disproved by the
         # later high-load operating point.
         for label in (
-            "0x381 Outdoor Coil Temperature Candidate",
+            "0x381 Suction Temperature",
             "0x383 Compressor Dome Discharge Temperature Candidate",
             "0x38F Line Voltage Candidate",
             "0x387 Actual Compressor Speed",
@@ -222,7 +225,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             self.assertIn(f'name: "{label}"', TELEMETRY)
 
         for stale in (
-            'name: "0x381 Suction Temperature"',
+            'name: "0x381 Outdoor Coil Temperature Candidate"',
             'name: "0x386 Vapor Saturation Temperature Candidate"',
             'name: "0x38F Liquid Pressure"',
         ):
@@ -235,9 +238,13 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x384 Drive DC Voltage",
             "0x384 Outdoor Fan Speed",
             "0x387 Compressor Speed RPM",
+            "0x383 Liquid Pressure Candidate",
+            "0x382 Liquid Temperature Candidate",
+            "0x385 Compressor Power Candidate",
             "0x385 Compressor Target Speed Candidate",
             "0x389 Input AC Current Candidate",
             "0x38C Input Power",
+            "0x460 Temperature Candidate",
         ):
             self.assertIn(f'name: "{label}"', EXTRA)
 
@@ -268,6 +275,12 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x450 Temperature Candidate",
             "0x385 Float 2 Candidate EEV Position",
             "0x281 U16 1 Candidate Target Airflow",
+            "0x281 Blower Speed",
+            "0x280 Blower Power-Factor-Like Candidate",
+            "0x382 OD Coil Temperature Candidate",
+            "0x383 Line Voltage",
+            "0x385 Outdoor EEV Position",
+            "0x460 Liquid Saturation Temperature Candidate",
         ):
             self.assertNotIn(f'name: "{label}"', combined)
 
