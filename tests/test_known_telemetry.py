@@ -266,6 +266,12 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertIn(f'name: "{label}"', EXTRA)
 
+    def test_active_load_requalifies_0x384_as_compressor_speed(self):
+        self.assertIn('name: "0x384 Compressor Speed Candidate"', EXTRA_BASE)
+        self.assertNotIn('name: "0x384 Compressor Target Max Speed Candidate"', EXTRA_BASE)
+        self.assertIn('name: "0x385 Compressor Target Speed Candidate"', EXTRA_BASE)
+        self.assertIn('name: "0x3D0 Compressor Target Minimum Speed Candidate"', TARGET_DISCOVERY)
+
     def test_structured_json_freshness_diagnostics_are_exposed(self):
         for label in (
             "Last Structured JSON Age",
