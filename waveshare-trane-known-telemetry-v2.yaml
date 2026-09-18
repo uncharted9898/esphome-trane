@@ -148,7 +148,10 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_suction_temp
-    name: "0x381 Suction Temperature"
+    # Loaded cooling capture tracked this channel with the outdoor coil rather
+    # than the evaporator/suction line. Keep the legacy id for package/API
+    # compatibility while exposing the requalified semantic as a candidate.
+    name: "0x381 Outdoor Coil Temperature Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
