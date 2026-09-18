@@ -122,16 +122,19 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("services: !remove", FULL)
 
     def test_legacy_profile_fail_closes_pre_sdo_raw_writer(self):
-        self.assertIn("components: [trane_hvac, trane_bus]", LEGACY)
+        self.assertIn("components: [trane_hvac]", LEGACY)
         self.assertIn("Blocked legacy JSON TX", LEGACY)
         self.assertIn("object 0x300A:00 is not yet qualified", LEGACY)
         self.assertNotIn("id(hvac_can).send_data(0x641", LEGACY)
         self.assertNotIn("std::vector<uint8_t> f0", LEGACY)
 
-    def test_trane_hvac_platform_materializes_guarded_bus_dependency(self):
-        self.assertIn('AUTO_LOAD = ["trane_bus"]', CLIMATE_PY)
-        self.assertIn('#include "esphome/components/trane_bus/trane_bus.h"', CLIMATE_H)
-        self.assertNotIn('#include "../trane_bus/trane_bus.h"', CLIMATE_H)
+    def test_trane_hvac_platform_keeps_guarded_bus_optional(self):
+        self.assertNotIn('AUTO_LOAD = ["trane_bus"]', CLIMATE_PY)
+        self.assertIn('cg.add_define("USE_TRANE_HVAC_GUARDED_BUS")', CLIMATE_PY)
+        self.assertIn("class TraneBus;", CLIMATE_H)
+        self.assertNotIn("trane_bus/trane_bus.h", CLIMATE_H)
+        self.assertIn("#ifdef USE_TRANE_HVAC_GUARDED_BUS", CLIMATE_CPP)
+        self.assertIn('#include "esphome/components/trane_bus/trane_bus.h"', CLIMATE_CPP)
 
     def test_target_profile_vocabulary_and_snapshot_capacity_are_retained(self):
         for profile in (
