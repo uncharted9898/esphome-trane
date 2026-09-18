@@ -173,7 +173,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
 
     def test_601_segmented_json_is_receive_only_and_reassembled(self):
         self.assertIn("SegmentedRxState rx_601_{};", BUS_H)
-        self.assertIn("can_id == 0x601 || can_id == 0x641 || can_id == 0x649", BUS_CPP)
+        self.assertIn("can_id == 0x601 || can_id == 0x621 || can_id == 0x641 || can_id == 0x649", BUS_CPP)
         self.assertIn("state = &rx_601_;", BUS_CPP)
         self.assertIn("0x601: C2 0A 30 00 25 00 00 00", BUS_CPP)
         self.assertNotIn("command_can_id_{0x601}", BUS_H)
@@ -258,6 +258,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "Last CANopen LSS Manager 0x7E5 Raw",
             "0x53E Active Link Nodes Candidate",
             "Debug IDBLE State",
+            "Debug ODBLE State",
         ):
             self.assertIn(f'name: "{label}"', TARGET_DISCOVERY)
 
