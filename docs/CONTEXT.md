@@ -140,7 +140,7 @@ The R-454B 5TAMX also contains refrigerant-detection/mitigation hardware absent 
 ## Important known CAN details
 
 - bus rate: 50 kbit/s;
-- 0x601/0x581, 0x641/0x5C1 and 0x649/0x5C9: CANopen SDO channel pairs;
+- 0x601/0x581, 0x621/0x5A1, 0x641/0x5C1 and 0x649/0x5C9: CANopen SDO channel pairs;
 - Trane JSON is downloaded to manufacturer object 0x300A:00;
 - 0x380-0x38F: outdoor equipment float/status frames;
 - 0x490 and related indoor IDs: air-handler data;
