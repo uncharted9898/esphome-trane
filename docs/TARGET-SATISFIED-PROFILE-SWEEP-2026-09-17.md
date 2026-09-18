@@ -116,3 +116,64 @@ request/ack sequence are observed.
 - kept active JSON TX fail-closed;
 - corrected the `trane_hvac` platform's explicit `trane_bus` source dependency
   and canonical component include.
+
+
+## Follow-up steady-state capture
+
+A later ~60-second capture was taken with the same unit still satisfied. It
+contains 1,821 parsed CAN frames and 76 standard CAN IDs, but **no new
+structured JSON transfer**. The retained Home Assistant structured values
+therefore pre-date the wire window and must not be treated as events that
+occurred during this capture.
+
+This is especially important for retained strings such as the indoor fault
+display and the accumulated "last unknown CAN" field. The binary wire itself
+shows a quiet satisfied system:
+
+- 0x281 actual airflow = 0 CFM;
+- 0x318 current/airflow/speed family = all zero;
+- 0x320 blower power = 0 W;
+- 0x384 live speed/max-speed candidate = 0 RPS and outdoor fan = 0 RPM;
+- 0x385 compressor-power and target-speed candidates = 0;
+- 0x388/0x389 current families = 0 A;
+- 0x38C input power = 15-16 W;
+- 0x38F line-voltage candidate = 240-241 V.
+
+### Minimum-speed family strengthened
+
+While all live compressor-target/load channels above are zero, the persistent
+limit family remains:
+
+- 0x3D0.float[1] = 20.83-20.91 RPS;
+- 0x3E0.float[0] = 20.82 RPS when observed.
+
+The earlier running captures also placed this family near 20 RPS. This strongly
+supports the existing "compressor target minimum speed" / lower-limit
+interpretation. Keep Candidate wording until a synchronized Technician value
+confirms the exact OEM field name.
+
+### 0x387 falsification repeated
+
+0x387.float[0] remains exactly 55.0 for the entire satisfied capture while:
+
+- compressor target = 0;
+- compressor power = 0;
+- outdoor fan = 0;
+- drive/input currents = 0.
+
+This independently repeats the evidence that 0x387.float[0] is not live
+compressor speed.
+
+### Structured-data freshness
+
+Because no JSON was received during this steady-state window, the runtime now
+tracks and exposes:
+
+- Last Structured JSON Age;
+- SystemOpStatus Snapshot Age;
+- IndoorStatus Snapshot Age;
+- SpOverride Snapshot Age.
+
+These ages distinguish retained profile state from current wire activity and
+prevent stale values from being mistaken for a live alarm, mode transition or
+setpoint transaction.
