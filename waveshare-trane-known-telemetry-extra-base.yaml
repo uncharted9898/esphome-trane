@@ -164,11 +164,17 @@ sensor:
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x200, 2);'
     device_id: dev_air_handler
 
+  # Cross-capture modulation strongly matches an upstream compressor-speed
+  # request: ~57.92 RPS at full load while 0x384 actual is ~57.9 RPS; roughly
+  # 40-43 RPS at moderate load while actual trails by ~1-2 RPS; and during
+  # satisfaction this drops immediately to ~20.97 RPS and then zero while the
+  # compressor itself coasts down through the 50s/40s/30s.
   - platform: template
     id: trane_280_float1
-    name: "0x280 Float 1 Candidate"
+    name: "0x280 Compressor Speed Request Candidate"
+    unit_of_measurement: "RPS"
     state_class: measurement
-    accuracy_decimals: 3
+    accuracy_decimals: 2
     entity_category: diagnostic
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x280, 0);'
