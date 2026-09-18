@@ -235,7 +235,10 @@ class CaptureAnalyzerTests(unittest.TestCase):
 
     def test_lss_fastscan_session_reconstructs_identity_and_node_assignment(self):
         lines = [
-            # Final positive bit-0 probes for all four Identity Object words.
+            # Fastscan initialize/reset followed by the final positive bit-0
+            # probes for all four Identity Object words.
+            "TRANE_CAN_LIVE,S,990,7E5,8,5100000000800000",
+            "TRANE_CAN_LIVE,S,991,7E4,8,4F00000000000000",
             "TRANE_CAN_LIVE,S,1000,7E5,8,5101000000000001",
             "TRANE_CAN_LIVE,S,1001,7E4,8,4F00000000000000",
             "TRANE_CAN_LIVE,S,1010,7E5,8,5104000000000102",
