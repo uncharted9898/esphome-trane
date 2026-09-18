@@ -84,6 +84,57 @@ sensor:
     lambda: 'return id(trane_link).get_last_byte_or_nan(0x3E0, 4);'
     device_id: dev_heat_pump
 
+  # Structured JSON freshness ---------------------------------------------
+  # Retained profile/status values are intentionally cached across sparse SDO
+  # updates. Expose their age so a stale retained value cannot be mistaken for
+  # current wire state during a binary-only steady-state capture.
+  - platform: template
+    id: trane_last_structured_json_age
+    name: "Last Structured JSON Age"
+    unit_of_measurement: "s"
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_json_age_seconds();'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_systemopstatus_snapshot_age
+    name: "SystemOpStatus Snapshot Age"
+    unit_of_measurement: "s"
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_json_snapshot_age_seconds("SystemOpStatus");'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_indoorstatus_snapshot_age
+    name: "IndoorStatus Snapshot Age"
+    unit_of_measurement: "s"
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_json_snapshot_age_seconds("IndoorStatus");'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_spoverride_snapshot_age
+    name: "SpOverride Snapshot Age"
+    unit_of_measurement: "s"
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_json_snapshot_age_seconds("SpOverride");'
+    device_id: dev_discovery
+
   # CANopen/network-management observations --------------------------------
   # 0x53E.byte5 fell 5 -> 4 while node 3 rebooted and returned to 5 after the
   # node reached NMT operational. Treat this as an active/available-node count
