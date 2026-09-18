@@ -20,7 +20,7 @@ esp32:
     type: esp-idf
 
 logger:
-  level: INFO
+  level: DEBUG
   logs:
     trane_bus: DEBUG
     canbus: WARN
