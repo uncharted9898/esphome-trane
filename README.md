@@ -26,7 +26,8 @@ Other ComfortLink II systems using the SC360 controller are likely compatible �
 - **Real-time sensors**: refrigerant circuit temp, compressor demand %, supply/return air temp, room temp, humidity, setpoints
 - **System status**: operating mode, demand stage (HP Stage 1/2, ID Stage 1/2, HP2+ID1/2), run timer, active alarms
 - **Fault detection**: captures `IndoorStatus.E` fault strings (e.g. `TA_INV_HI`) as a dedicated text sensor
-- **Bidirectional control**: setpoint and mode commands transmitted back on `0x641`
+- **Passive local decode** of Trane JSON and binary telemetry, including CANopen SDO transport
+- **Control API preserved but fail-closed on `dev`** until the newly identified CANopen SDO writer is implemented and qualified
 - **Sub-device grouping**: entities appear under four logical devices in HA
   - Trane Thermostat UX360
   - Trane SC360 Controller
@@ -117,29 +118,49 @@ esphome-trane/
 
 ## CAN Bus Architecture
 
-The ComfortLink II bus uses four CAN node addresses:
+The target Trane Link bus is 50-kbit/s classic CAN with a substantial standard
+CANopen management/transport layer plus Trane-specific application objects.
 
-| CAN ID range | Node |
+| CAN ID / range | Current interpretation |
 |---|---|
-| `0x641` / `0x649` | SC360 zone controller ↔ broadcast |
-| `0x5C1` / `0x5C9` | UX360 thermostat ↔ SC360 (private, ISO 15765-2 transport) |
-| `0x380`–`0x38F` | Outdoor unit (heat pump) float frames |
-| `0x490` | Air handler float/sensor frames |
+| `0x000` | CANopen NMT |
+| `0x701`–`0x705` | CANopen heartbeat/error-control nodes observed on target |
+| `0x7E5` / `0x7E4` | CANopen LSS manager/server |
+| `0x601/0x581`, `0x641/0x5C1`, `0x649/0x5C9` | CANopen SDO channel pairs carrying Trane JSON |
+| `0x380`–`0x38F` | Outdoor-unit telemetry/status family |
+| `0x280`–`0x320` | Indoor/blower/refrigerant telemetry family |
+| `0x490` and related IDs | UX360/zone/status telemetry family |
 
-### ISO 15765-2 Transport (0x5C1 / 0x5C9)
+### CANopen SDO JSON mailbox
 
-The thermostat and SC360 exchange segmented JSON messages using ISO 15765-2 framing:
+Target captures prove that the segmented JSON is **not ISO 15765-2**. It is
+standard CANopen SDO download traffic targeting manufacturer object
+`0x300A:00`.
 
-| Byte 0 | Frame type |
-|---|---|
-| `A0 xx` | First frame (xx = total length) |
-| `A1` | Continuation frame |
-| `A2` | Last frame |
-| `60` / `20` / `30` | Flow control |
+For example, a `ZoneStatus` update begins:
 
-The JSON payload uses the same schema as `0x641`/`0x649`. This channel carries the thermostat's profile requests and the SC360's full state dump on boot.
+```text
+0x649 C2 0A 30 00 2E 00 00 00
+0x5C9 A0 0A 30 00 07 00 00 00
+```
 
----
+which is a block-download initiate request for object `0x300A:00`, size 46,
+followed by the server's block-size response. The JSON data then travels in
+standard SDO block segments and finishes with the standard block ACK/end
+exchange.
+
+Short messages such as `{"Ack":"200"}` use standard segmented SDO download on
+`0x641/0x5C1` (`21/60` initiate, toggle-bit data segments, `20/30`
+responses).
+
+See `docs/CANOPEN-LINK-TRANSPORT.md` for the byte-level decode and provenance.
+
+> **Write safety:** the old repository transmitter was written before this SDO
+> identification and did not implement a valid SDO transaction. The maintained
+> `dev` component now fails closed for application writes until a nonblocking
+> CANopen SDO client is implemented and command direction is qualified from a
+> captured stock UX360 command transaction.
+
 
 ## Boot Sequence Protocol
 
