@@ -365,19 +365,46 @@ void TraneBus::on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const 
     last_sc360_frame_ms_ = millis();
   }
 
-  if (can_id == 0x601 || can_id == 0x621 || can_id == 0x641 || can_id == 0x649) {
-    std::string complete;
-    SegmentedRxState *state = nullptr;
-    if (can_id == 0x601)
-      state = &rx_601_;
-    else if (can_id == 0x621)
-      state = &rx_621_;
-    else if (can_id == 0x641)
-      state = &rx_641_;
-    else
-      state = &rx_649_;
-    if (feed_segmented_json_(*state, data, complete))
-      handle_json_message_(can_id, complete);
+  SegmentedRxState *sdo_state = nullptr;
+  uint32_t sdo_request_id = 0;
+  bool sdo_response = false;
+  switch (can_id) {
+    case 0x601:
+    case 0x581:
+      sdo_state = &rx_601_;
+      sdo_request_id = 0x601;
+      sdo_response = can_id == 0x581;
+      break;
+    case 0x621:
+    case 0x5A1:
+      sdo_state = &rx_621_;
+      sdo_request_id = 0x621;
+      sdo_response = can_id == 0x5A1;
+      break;
+    case 0x641:
+    case 0x5C1:
+      sdo_state = &rx_641_;
+      sdo_request_id = 0x641;
+      sdo_response = can_id == 0x5C1;
+      break;
+    case 0x649:
+    case 0x5C9:
+      sdo_state = &rx_649_;
+      sdo_request_id = 0x649;
+      sdo_response = can_id == 0x5C9;
+      break;
+    default:
+      break;
+  }
+
+  if (sdo_state != nullptr) {
+    if (sdo_response) {
+      feed_sdo_json_response_(*sdo_state, data);
+    } else {
+      std::string complete;
+      if (feed_segmented_json_(*sdo_state, data, complete))
+        handle_json_message_(sdo_request_id, complete);
+    }
   }
 }
 
@@ -389,48 +416,35 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
 
   const uint8_t marker = data[0];
 
-  // These channels are standard CANopen SDO downloads to manufacturer object
-  // 0x300A:00. Bytes 4..7 of the initiate request carry the little-endian
-  // indicated transfer size. Trane includes a trailing NUL in that SDO size;
-  // expected_len tracks only the JSON bytes so the application receives a
-  // normal std::string. Target examples:
-  //   0x601: C2 0A 30 00 25 00 00 00 -> block download, 37 wire bytes / 36 JSON bytes
-  //   0x649: C2 0A 30 00 2E 00 00 00 -> block download, 46 wire bytes / 45 JSON bytes
-  //   0x641: 21 0A 30 00 0E 00 00 00 -> segmented download, 14 wire bytes / 13 JSON bytes
-  auto target_payload_length = [&]() -> size_t {
+  auto is_trane_json_object = [&]() -> bool {
+    return data.size() >= 4 && data[1] == 0x0A && data[2] == 0x30 && data[3] == 0x00;
+  };
+
+  auto indicated_json_length = [&]() -> size_t {
     if (data.size() < 8)
       return 0;
     const uint32_t wire_len = static_cast<uint32_t>(data[4]) |
                               (static_cast<uint32_t>(data[5]) << 8) |
                               (static_cast<uint32_t>(data[6]) << 16) |
                               (static_cast<uint32_t>(data[7]) << 24);
-    if (wire_len == 0)
-      return 0;
-    return static_cast<size_t>(wire_len - 1U);
+    // Object 0x300A:00 carries a NUL-terminated JSON string. CANopen's
+    // indicated size includes that NUL; the application string does not.
+    return wire_len > 0 ? static_cast<size_t>(wire_len - 1U) : 0;
   };
 
-  // Process an in-flight payload before interpreting an otherwise ambiguous
-  // marker as a new header. Long transfers legitimately use sequence 0x21,
-  // for example, which is also the short-response header when the receiver is
-  // idle. The long sequence is seven-bit 1..0x7F and wraps 0x7F -> 0x01.
   if (state.expected_len != 0) {
-    if (state.expected_seq & 0x80) {
-      // Standard CANopen segmented SDO download request: 000tnnnc.
-      //   t   toggle bit (alternates 0/1)
-      //   nnn unused data bytes in the final segment
-      //   c   last-segment flag
-      // expected_seq uses bit 7 only as our internal "segmented mode" marker;
-      // bit 0 stores the expected CANopen toggle.
+    if (state.mode == SegmentedRxState::Mode::SEGMENTED_DOWNLOAD) {
+      // CANopen segmented SDO download request: 000tnnnc.
       if ((marker & 0xE0) != 0x00) {
         rx_transport_errors_++;
         state.reset();
         return false;
       }
-      const uint8_t expected_toggle = state.expected_seq & 0x01;
+
       const uint8_t toggle = (marker >> 4) & 0x01;
       const uint8_t unused = (marker >> 1) & 0x07;
       const bool last = (marker & 0x01) != 0;
-      if (toggle != expected_toggle || (!last && unused != 0)) {
+      if (toggle != state.expected_toggle || (!last && unused != 0)) {
         rx_transport_errors_++;
         state.reset();
         return false;
@@ -464,87 +478,153 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
         return false;
       }
 
-      state.expected_seq = static_cast<uint8_t>(0x80 | (expected_toggle ^ 0x01));
+      state.expected_toggle ^= 0x01;
       return false;
     }
 
-    // CANopen block SDO sub-block: bit 7 marks the final segment and the lower
-    // seven bits are sequence number 1..127. This is why 0x87 means sequence 7
-    // plus "last", not a byte-count.
-    if (marker & 0x80) {
-      const uint8_t sequence = marker & 0x7F;
-      if (sequence != state.expected_seq) {
+    if (state.mode == SegmentedRxState::Mode::BLOCK_DOWNLOAD) {
+      // Block payload segments use cnnnnnnn. Sequence numbers restart at 1
+      // after each server A2 sub-block acknowledgement.
+      if (state.awaiting_block_ack) {
         rx_transport_errors_++;
         state.reset();
         return false;
       }
+
+      const uint8_t sequence = marker & 0x7F;
+      const bool last = (marker & 0x80) != 0;
+      if (sequence == 0 || sequence != state.expected_seq) {
+        rx_transport_errors_++;
+        state.reset();
+        return false;
+      }
+
       for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
         if (data[i] == 0)
           break;
         state.buffer.push_back(static_cast<char>(data[i]));
       }
-      if (state.buffer.size() == state.expected_len) {
-        complete = state.buffer;
+
+      state.block_last_seq = sequence;
+      if (last) {
+        if (state.buffer.size() == state.expected_len) {
+          complete = state.buffer;
+          state.reset();
+          return true;
+        }
+        rx_transport_errors_++;
         state.reset();
-        return true;
+        return false;
       }
-      rx_transport_errors_++;
-      state.reset();
+
+      if (state.block_size != 0 && sequence == state.block_size) {
+        state.awaiting_block_ack = true;
+      } else {
+        state.expected_seq = sequence == 0x7F ? 1 : static_cast<uint8_t>(sequence + 1U);
+      }
       return false;
     }
 
-    if (marker != state.expected_seq) {
-      rx_transport_errors_++;
-      state.reset();
-      return false;
-    }
-    for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
-      if (data[i] == 0)
-        break;
-      state.buffer.push_back(static_cast<char>(data[i]));
-    }
-    state.expected_seq = state.expected_seq == 0x7F ? 1 : static_cast<uint8_t>(state.expected_seq + 1U);
+    rx_transport_errors_++;
+    state.reset();
     return false;
   }
 
-  // Idle-state header recognition is deliberately exact. C1/C5/C9/CD/D1/D5/D9
-  // are valid CANopen block-download end requests (110nnn01; nnn is the count
-  // of unused bytes in the last 7-byte segment). The JSON payload is already
-  // complete by then, so these standard SDO control frames are ignored here
-  // rather than counted as receive errors.
+  // Only SDO downloads to the target-observed Trane JSON mailbox are parsed as
+  // JSON. Other SDO objects on the same COB-ID remain visible in raw capture
+  // diagnostics but cannot poison the structured JSON state.
+  if ((marker == 0xC2 || marker == 0x21) && !is_trane_json_object())
+    return false;
+
   if (marker == 0xC2) {
-    size_t payload_len = target_payload_length();
-    if (payload_len == 0 || payload_len > MAX_RX_JSON_PAYLOAD) {
-      // Backward-compatible receive fallback for earlier experimental captures
-      // that encoded JSON length in bytes 1..2.
-      if (data.size() >= 3)
-        payload_len = static_cast<size_t>(data[1]) | (static_cast<size_t>(data[2]) << 8);
-    }
+    const size_t payload_len = indicated_json_length();
     if (payload_len == 0 || payload_len > MAX_RX_JSON_PAYLOAD) {
       rx_transport_errors_++;
       state.reset();
       return false;
     }
+    state.reset();
     state.expected_len = payload_len;
+    state.mode = SegmentedRxState::Mode::BLOCK_DOWNLOAD;
     state.expected_seq = 1;
     state.buffer.reserve(state.expected_len);
     return false;
   }
 
   if (marker == 0x21) {
-    const size_t payload_len = target_payload_length();
+    const size_t payload_len = indicated_json_length();
     if (payload_len == 0 || payload_len > MAX_RX_JSON_PAYLOAD) {
       rx_transport_errors_++;
       state.reset();
       return false;
     }
+    state.reset();
     state.expected_len = payload_len;
-    state.expected_seq = 0x80;  // segmented-mode flag + expected toggle 0
+    state.mode = SegmentedRxState::Mode::SEGMENTED_DOWNLOAD;
+    state.expected_toggle = 0;
     state.buffer.reserve(state.expected_len);
     return false;
   }
 
+  // Standard SDO end/ack/control frames are handled on the paired response
+  // COB-ID or ignored while idle. They are not JSON payload starts.
   return false;
+}
+
+void TraneBus::feed_sdo_json_response_(SegmentedRxState &state, const std::vector<uint8_t> &data) {
+  if (data.empty() || state.expected_len == 0)
+    return;
+
+  const uint8_t marker = data[0];
+
+  if (marker == 0x80) {
+    // Standard SDO abort terminates the current transfer.
+    rx_transport_errors_++;
+    state.reset();
+    return;
+  }
+
+  if (state.mode == SegmentedRxState::Mode::BLOCK_DOWNLOAD) {
+    if (marker == 0xA0) {
+      if (data.size() < 5 || data[1] != 0x0A || data[2] != 0x30 || data[3] != 0x00 ||
+          data[4] == 0 || data[4] > 0x7F) {
+        rx_transport_errors_++;
+        state.reset();
+        return;
+      }
+      state.block_size = data[4];
+      return;
+    }
+
+    if (marker == 0xA2) {
+      if (data.size() < 3 || !state.awaiting_block_ack ||
+          data[1] != state.block_last_seq || data[2] == 0 || data[2] > 0x7F) {
+        rx_transport_errors_++;
+        state.reset();
+        return;
+      }
+      state.block_size = data[2];
+      state.expected_seq = 1;
+      state.awaiting_block_ack = false;
+      return;
+    }
+
+    // A1 is the end response. The JSON extractor normally completed on the
+    // final request segment, so seeing A1 while state is still active means the
+    // indicated payload length did not match the received data.
+    if (marker == 0xA1) {
+      rx_transport_errors_++;
+      state.reset();
+    }
+    return;
+  }
+
+  if (state.mode == SegmentedRxState::Mode::SEGMENTED_DOWNLOAD) {
+    // 0x60 is initiate response; 0x20/0x30 acknowledge toggle 0/1 segments.
+    // The request-side parser owns payload assembly, so only aborts need to
+    // mutate state here.
+    return;
+  }
 }
 
 void TraneBus::remember_json_snapshot_(const std::string &root, const std::string &json) {
