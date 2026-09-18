@@ -311,3 +311,45 @@ snapshot age remains unavailable in this run.
 This capture must not be used to infer a setpoint write format. Application TX
 remains fail-closed until a capture starts before a physical UX360 setpoint
 change and records the originating transaction.
+
+
+### Additional command-versus-feedback separations
+
+The same combined capture set resolves two more previously generic fields.
+
+#### 0x280.float[0] — upstream compressor speed request candidate
+
+Across operating states:
+
+- full-load cooling: about 57.92 RPS while 0x384 actual is about 57.8-58.0;
+- moderate modulation: about 40-43 RPS while 0x384 actual trails by roughly
+  1-2 RPS;
+- satisfaction/ramp-down: the field drops immediately to about 20.97 RPS and
+  then zero while 0x384 actual continues coasting down through the 50s, 40s,
+  30s and finally zero.
+
+That lead/lag behavior is substantially stronger than a generic correlation.
+The entity is now `0x280 Compressor Speed Request Candidate`. It remains
+separate from the outdoor-drive target family at 0x385.float[1]; the captures
+show all three channels can diverge during a transition.
+
+#### 0x200.u16@2 / 0x318.u16@4 — blower request and feedback candidates
+
+These two indoor words form another repeatable lead/lag pair:
+
+- high load: 0x200 request about 660 CFM while 0x318 feedback is about
+  649-657 CFM;
+- moderate modulation: request about 490-570 CFM while feedback typically
+  trails by roughly 5-15 CFM;
+- satisfaction: the 0x200 request falls abruptly to 320 CFM while 0x318
+  feedback remains around 644 CFM and then decays through the 600/500/400
+  range before reaching zero.
+
+They are now exposed as:
+
+- `0x200 Blower Airflow Request Candidate`
+- `0x318 Blower Airflow Feedback Candidate`
+
+This does not change the independently observed 0x281 actual-airflow surface,
+which reports a different, higher delivered-airflow family (for example about
+774 CFM at the earlier high-load point).
