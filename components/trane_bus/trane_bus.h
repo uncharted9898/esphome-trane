@@ -120,13 +120,26 @@ class TraneBus : public Component {
   static constexpr size_t MAX_JSON_SNAPSHOT_BYTES = 2048;
 
   struct SegmentedRxState {
+    enum class Mode : uint8_t { IDLE = 0, BLOCK_DOWNLOAD = 1, SEGMENTED_DOWNLOAD = 2 };
+
     std::string buffer{};
     size_t expected_len{0};
+    Mode mode{Mode::IDLE};
     uint8_t expected_seq{1};
+    uint8_t expected_toggle{0};
+    uint8_t block_size{0};
+    uint8_t block_last_seq{0};
+    bool awaiting_block_ack{false};
+
     void reset() {
       buffer.clear();
       expected_len = 0;
+      mode = Mode::IDLE;
       expected_seq = 1;
+      expected_toggle = 0;
+      block_size = 0;
+      block_last_seq = 0;
+      awaiting_block_ack = false;
     }
   };
 
@@ -152,6 +165,7 @@ class TraneBus : public Component {
   void observe_standard_frame_(uint32_t can_id, const std::vector<uint8_t> &data);
   void capture_frame_(uint32_t can_id, const std::vector<uint8_t> &data);
   bool feed_segmented_json_(SegmentedRxState &state, const std::vector<uint8_t> &data, std::string &complete);
+  void feed_sdo_json_response_(SegmentedRxState &state, const std::vector<uint8_t> &data);
   void handle_json_message_(uint32_t can_id, const std::string &json);
   void remember_json_snapshot_(const std::string &root, const std::string &json);
   void handle_641_message_(const std::string &json);
