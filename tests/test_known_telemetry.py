@@ -278,6 +278,10 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn('name: "0x385 Compressor Target Speed Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x3D0 Compressor Target Minimum Speed Candidate"', TARGET_DISCOVERY)
 
+    def test_0x280_is_upstream_compressor_speed_request_candidate(self):
+        self.assertIn('name: "0x280 Compressor Speed Request Candidate"', EXTRA_BASE)
+        self.assertNotIn('name: "0x280 Float 1 Candidate"', EXTRA_BASE)
+
     def test_active_modulation_refines_blower_and_speed_reference_fields(self):
         self.assertIn('name: "0x281 Blower Demand Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x281 Blower Active Flag Candidate"', EXTRA_BASE)
