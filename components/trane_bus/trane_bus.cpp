@@ -296,9 +296,11 @@ bool TraneBus::is_known_trane_id_(uint32_t can_id) const {
     case 0x53D:
     case 0x53E:
     case 0x581:
+    case 0x5A1:
     case 0x5C1:
     case 0x5C9:
     case 0x601:
+    case 0x621:
     case 0x641:
     case 0x649:
     case 0x7E5:
@@ -363,11 +365,13 @@ void TraneBus::on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const 
     last_sc360_frame_ms_ = millis();
   }
 
-  if (can_id == 0x601 || can_id == 0x641 || can_id == 0x649) {
+  if (can_id == 0x601 || can_id == 0x621 || can_id == 0x641 || can_id == 0x649) {
     std::string complete;
     SegmentedRxState *state = nullptr;
     if (can_id == 0x601)
       state = &rx_601_;
+    else if (can_id == 0x621)
+      state = &rx_621_;
     else if (can_id == 0x641)
       state = &rx_641_;
     else
@@ -576,6 +580,21 @@ void TraneBus::handle_json_message_(uint32_t can_id, const std::string &json) {
           last_profile_request_ = json.substr(value_start + 1, value_end - value_start - 1);
       }
     }
+  }
+
+  if (last_json_root_ == "Debug") {
+    auto remember_debug_value = [&](const char *key, std::string &target) {
+      const std::string needle = std::string("\"") + key + "\":\"";
+      const size_t key_pos = json.find(needle);
+      if (key_pos == std::string::npos)
+        return;
+      const size_t value_start = key_pos + needle.size();
+      const size_t value_end = json.find('"', value_start);
+      if (value_end != std::string::npos)
+        target = json.substr(value_start, value_end - value_start);
+    };
+    remember_debug_value("IDBLE", debug_idble_);
+    remember_debug_value("ODBLE", debug_odble_);
   }
 
   remember_json_snapshot_(last_json_root_, json);
