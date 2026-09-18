@@ -66,30 +66,136 @@ The response pattern includes repeated `4F ...` frames matching the CANopen LSS 
 
 This strongly indicates that at least one Link participant is being discovered/configured through standard CANopen LSS during startup.
 
-## SDO-like transport pairs
+## CANopen SDO JSON transport
 
-The target bus also exposes paired IDs with the exact spacing expected from the CANopen predefined connection set:
+The target captures now identify the JSON transport as **standard CANopen SDO
+download protocol**, not ISO-TP and not a proprietary Trane segmentation layer.
 
-| Higher/request side | Lower/response-control side | Target observation |
+The application-specific portion is the NUL-terminated JSON document written to
+manufacturer object **0x300A:00**.
+
+Observed COB-ID pairs use the CANopen client/server SDO pairing pattern:
+
+| Client/request side | Server/response side | Target observation |
 | ---: | ---: | --- |
-| `0x601` | `0x581` | segmented `Debug` JSON plus A0/A1/A2-style control |
-| `0x621` | `0x5A1` | observed during boot; payload semantics still raw |
-| `0x641` | `0x5C1` | Trane request/ACK/profile traffic plus sideband control |
-| `0x649` | `0x5C9` | Trane broadcast/profile traffic plus sideband control |
+| `0x601` | `0x581` | block-download `Debug` JSON |
+| `0x621` | `0x5A1` | boot-time SDO-looking traffic; object semantics still raw |
+| `0x641` | `0x5C1` | segmented JSON including `{"Ack":"200"}` |
+| `0x649` | `0x5C9` | block-download status/profile JSON |
 
-The Trane segmented application format is **not standard CANopen SDO payload encoding**; it is proprietary application framing carried on CAN identifiers arranged like CANopen SDO channels. We therefore describe these as **SDO-like channel pairs**, not as decoded CANopen object-dictionary transfers.
+The `0x600+n` / `0x580+n` spacing is the CANopen predefined SDO COB-ID
+pattern. Do **not** infer physical device identity from the apparent `n`
+alone: CANopen permits additional SDO parameter objects with configured COB-IDs,
+and this installation's heartbeat node IDs are independently observed only at
+1 through 5.
 
-`0x601` has already been reassembled into target JSON such as:
+### Block download: 0x649 / 0x5C9 example
 
-```json
-{"Debug":{"IDBLE":"NOTADVERTISING"}}
+A target ZoneStatus update is a textbook block SDO download:
+
+```text
+0x649 C2 0A 30 00 2E 00 00 00
+0x5C9 A0 0A 30 00 07 00 00 00
+0x649 01 <7 data bytes>
+...
+0x649 87 <last data segment>
+0x5C9 A2 07 00 00 00 00 00 00
+0x649 CD 00 00 00 00 00 00 00
+0x5C9 A1 00 00 00 00 00 00 00
 ```
 
-and later:
+Decoded:
+
+- `C2` — SDO block-download initiate request, size indicated;
+- `0A 30` — little-endian object index `0x300A`;
+- subindex `00`;
+- `2E 00 00 00` — 46-byte transfer size;
+- `A0` — server block-download initiate response;
+- byte 4 `07` — negotiated block size of seven segments;
+- segment command bytes `01..06,87` — sequence 1..7, bit 7 set on the last;
+- `A2 07` — server acknowledges sequence 7;
+- `CD` — block-download end request with three unused bytes in the final
+  seven-byte segment;
+- `A1` — server block-download end response.
+
+The 46 transferred bytes are 45 JSON bytes plus the terminating NUL:
 
 ```json
-{"Debug":{"IDBLE":"ADVERTISING"}}
+{"ZoneStatus":{"Update":{"1":{"H":"76.00"}}}}
 ```
+
+The same arithmetic validates the `0x601` Debug captures. A 37-byte transfer
+uses six seven-byte segments (42 bytes capacity), leaving five unused bytes, so
+the observed end command is `D5 = C1 | (5 << 2)`. A 34-byte transfer uses five
+segments and leaves one unused byte, producing the observed `C5`.
+
+### Segmented download: 0x641 / 0x5C1 example
+
+The short application acknowledgment uses standard segmented SDO download:
+
+```text
+0x641 21 0A 30 00 0E 00 00 00
+0x5C1 60 0A 30 00 00 00 00 00
+0x641 00 7B 22 41 63 6B 22 3A
+0x5C1 20 00 00 00 00 00 00 00
+0x641 11 22 32 30 30 22 7D 00
+0x5C1 30 00 00 00 00 00 00 00
+```
+
+Decoded:
+
+- `21` — segmented-download initiate request with a 14-byte indicated size;
+- `60` — initiate response for object `0x300A:00`;
+- `00` — first seven-byte segment, toggle 0, not final;
+- `20` — segment response, toggle 0;
+- `11` — second segment, toggle 1, final;
+- `30` — final segment response, toggle 1.
+
+The transferred bytes are:
+
+```json
+{"Ack":"200"}
+```
+
+Again, the indicated SDO size includes the trailing NUL while the application
+JSON parser strips it.
+
+### What is standard vs Trane-specific
+
+Standard CANopen:
+
+- SDO initiate/segment/block/end command bytes;
+- object index/subindex placement;
+- transfer-size field;
+- block-size negotiation and sequence acknowledgements;
+- segmented-transfer toggle bits;
+- SDO abort framing;
+- COB-ID client/server pairing conventions.
+
+Trane-specific:
+
+- use of manufacturer object `0x300A:00` as a JSON mailbox;
+- the JSON roots and compact field names (`ZoneStatus`, `IndoorStatus`,
+  `SpOverride`, etc.);
+- application-level request/response meaning carried inside that JSON.
+
+This distinction is important: the transport no longer needs a bespoke framing
+implementation. Future active control should use a real non-blocking CANopen
+SDO client targeting `0x300A:00`, with the observed application JSON layered
+above it.
+
+### Active-write safety status
+
+The repository's historical transmitter pre-dated this SDO decode and emitted a
+guessed `C2`/sequence stream without object index `0x300A` or the mandatory
+SDO server handshakes. That sequence is not a valid target SDO transaction.
+
+The maintained `trane_bus` component therefore now **fails closed** for
+application writes even if TX is manually armed. Passive receive/decode remains
+fully active. Re-enable writes only after a proper asynchronous SDO client state
+machine is implemented and command direction is qualified against a captured
+UX360 command transaction.
+
 
 ## Emergency-like identifiers
 
