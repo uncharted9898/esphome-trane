@@ -3,7 +3,7 @@
 
 The analyzer intentionally separates wire decoding from HVAC semantic labels. It
 parses TRANE_CAN_LIVE records, reports cadence/ranges for standard 11-bit IDs,
-reassembles the proprietary segmented JSON observed on 0x601/0x641/0x649, and
+reassembles Trane JSON carried by CANopen SDO on 0x601/0x621/0x641/0x649, and
 decodes standards-backed CANopen management traffic without assigning physical
 Trane roles to node IDs.
 """
@@ -29,11 +29,11 @@ LIVE_RE = re.compile(
 
 SEGMENTED_JSON_IDS = (0x601, 0x621, 0x641, 0x649)
 
-# Target-observed CANopen SDO COB-ID pairs. The three JSON channels use the
+# Target-observed CANopen SDO COB-ID pairs. The JSON channels use the
 # standard client->server / server->client pairing pattern (0x600+n / 0x580+n)
 # and write their NUL-terminated JSON payload to manufacturer object 0x300A:00.
-# 0x621/0x5A1 is retained because it is also observed during boot, but its
-# application object semantics remain raw.
+# All four request pairs have now been observed carrying object 0x300A:00;
+# 0x621/0x5A1 specifically carries Debug.ODBLE updates.
 SDO_REQUEST_TO_RESPONSE = {
     0x601: 0x581,
     0x621: 0x5A1,
@@ -65,12 +65,22 @@ class Frame:
 @dataclasses.dataclass
 class SegmentedState:
     expected_len: int = 0
-    expected_seq: int = 0
+    mode: str | None = None
+    expected_seq: int = 1
+    expected_toggle: int = 0
+    block_size: int = 0
+    block_last_seq: int = 0
+    awaiting_block_ack: bool = False
     buffer: bytearray = dataclasses.field(default_factory=bytearray)
 
     def reset(self) -> None:
         self.expected_len = 0
-        self.expected_seq = 0
+        self.mode = None
+        self.expected_seq = 1
+        self.expected_toggle = 0
+        self.block_size = 0
+        self.block_last_seq = 0
+        self.awaiting_block_ack = False
         self.buffer.clear()
 
 
@@ -129,24 +139,29 @@ def _target_payload_length(data: bytes) -> int:
     return wire_len - 1
 
 
-def _feed_segment(state: SegmentedState, data: bytes) -> str | None:
+def _is_trane_json_object(data: bytes) -> bool:
+    return (
+        len(data) >= 4
+        and u16_le(data, 1) == TRANE_JSON_OBJECT_INDEX
+        and data[3] == TRANE_JSON_OBJECT_SUBINDEX
+    )
+
+
+def _feed_sdo_request(state: SegmentedState, data: bytes) -> str | None:
     if not data:
         return None
     marker = data[0]
 
     if state.expected_len:
-        if state.expected_seq & 0x80:
+        if state.mode == "segmented":
             # Standard CANopen segmented SDO download request: 000tnnnc.
-            # expected_seq bit 7 is our mode marker; bit 0 stores expected
-            # toggle state.
             if marker & 0xE0:
                 state.reset()
                 return None
-            expected_toggle = state.expected_seq & 0x01
             toggle = (marker >> 4) & 0x01
             unused = (marker >> 1) & 0x07
             final = bool(marker & 0x01)
-            if toggle != expected_toggle or (not final and unused):
+            if toggle != state.expected_toggle or (not final and unused):
                 state.reset()
                 return None
 
@@ -172,51 +187,59 @@ def _feed_segment(state: SegmentedState, data: bytes) -> str | None:
                 state.reset()
                 return None
 
-            state.expected_seq = 0x80 | (expected_toggle ^ 0x01)
+            state.expected_toggle ^= 0x01
             return None
 
-        # Long framing: bit 7 marks final; lower seven bits are sequence.
-        if marker & 0x80:
-            sequence = marker & 0x7F
-            if sequence != state.expected_seq:
+        if state.mode == "block":
+            if state.awaiting_block_ack:
                 state.reset()
                 return None
+
+            sequence = marker & 0x7F
+            final = bool(marker & 0x80)
+            if sequence == 0 or sequence != state.expected_seq:
+                state.reset()
+                return None
+
             for byte in data[1:]:
                 if len(state.buffer) >= state.expected_len:
                     break
                 if byte == 0:
                     break
                 state.buffer.append(byte)
-            if len(state.buffer) == state.expected_len:
-                result = state.buffer.decode("utf-8", errors="strict")
+
+            state.block_last_seq = sequence
+            if final:
+                if len(state.buffer) == state.expected_len:
+                    result = state.buffer.decode("utf-8", errors="strict")
+                    state.reset()
+                    return result
                 state.reset()
-                return result
-            state.reset()
+                return None
+
+            if state.block_size and sequence == state.block_size:
+                state.awaiting_block_ack = True
+            else:
+                state.expected_seq = 1 if sequence == 0x7F else sequence + 1
             return None
 
-        if marker != state.expected_seq:
-            state.reset()
-            return None
-        for byte in data[1:]:
-            if len(state.buffer) >= state.expected_len:
-                break
-            if byte == 0:
-                break
-            state.buffer.append(byte)
-        state.expected_seq = 1 if state.expected_seq == 0x7F else state.expected_seq + 1
+        state.reset()
+        return None
+
+    # Decode only the target-observed Trane JSON mailbox. Other SDO objects on
+    # the same COB-ID are still reported by decode_canopen_sdo_transport().
+    if marker in (0xC2, 0x21) and not _is_trane_json_object(data):
         return None
 
     if marker == 0xC2:
         payload_len = _target_payload_length(data)
-        if payload_len <= 0 and len(data) >= 3:
-            # Compatibility with the repo's oldest experimental captures.
-            payload_len = data[1] | (data[2] << 8)
         if payload_len <= 0 or payload_len > 4096:
             state.reset()
             return None
+        state.reset()
         state.expected_len = payload_len
+        state.mode = "block"
         state.expected_seq = 1
-        state.buffer.clear()
         return None
 
     if marker == 0x21:
@@ -224,28 +247,92 @@ def _feed_segment(state: SegmentedState, data: bytes) -> str | None:
         if payload_len <= 0 or payload_len > 4096:
             state.reset()
             return None
+        state.reset()
         state.expected_len = payload_len
-        state.expected_seq = 0x80
-        state.buffer.clear()
+        state.mode = "segmented"
+        state.expected_toggle = 0
         return None
 
     return None
+
+
+def _feed_sdo_response(state: SegmentedState, data: bytes) -> None:
+    if not data or not state.expected_len:
+        return
+
+    marker = data[0]
+    if marker == 0x80:
+        state.reset()
+        return
+
+    if state.mode == "block":
+        if marker == 0xA0:
+            if (
+                len(data) < 5
+                or not _is_trane_json_object(data)
+                or data[4] == 0
+                or data[4] > 0x7F
+            ):
+                state.reset()
+                return
+            state.block_size = data[4]
+            return
+
+        if marker == 0xA2:
+            if (
+                len(data) < 3
+                or not state.awaiting_block_ack
+                or data[1] != state.block_last_seq
+                or data[2] == 0
+                or data[2] > 0x7F
+            ):
+                state.reset()
+                return
+            state.block_size = data[2]
+            state.expected_seq = 1
+            state.awaiting_block_ack = False
+            return
+
+        if marker == 0xA1:
+            state.reset()
+        return
+
+    # Segmented download responses (0x60/0x20/0x30) confirm transport progress
+    # but do not alter request-side payload assembly. Abort was handled above.
 
 
 def reassemble_json(frames: Sequence[Frame]) -> list[dict[str, object]]:
     states = {can_id: SegmentedState() for can_id in SEGMENTED_JSON_IDS}
     messages: list[dict[str, object]] = []
     for frame in frames:
-        state = states.get(frame.can_id)
-        if state is None:
+        if frame.kind != "S":
             continue
+
+        request_id: int | None = None
+        response = False
+        if frame.can_id in states:
+            request_id = frame.can_id
+        elif frame.can_id in SDO_RESPONSE_TO_REQUEST:
+            candidate = SDO_RESPONSE_TO_REQUEST[frame.can_id]
+            if candidate in states:
+                request_id = candidate
+                response = True
+        if request_id is None:
+            continue
+
+        state = states[request_id]
+        if response:
+            _feed_sdo_response(state, frame.data)
+            continue
+
         try:
-            complete = _feed_segment(state, frame.data)
+            complete = _feed_sdo_request(state, frame.data)
         except UnicodeDecodeError:
             state.reset()
             continue
         if complete is None:
             continue
+
         try:
             parsed = json.loads(complete)
         except json.JSONDecodeError:
@@ -254,7 +341,7 @@ def reassemble_json(frames: Sequence[Frame]) -> list[dict[str, object]]:
             {
                 "line": frame.line_no,
                 "tick_ms": frame.tick_ms,
-                "can_id": f"0x{frame.can_id:03X}",
+                "can_id": f"0x{request_id:03X}",
                 "json": parsed,
             }
         )
