@@ -126,7 +126,7 @@ CANopen management/transport layer plus Trane-specific application objects.
 | `0x000` | CANopen NMT |
 | `0x701`–`0x705` | CANopen heartbeat/error-control nodes observed on target |
 | `0x7E5` / `0x7E4` | CANopen LSS manager/server |
-| `0x601/0x581`, `0x641/0x5C1`, `0x649/0x5C9` | CANopen SDO channel pairs carrying Trane JSON |
+| `0x601/0x581`, `0x621/0x5A1`, `0x641/0x5C1`, `0x649/0x5C9` | CANopen SDO channel pairs carrying Trane JSON |
 | `0x380`–`0x38F` | Outdoor-unit telemetry/status family |
 | `0x280`–`0x320` | Indoor/blower/refrigerant telemetry family |
 | `0x490` and related IDs | UX360/zone/status telemetry family |
