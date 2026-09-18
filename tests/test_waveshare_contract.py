@@ -10,6 +10,9 @@ LEGACY = (ROOT / "esphome-trane.yaml").read_text()
 BUS_CPP = (ROOT / "components/trane_bus/trane_bus.cpp").read_text()
 BUS_H = (ROOT / "components/trane_bus/trane_bus.h").read_text()
 BUS_PY = (ROOT / "components/trane_bus/__init__.py").read_text()
+CLIMATE_PY = (ROOT / "components/trane_hvac/climate.py").read_text()
+CLIMATE_H = (ROOT / "components/trane_hvac/trane_climate.h").read_text()
+CLIMATE_CPP = (ROOT / "components/trane_hvac/trane_climate.cpp").read_text()
 
 
 class WaveshareSafetyContractTests(unittest.TestCase):
