@@ -53,7 +53,13 @@ and shows the positive Fastscan response as:
 0x7E4  4F 00 00 00 00 00 00 00
 ```
 
-The current high-load target capture contains the manager request but no `0x7E4` response inside its roughly one-minute observation window. That absence must not be interpreted as proof that no server supports LSS; it only describes this capture window.
+The later cool-ambient target capture contains **11 identical Fastscan-init requests**
+over roughly one minute, with a median interval of about **5.3 seconds**, and no
+`0x7E4` response in that window. That makes Fastscan a periodic steady-state
+management behavior on this installation rather than a boot-only curiosity.
+The absence of a server response in that window must not be interpreted as proof
+that no server supports LSS; it only means no positive responder was observed
+for those particular periodic probes.
 
 ## Why this matters for Trane Link
 
@@ -65,7 +71,9 @@ That also reinforces the broader architecture already visible on the bus:
 - `0x000`: CANopen NMT command channel when present.
 - `0x7E5`: LSS manager requests.
 - `0x7E4`: LSS server responses when present.
-- `0x581`, `0x5C1`, `0x5C9`, `0x601`, `0x641`, `0x649`: Trane/SC360 service and segmented-JSON traffic layered beside the standard CANopen management plane.
+- `0x601/0x581`, `0x621/0x5A1`, `0x641/0x5C1`, and
+  `0x649/0x5C9`: standard CANopen SDO channel pairs carrying Trane JSON at
+  manufacturer object `0x300A:00`.
 
 The physical device behind CANopen node 1, 2, 3, 4, or 5 remains intentionally unassigned until a controlled topology test ties a node ID to a device reboot or disconnect.
 
