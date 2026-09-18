@@ -1,6 +1,10 @@
 #include "trane_climate.h"
 #include "esphome/core/log.h"
 
+#ifdef USE_TRANE_HVAC_GUARDED_BUS
+#include "esphome/components/trane_bus/trane_bus.h"
+#endif
+
 #include <cmath>
 
 namespace esphome {
@@ -167,12 +171,14 @@ void TraneClimate::control(const climate::ClimateCall &call) {
     const climate::ClimateMode requested_mode = *call.get_mode();
     if (!is_supported_control_mode_(requested_mode)) {
       ESP_LOGW(TAG, "Rejecting unsupported climate mode request: %d", static_cast<int>(requested_mode));
+#ifdef USE_TRANE_HVAC_GUARDED_BUS
     } else if (trane_bus_ != nullptr) {
       const char *mode_name = requested_mode == climate::CLIMATE_MODE_HEAT
                                   ? "heat"
                                   : requested_mode == climate::CLIMATE_MODE_COOL ? "cool" : "off";
       ESP_LOGI(TAG, "Requesting %s through guarded Trane bus; waiting for SC360 echo", mode_name);
       trane_bus_->set_system_mode(mode_name);
+#endif
     } else {
       ESP_LOGI(TAG, "Requesting climate mode %d through legacy automation; waiting for SC360 echo",
                static_cast<int>(requested_mode));
@@ -198,10 +204,13 @@ void TraneClimate::control(const climate::ClimateCall &call) {
       // Convert degC -> degF for Trane CAN command generation.
       const float hsp_f = hsp_c * 9.0f / 5.0f + 32.0f;
       const float csp_f = csp_c * 9.0f / 5.0f + 32.0f;
+#ifdef USE_TRANE_HVAC_GUARDED_BUS
       if (trane_bus_ != nullptr) {
         ESP_LOGI(TAG, "Requesting setpoints Hsp=%.0f degF Csp=%.0f degF through guarded Trane bus", hsp_f, csp_f);
         trane_bus_->set_setpoints(hsp_f, csp_f);
-      } else if (hsp_c <= csp_c) {
+      } else
+#endif
+      if (hsp_c <= csp_c) {
         ESP_LOGI(TAG, "Requesting setpoints Hsp=%.0f degF Csp=%.0f degF through legacy automation", hsp_f, csp_f);
         temperature_trigger_.trigger(hsp_f, csp_f);
       } else {
