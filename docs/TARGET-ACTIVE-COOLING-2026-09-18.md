@@ -363,3 +363,66 @@ They are now exposed as:
 This does not change the independently observed 0x281 actual-airflow surface,
 which reports a different, higher delivered-airflow family (for example about
 774 CFM at the earlier high-load point).
+
+## 16:33 near-full-load capture and environmental source correction
+
+The follow-up capture `trane-5tv0x-2ton-upstairs-logs (13)` records a
+near-full-load cooling point with structured compressor demand/speed and indoor
+blower speed at roughly 99 percent.
+
+Representative values at this operating point include:
+
+- 0x280 compressor speed request about 57.45 RPS
+- 0x384 actual compressor speed about 55.1 RPS
+- 0x385 compressor target speed about 65 RPS
+- 0x200 blower airflow request about 788 CFM
+- 0x318 blower airflow feedback about 778 CFM
+- 0x281 actual airflow about 772 CFM
+- 0x281 blower demand byte about 99 percent
+
+The HA profile snapshot also retains a 77 F cool setpoint and 62 F heat
+setpoint, but the SpOverride snapshot age is already about 14-15 minutes old at
+the beginning of the log. No literal JSON `"Put"`, fresh `SpOverride`,
+`Csp`, or `Hsp` update occurs in the captured minute. The setpoint write
+therefore happened before capture and application TX remains fail-closed.
+
+### SystemOpStatus.D is demand-family telemetry
+
+Cross-capture evidence now gives:
+
+- idle: D=0 while compressor demand is 0 percent
+- moderate cooling: D=70 during the 70-percent operating point
+- near-full load: retained D=96 shortly before the system reaches 99-percent
+  compressor/blower demand
+
+The field updates less frequently than OdStatus, so it is exposed as
+`System Demand Percent Candidate` rather than replacing the dedicated
+compressor-demand channel.
+
+### SystemOpStatus.E is not outdoor temperature or indoor humidity
+
+The older parser interpreted SystemOpStatus.E as outdoor temperature when the
+string contained a decimal point and otherwise as humidity. This is disproved
+by synchronized captures:
+
+- E stays around 57-58
+- actual outdoor ambient changes from the upper 70s F to roughly 85-86 F
+- at the 99-percent point, 58 RPS * 0.99 = 57.42 RPS, essentially matching
+  0x280 compressor request at about 57.45 RPS
+
+SystemOpStatus.E is therefore reclassified as
+`System Compressor Speed Ceiling Candidate`. The raw E text remains exposed.
+
+### Environmental sources retained
+
+The integration still exposes all expected environmental measurements, but from
+the target-observed sources that actually support them:
+
+- Outdoor Air Temperature: binary 0x380.float[1]
+- Room Temperature: 0x490.float[0] / structured zone temperature
+- Indoor Humidity: 0x490 byte 4 when the byte is within 0..100 percent
+
+0x490 byte 4 normally lands in the 50s/60s and is 58 in this capture. During
+node startup it can take the invalid value 157. The user-facing Indoor Humidity
+entity therefore filters values outside 0..100 to NaN, while the raw/candidate
+byte remains available diagnostically.
