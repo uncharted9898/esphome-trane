@@ -193,9 +193,9 @@ class KnownTelemetryContractTests(unittest.TestCase):
         combined = TELEMETRY + EXTRA
         for label in (
             "0x281 Actual Airflow",
-            "0x281 Tail Word Raw",
-            "0x281 Byte 6 Candidate",
-            "0x281 Byte 7 State Candidate",
+            "0x281 Bytes 6-7 Composite Raw",
+            "0x281 Blower Demand Candidate",
+            "0x281 Blower Active Flag Candidate",
             "0x308 Return Air Temperature",
             "0x308 Supply Air Temperature",
             "0x310 Total Static Pressure",
@@ -231,7 +231,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x381 Outdoor Coil Temperature Candidate",
             "0x383 Compressor Dome Discharge Temperature Candidate",
             "0x38F Line Voltage Candidate",
-            "0x387 Float 1 Raw",
+            "0x387 Compressor Speed Reference Limit Candidate",
         ):
             self.assertIn(f'name: "{label}"', TELEMETRY)
 
@@ -267,10 +267,20 @@ class KnownTelemetryContractTests(unittest.TestCase):
             self.assertIn(f'name: "{label}"', EXTRA)
 
     def test_active_load_requalifies_0x384_as_compressor_speed(self):
-        self.assertIn('name: "0x384 Compressor Speed Candidate"', EXTRA_BASE)
+        self.assertIn('name: "0x384 Actual Compressor Speed Candidate"', EXTRA_BASE)
         self.assertNotIn('name: "0x384 Compressor Target Max Speed Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x385 Compressor Target Speed Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x3D0 Compressor Target Minimum Speed Candidate"', TARGET_DISCOVERY)
+
+    def test_active_modulation_refines_blower_and_speed_reference_fields(self):
+        self.assertIn('name: "0x281 Blower Demand Candidate"', EXTRA_BASE)
+        self.assertIn('name: "0x281 Blower Active Flag Candidate"', EXTRA_BASE)
+        self.assertIn('name: "0x281 Bytes 6-7 Composite Raw"', EXTRA_BASE)
+        self.assertIn('name: "0x384 Actual Compressor Speed Candidate"', EXTRA_BASE)
+        self.assertIn('name: "0x387 Compressor Speed Reference Limit Candidate"', TELEMETRY)
+        self.assertNotIn('name: "0x281 Tail Word Raw"', EXTRA_BASE)
+        self.assertNotIn('name: "0x281 Byte 6 Candidate"', EXTRA_BASE)
+        self.assertNotIn('name: "0x281 Byte 7 State Candidate"', EXTRA_BASE)
 
     def test_structured_json_freshness_diagnostics_are_exposed(self):
         for label in (
