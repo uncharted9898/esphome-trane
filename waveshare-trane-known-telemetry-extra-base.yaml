@@ -565,16 +565,23 @@ sensor:
     accuracy_decimals: 2
     entity_category: diagnostic
     update_interval: 2s
-    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x490, 0);'
+    lambda: |-
+      const float value = id(trane_link).get_last_float_le_or_nan(0x490, 0);
+      if (!std::isfinite(value) || value <= -90.0f || value > 130.0f) return NAN;
+      return value;
     device_id: dev_thermostat
+
+  # Byte4 often lands in a humidity-looking range (54-69), but the node-3
+  # startup/satisfied transition held it at 0x9D (157) for repeated frames,
+  # including one frame where the room-temperature float had already recovered
+  # to 79 F. It is therefore not safe to expose as literal relative humidity.
   - platform: template
     id: trane_490_byte4
-    name: "0x490 Zone 1 Relative Humidity"
-    unit_of_measurement: "%"
-    device_class: humidity
+    name: "0x490 Zone 1 RH Status Byte Candidate"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_byte_or_nan(0x490, 4);'
     device_id: dev_thermostat
