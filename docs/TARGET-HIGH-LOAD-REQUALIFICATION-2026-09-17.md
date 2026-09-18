@@ -1,5 +1,8 @@
 # Target high-load requalification — 2026-09-17
 
+> **Follow-up correction:** the subsequent cool-ambient capture confirms the high-load pass was right to move line voltage from `0x383.float[1]` to `0x38F.float[0]`, and strengthens `0x383.float[1]` as liquid/high-side pressure. It also shows this note over-corrected `0x381`: R-454B pressure/temperature correlation across both runs supports `0x381.float[0]` = suction temperature and `0x381.float[1]` = suction pressure. See `TARGET-COOL-AMBIENT-REQUALIFICATION-2026-09-17.md` for the current mapping.
+
+
 Status: passive target-capture evidence. No CAN transmissions were generated for this analysis.
 
 This note analyzes the later steady/high-load cooling capture from the installed system:
