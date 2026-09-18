@@ -29,6 +29,14 @@ LIVE_RE = re.compile(
 
 SEGMENTED_JSON_IDS = (0x601, 0x641, 0x649)
 
+# Target-observed companion/control channel for each segmented JSON channel.
+# These are private Trane transport IDs, not standard CANopen objects.
+SEGMENTED_CONTROL_CHANNELS = {
+    0x581: 0x601,
+    0x5C1: 0x641,
+    0x5C9: 0x649,
+}
+
 HEARTBEAT_STATES = {
     0x00: "boot-up",
     0x04: "stopped",
@@ -301,7 +309,34 @@ def typed_ranges(frames: Sequence[Frame]) -> dict[str, object]:
                     "max": max(finite),
                     "last": finite[-1],
                 }
+        byte6 = [row.data[6] for row in rows if len(row.data) >= 7]
+        byte7 = [row.data[7] for row in rows if len(row.data) >= 8]
+        if byte6:
+            result["byte_6"] = {
+                "min": min(byte6),
+                "max": max(byte6),
+                "last": byte6[-1],
+            }
+        if byte7:
+            result["byte_7"] = {
+                "min": min(byte7),
+                "max": max(byte7),
+                "last": byte7[-1],
+            }
         output["0x281"] = result
+
+    rows = grouped.get(0x318, [])
+    if rows:
+        result = output.setdefault("0x318", {"count": len(rows)})
+        for word, offset in ((2, 4), (3, 6)):
+            values = [u16_le(row.data, offset) for row in rows]
+            finite = [value for value in values if value is not None]
+            if finite:
+                result[f"u16_{word}"] = {
+                    "min": min(finite),
+                    "max": max(finite),
+                    "last": finite[-1],
+                }
 
     rows = grouped.get(0x384, [])
     if rows:
@@ -335,6 +370,59 @@ def typed_ranges(frames: Sequence[Frame]) -> dict[str, object]:
         }
 
     return output
+
+
+def decode_private_transport_controls(frames: Sequence[Frame]) -> list[dict[str, object]]:
+    """Decode target-observed companion control frames for segmented JSON.
+
+    Long transfers on 0x601 and 0x649 are bracketed by a companion channel.
+    The A0 control advertises the number of following 7-byte data segments and
+    the A2 control repeats that count after the final segment. The short 0x641
+    response uses a distinct 0x60/0x20/0x30 control sequence.
+
+    Opcode names intentionally describe observed wire behavior only; they do
+    not claim an OEM semantic name that has not been recovered.
+    """
+    events: list[dict[str, object]] = []
+    for frame in frames:
+        if frame.kind != "S" or frame.can_id not in SEGMENTED_CONTROL_CHANNELS:
+            continue
+        if not frame.data:
+            continue
+
+        payload_id = SEGMENTED_CONTROL_CHANNELS[frame.can_id]
+        opcode = frame.data[0]
+        event: dict[str, object] = {
+            "line": frame.line_no,
+            "tick_ms": frame.tick_ms,
+            "control_can_id": f"0x{frame.can_id:03X}",
+            "payload_can_id": f"0x{payload_id:03X}",
+            "opcode": opcode,
+            "raw": frame.data.hex().upper(),
+        }
+
+        if opcode == 0xA0 and len(frame.data) >= 5:
+            event["phase"] = "long_announce"
+            event["channel_tag"] = frame.data[1:4].hex().upper()
+            event["segment_count"] = frame.data[4]
+        elif opcode == 0xA2 and len(frame.data) >= 2:
+            event["phase"] = "long_complete_count"
+            event["segment_count"] = frame.data[1]
+        elif opcode == 0xA1:
+            event["phase"] = "long_release"
+        elif frame.can_id == 0x5C1 and opcode == 0x60:
+            event["phase"] = "short_announce"
+            if len(frame.data) >= 4:
+                event["channel_tag"] = frame.data[1:4].hex().upper()
+        elif frame.can_id == 0x5C1 and opcode == 0x20:
+            event["phase"] = "short_data"
+        elif frame.can_id == 0x5C1 and opcode == 0x30:
+            event["phase"] = "short_complete"
+        else:
+            event["phase"] = "raw"
+
+        events.append(event)
+    return events
 
 
 def decode_canopen_management(frames: Sequence[Frame]) -> dict[str, object]:
@@ -467,6 +555,7 @@ def analyze(frames: Sequence[Frame]) -> dict[str, object]:
         "ids": id_summary(frames),
         "typed_ranges": typed_ranges(frames),
         "structured_json": reassemble_json(frames),
+        "private_transport_controls": decode_private_transport_controls(frames),
         "canopen_management": decode_canopen_management(frames),
     }
 
@@ -486,6 +575,8 @@ def _print_text(report: dict[str, object]) -> None:
         )
     print("\nTyped ranges (wire interpretation only):")
     print(json.dumps(report["typed_ranges"], indent=2, sort_keys=True))
+    print("\nPrivate segmented-transport controls:")
+    print(json.dumps(report["private_transport_controls"], indent=2, sort_keys=True))
     print("\nCANopen management:")
     print(json.dumps(report["canopen_management"], indent=2, sort_keys=True))
     print("\nReassembled structured JSON:")
