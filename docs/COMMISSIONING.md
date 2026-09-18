@@ -27,9 +27,9 @@ While tracking the moving `dev` branch, keep remote ESPHome packages/components 
 
 Expected behavior:
 
-- GPIO17 = CAN TX into the Waveshare onboard CAN interface.
-- GPIO18 = CAN RX from the onboard CAN interface.
-- GPIO15/GPIO16 are not the onboard CAN pair for this board.
+- GPIO15 = CAN TX into the Waveshare onboard CAN interface.
+- GPIO16 = CAN RX from the onboard CAN interface.
+- GPIO17/GPIO18 are the board's other serial path and are not the TWAI CAN pair used by this profile.
 - 50 kbit/s.
 - ESP32 TWAI mode = NORMAL.
 - The CAN controller participates normally in arbitration and ACKs valid received frames.
@@ -268,33 +268,39 @@ If a qualified technician runs them for legitimate commissioning/service reasons
 - suction pressure;
 - low-pressure protection/fault fields.
 
-## 5. Raw telemetry questions to answer on this exact system
+## 5. Remaining telemetry questions on this exact system
 
-Do not trust the friendly names until these are closed:
+The maintained current map is [TELEMETRY.md](TELEMETRY.md). Do not repeat already-closed questions merely because an older capture note raised them.
 
-1. Is `OdStatus.B` actual compressor speed percent on 5TWV0X as it was documented upstream?
-2. Which outdoor frame is suction temperature?
-3. Which outdoor frame is outdoor-coil temperature?
-4. Which frame is liquid temperature?
-5. Which frame is discharge/dome temperature?
-6. Which frame/field is suction pressure?
-7. Which frame/field is liquid/high-side pressure?
-8. What are 0x386 float 1, 0x386 float 2 and 0x387 float 1 independently?
-9. Are the two 0x283 values the 5TAMX ET/GT thermistors?
-10. Are 0x308 values truly return-air and supply-air temperature?
-11. What are 0x410/0x430/0x450?
-12. What does 0x490 byte/channel selection mean?
-13. Where is requested and/or actual blower CFM?
-14. Is external/static pressure exposed anywhere?
-15. Where are indoor and outdoor EEV position/command?
-16. Where are target and actual superheat?
-17. What exact field(s) represent electric heat stages 1-3?
-18. What exact field represents emergency heat?
-19. What exact field represents defrost?
-20. What CAN node/IDs belong to the A2L mitigation controller?
-21. Where are per-device model/serial/software identities carried?
-22. Where is heater size/model/configuration carried?
-23. Are aux-heat lockout, compressor lockout and airflow settings present in profile data?
+Closed/strongly constrained by target captures:
+
+- `0x380.float[1]` outdoor ambient;
+- `0x308` return/supply air;
+- `0x310` total static pressure;
+- `0x281.u16@0` actual airflow;
+- blower request/feedback chain across `0x200`, `0x318`, and `0x281`;
+- compressor request/actual/target families across `0x280`, `0x384`, and `0x385`;
+- `0x38F.float[0]` line-voltage candidate;
+- `0x38C.float[1]` input power;
+- room temperature from `0x490.float[0]`;
+- filtered indoor humidity from `0x490.byte4`;
+- CANopen SDO JSON mailbox at `0x300A:00`.
+
+Highest-value unresolved questions:
+
+1. What exact pressure role/scaling does `0x381.float[1]` use?
+2. What exact physical sensor is `0x382.float[0]`?
+3. What are `0x386.float[0]` and `0x386.float[1]` on this model?
+4. What are the exact sources/units for `0x430` and `0x450`?
+5. What is `0x460.float[0]`?
+6. Where is outdoor EEV command/position?
+7. Can suction and liquid/high-side pressure both be independently matched to Technician values?
+8. What exact fields represent electric heat stages 1-3 and emergency heat?
+9. What exact fields represent defrost and reversing-valve state?
+10. What CAN node/IDs/profile fields belong to the A2L mitigation controller and sensor?
+11. Where are per-device model/serial/software identities for each communicating assembly?
+12. Where is installed heater size/model/configuration?
+13. What is the originating stock UX360 JSON/SDO transaction for a setpoint or mode write?
 
 ## 6. General all-electric operating capture matrix
 
