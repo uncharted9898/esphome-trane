@@ -242,7 +242,7 @@ text_sensor:
     lambda: 'return {id(trane_link).get_last_frame_hex(0x4C5)};'
     device_id: dev_discovery
 
-  # Boot-only / secondary SDO-like channels -------------------------------
+  # Boot-only / secondary CANopen SDO channels ------------------------------
   - platform: template
     name: "Last 0x496 Cold Boot Raw"
     entity_category: diagnostic
@@ -265,14 +265,14 @@ text_sensor:
     lambda: 'return {id(trane_link).get_last_frame_hex(0x560)};'
     device_id: dev_discovery
   - platform: template
-    name: "Last SDO-like 0x5A1 Raw"
+    name: "Last CANopen SDO Response 0x5A1 Raw"
     entity_category: diagnostic
     disabled_by_default: true
     update_interval: 5s
     lambda: 'return {id(trane_link).get_last_frame_hex(0x5A1)};'
     device_id: dev_discovery
   - platform: template
-    name: "Last SDO-like 0x621 Raw"
+    name: "Last CANopen SDO Request 0x621 Raw"
     entity_category: diagnostic
     disabled_by_default: true
     update_interval: 5s
