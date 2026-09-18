@@ -217,9 +217,10 @@ to a standards-backed decode.
 
 Observed JSON SDO pairs:
 
-    0x601 <-> 0x581
-    0x641 <-> 0x5C1
-    0x649 <-> 0x5C9
+    0x601 <-> 0x581   Debug.IDBLE
+    0x621 <-> 0x5A1   Debug.ODBLE
+    0x641 <-> 0x5C1   segmented Ack JSON
+    0x649 <-> 0x5C9   block status/profile JSON
 
 The request-side IDs carry standard CANopen SDO download commands and the
 response-side IDs carry the corresponding standard SDO server responses.
@@ -256,6 +257,15 @@ The 46 bytes are the 45-byte ZoneStatus JSON plus a trailing NUL.
 The same command-byte arithmetic validates the 0x601 Debug messages. A 37-byte
 transfer occupies six segments (42-byte capacity), leaving five unused bytes;
 the observed end command is D5, exactly C1 | (5 << 2).
+
+The previously raw 0x621/0x5A1 pair is now decoded too. It repeats the same
+0x300A:00 block-download structure and reconstructs:
+
+    {"Debug":{"ODBLE":"NOTADVERTISING"}}
+    {"Debug":{"ODBLE":"ADVERTISING"}}
+
+This mirrors the 0x601/0x581 IDBLE messages and provides a second independent
+confirmation that 0x300A:00 is the Trane JSON mailbox.
 
 ### Segmented SDO: 0x641 / 0x5C1 Ack
 
