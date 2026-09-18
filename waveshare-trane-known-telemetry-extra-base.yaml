@@ -9,14 +9,17 @@
 # actions. waveshare-trane-homeassistant.yaml remains the hardware/parser owner.
 
 sensor:
-  # SystemOpStatus.D is numeric upstream but its exact meaning is ambiguous
-  # (runtime-like versus demand-like). Preserve the numeric value without
-  # promoting it to a misleading percent label.
+  # SystemOpStatus.D now has repeatable demand-family behavior across idle,
+  # moderate and near-full-load captures: 0 at idle, 70 during the 70-percent
+  # modulation point, and 96 shortly before the system reaches 99-percent
+  # compressor/blower demand. It updates more slowly than OdStatus, so keep
+  # Candidate wording rather than treating it as the primary demand channel.
   - platform: template
     id: trane_system_status_d_numeric
-    name: "SystemOpStatus D Numeric Candidate"
+    name: "System Demand Percent Candidate"
+    unit_of_measurement: "%"
     state_class: measurement
-    accuracy_decimals: 2
+    accuracy_decimals: 0
     entity_category: diagnostic
     device_id: dev_sc360
 
