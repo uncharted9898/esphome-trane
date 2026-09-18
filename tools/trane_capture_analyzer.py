@@ -29,13 +29,20 @@ LIVE_RE = re.compile(
 
 SEGMENTED_JSON_IDS = (0x601, 0x641, 0x649)
 
-# Target-observed companion/control channel for each segmented JSON channel.
-# These are private Trane transport IDs, not standard CANopen objects.
-SEGMENTED_CONTROL_CHANNELS = {
-    0x581: 0x601,
-    0x5C1: 0x641,
-    0x5C9: 0x649,
+# Target-observed CANopen SDO COB-ID pairs. The three JSON channels use the
+# standard client->server / server->client pairing pattern (0x600+n / 0x580+n)
+# and write their NUL-terminated JSON payload to manufacturer object 0x300A:00.
+# 0x621/0x5A1 is retained because it is also observed during boot, but its
+# application object semantics remain raw.
+SDO_REQUEST_TO_RESPONSE = {
+    0x601: 0x581,
+    0x621: 0x5A1,
+    0x641: 0x5C1,
+    0x649: 0x5C9,
 }
+SDO_RESPONSE_TO_REQUEST = {response: request for request, response in SDO_REQUEST_TO_RESPONSE.items()}
+TRANE_JSON_OBJECT_INDEX = 0x300A
+TRANE_JSON_OBJECT_SUBINDEX = 0
 
 HEARTBEAT_STATES = {
     0x00: "boot-up",
@@ -372,56 +379,193 @@ def typed_ranges(frames: Sequence[Frame]) -> dict[str, object]:
     return output
 
 
-def decode_private_transport_controls(frames: Sequence[Frame]) -> list[dict[str, object]]:
-    """Decode target-observed companion control frames for segmented JSON.
+def decode_canopen_sdo_transport(frames: Sequence[Frame]) -> list[dict[str, object]]:
+    """Decode CANopen SDO transfers observed on the Trane Link bus.
 
-    Long transfers on 0x601 and 0x649 are bracketed by a companion channel.
-    The A0 control advertises the number of following 7-byte data segments and
-    the A2 control repeats that count after the final segment. The short 0x641
-    response uses a distinct 0x60/0x20/0x30 control sequence.
+    The JSON-bearing channels use standard CANopen SDO block or segmented
+    download protocol. Trane's application-specific portion is the payload
+    written to manufacturer object 0x300A:00, not the SDO transport framing.
 
-    Opcode names intentionally describe observed wire behavior only; they do
-    not claim an OEM semantic name that has not been recovered.
+    Physical device roles are intentionally not inferred from COB-IDs alone:
+    additional SDO client/server parameter objects may use custom COB-IDs.
     """
     events: list[dict[str, object]] = []
-    for frame in frames:
-        if frame.kind != "S" or frame.can_id not in SEGMENTED_CONTROL_CHANNELS:
-            continue
-        if not frame.data:
-            continue
+    mode_by_request: dict[int, str] = {}
 
-        payload_id = SEGMENTED_CONTROL_CHANNELS[frame.can_id]
-        opcode = frame.data[0]
-        event: dict[str, object] = {
+    def base_event(frame: Frame, request_id: int, direction: str) -> dict[str, object]:
+        return {
             "line": frame.line_no,
             "tick_ms": frame.tick_ms,
-            "control_can_id": f"0x{frame.can_id:03X}",
-            "payload_can_id": f"0x{payload_id:03X}",
-            "opcode": opcode,
+            "can_id": f"0x{frame.can_id:03X}",
+            "request_can_id": f"0x{request_id:03X}",
+            "response_can_id": f"0x{SDO_REQUEST_TO_RESPONSE[request_id]:03X}",
+            "direction": direction,
+            "command": frame.data[0],
             "raw": frame.data.hex().upper(),
         }
 
-        if opcode == 0xA0 and len(frame.data) >= 5:
-            event["phase"] = "long_announce"
-            event["channel_tag"] = frame.data[1:4].hex().upper()
-            event["segment_count"] = frame.data[4]
-        elif opcode == 0xA2 and len(frame.data) >= 2:
-            event["phase"] = "long_complete_count"
-            event["segment_count"] = frame.data[1]
+    for frame in frames:
+        if frame.kind != "S" or not frame.data:
+            continue
+
+        if frame.can_id in SDO_REQUEST_TO_RESPONSE:
+            request_id = frame.can_id
+            opcode = frame.data[0]
+            event = base_event(frame, request_id, "client_to_server")
+
+            if len(frame.data) == 8 and opcode == 0xC2:
+                index = u16_le(frame.data, 1) or 0
+                event.update(
+                    {
+                        "phase": "block_download_initiate_request",
+                        "index": index,
+                        "subindex": frame.data[3],
+                        "size": u32_le(frame.data, 4) or 0,
+                        "crc_requested": bool(opcode & 0x04),
+                        "size_indicated": bool(opcode & 0x02),
+                        "trane_json_object": (
+                            index == TRANE_JSON_OBJECT_INDEX
+                            and frame.data[3] == TRANE_JSON_OBJECT_SUBINDEX
+                        ),
+                    }
+                )
+                mode_by_request[request_id] = "block"
+                events.append(event)
+                continue
+
+            if len(frame.data) == 8 and opcode == 0x21:
+                index = u16_le(frame.data, 1) or 0
+                event.update(
+                    {
+                        "phase": "segmented_download_initiate_request",
+                        "index": index,
+                        "subindex": frame.data[3],
+                        "size": u32_le(frame.data, 4) or 0,
+                        "size_indicated": True,
+                        "trane_json_object": (
+                            index == TRANE_JSON_OBJECT_INDEX
+                            and frame.data[3] == TRANE_JSON_OBJECT_SUBINDEX
+                        ),
+                    }
+                )
+                mode_by_request[request_id] = "segmented"
+                events.append(event)
+                continue
+
+            mode = mode_by_request.get(request_id)
+            if mode == "block" and (opcode & 0xE3) == 0xC1:
+                event.update(
+                    {
+                        "phase": "block_download_end_request",
+                        "unused_bytes": (opcode >> 2) & 0x07,
+                        "crc": u16_le(frame.data, 1) or 0,
+                    }
+                )
+                events.append(event)
+                continue
+
+            if mode == "block":
+                sequence = opcode & 0x7F
+                if 1 <= sequence <= 0x7F:
+                    event.update(
+                        {
+                            "phase": "block_download_segment",
+                            "sequence": sequence,
+                            "last": bool(opcode & 0x80),
+                        }
+                    )
+                    events.append(event)
+                    continue
+
+            if mode == "segmented" and (opcode & 0xE0) == 0x00:
+                event.update(
+                    {
+                        "phase": "segmented_download_segment",
+                        "toggle": bool(opcode & 0x10),
+                        "unused_bytes": (opcode >> 1) & 0x07,
+                        "last": bool(opcode & 0x01),
+                    }
+                )
+                events.append(event)
+                continue
+
+            # Retain observed request-side SDO-looking traffic even where its
+            # object or transfer state has not yet been qualified.
+            if request_id == 0x621:
+                event["phase"] = "sdo_request_raw"
+                events.append(event)
+            continue
+
+        if frame.can_id not in SDO_RESPONSE_TO_REQUEST:
+            continue
+
+        request_id = SDO_RESPONSE_TO_REQUEST[frame.can_id]
+        opcode = frame.data[0]
+        event = base_event(frame, request_id, "server_to_client")
+
+        if len(frame.data) == 8 and opcode == 0xA0:
+            index = u16_le(frame.data, 1) or 0
+            event.update(
+                {
+                    "phase": "block_download_initiate_response",
+                    "index": index,
+                    "subindex": frame.data[3],
+                    "block_size": frame.data[4],
+                    "crc_supported": bool(opcode & 0x04),
+                    "trane_json_object": (
+                        index == TRANE_JSON_OBJECT_INDEX
+                        and frame.data[3] == TRANE_JSON_OBJECT_SUBINDEX
+                    ),
+                }
+            )
+        elif len(frame.data) >= 3 and opcode == 0xA2:
+            event.update(
+                {
+                    "phase": "block_download_subblock_response",
+                    "ack_sequence": frame.data[1],
+                    "next_block_size": frame.data[2],
+                }
+            )
         elif opcode == 0xA1:
-            event["phase"] = "long_release"
-        elif frame.can_id == 0x5C1 and opcode == 0x60:
-            event["phase"] = "short_announce"
-            if len(frame.data) >= 4:
-                event["channel_tag"] = frame.data[1:4].hex().upper()
-        elif frame.can_id == 0x5C1 and opcode == 0x20:
-            event["phase"] = "short_data"
-        elif frame.can_id == 0x5C1 and opcode == 0x30:
-            event["phase"] = "short_complete"
+            event["phase"] = "block_download_end_response"
+            mode_by_request.pop(request_id, None)
+        elif len(frame.data) == 8 and opcode == 0x60:
+            index = u16_le(frame.data, 1) or 0
+            event.update(
+                {
+                    "phase": "segmented_download_initiate_response",
+                    "index": index,
+                    "subindex": frame.data[3],
+                    "trane_json_object": (
+                        index == TRANE_JSON_OBJECT_INDEX
+                        and frame.data[3] == TRANE_JSON_OBJECT_SUBINDEX
+                    ),
+                }
+            )
+        elif opcode in (0x20, 0x30):
+            event.update(
+                {
+                    "phase": "segmented_download_segment_response",
+                    "toggle": bool(opcode & 0x10),
+                }
+            )
+            if opcode == 0x30:
+                mode_by_request.pop(request_id, None)
+        elif len(frame.data) == 8 and opcode == 0x80:
+            event.update(
+                {
+                    "phase": "sdo_abort",
+                    "index": u16_le(frame.data, 1) or 0,
+                    "subindex": frame.data[3],
+                    "abort_code": u32_le(frame.data, 4) or 0,
+                }
+            )
+            mode_by_request.pop(request_id, None)
         else:
-            event["phase"] = "raw"
+            event["phase"] = "sdo_response_raw"
 
         events.append(event)
+
     return events
 
 
@@ -555,7 +699,7 @@ def analyze(frames: Sequence[Frame]) -> dict[str, object]:
         "ids": id_summary(frames),
         "typed_ranges": typed_ranges(frames),
         "structured_json": reassemble_json(frames),
-        "private_transport_controls": decode_private_transport_controls(frames),
+        "canopen_sdo_transport": decode_canopen_sdo_transport(frames),
         "canopen_management": decode_canopen_management(frames),
     }
 
@@ -575,8 +719,8 @@ def _print_text(report: dict[str, object]) -> None:
         )
     print("\nTyped ranges (wire interpretation only):")
     print(json.dumps(report["typed_ranges"], indent=2, sort_keys=True))
-    print("\nPrivate segmented-transport controls:")
-    print(json.dumps(report["private_transport_controls"], indent=2, sort_keys=True))
+    print("\nCANopen SDO transport:")
+    print(json.dumps(report["canopen_sdo_transport"], indent=2, sort_keys=True))
     print("\nCANopen management:")
     print(json.dumps(report["canopen_management"], indent=2, sort_keys=True))
     print("\nReassembled structured JSON:")
