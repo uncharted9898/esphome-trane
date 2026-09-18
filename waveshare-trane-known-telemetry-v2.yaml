@@ -148,7 +148,7 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_suction_temp
-    name: "0x381 Outdoor Coil Temperature Candidate"
+    name: "0x381 Suction Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
