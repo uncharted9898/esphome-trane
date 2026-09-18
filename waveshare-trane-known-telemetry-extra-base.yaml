@@ -417,19 +417,6 @@ sensor:
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x387, 4);'
     device_id: dev_heat_pump
   - platform: template
-    id: trane_387_rpm
-    name: "0x387 Compressor Speed RPM"
-    unit_of_measurement: "rpm"
-    state_class: measurement
-    accuracy_decimals: 0
-    entity_category: diagnostic
-    update_interval: 2s
-    lambda: |-
-      const float rps = id(trane_link).get_last_float_le_or_nan(0x387, 0);
-      if (!std::isfinite(rps)) return NAN;
-      return rps * 60.0f;
-    device_id: dev_heat_pump
-  - platform: template
     id: trane_388_float1
     name: "0x388 Current 1 Candidate"
     unit_of_measurement: "A"
