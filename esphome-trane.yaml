@@ -33,12 +33,9 @@ external_components:
   - source:
       type: local
       path: components
-    # trane_hvac's guarded control path references the sibling trane_bus
-    # headers even when this legacy profile does not instantiate a trane_bus
-    # component. External-component AUTO_LOAD does not materialize an omitted
-    # sibling from the same local source in all ESPHome build paths, so list
-    # both maintained source components explicitly.
-    components: [trane_hvac, trane_bus]
+    # Legacy profile remains observation-first and uses climate automation
+    # fallbacks. Guarded profiles explicitly add/configure trane_bus instead.
+    components: [trane_hvac]
 
 esp32:
   board: esp32-s3-devkitc-1
