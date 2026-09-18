@@ -351,7 +351,10 @@ trane_bus:
             if (z == std::string::npos) continue;
             size_t e = object_end(z);
             if (zone == 1) {
-              if (get_value("H", z, e, v) && as_float(v, f) && f > 20 && f < 120) id(trane_room_temp).publish_state(f);
+              // Room Temperature is sourced continuously from the live 0x490
+              // zone sensor frame. Preserve ZoneStatus.H for profile decoding,
+              // but do not let sparse structured updates overwrite the live
+              // friendly sensor.
               if (get_value("E", z, e, v) && as_float(v, f) && f >= 0 && f <= 100) id(trane_zone1_airflow).publish_state(f);
               if (get_value("G", z, e, v) && as_float(v, f)) id(trane_zone1_demand).publish_state(f);
               if (get_value("F", z, e, v)) id(trane_zone1_state).publish_state(v);
