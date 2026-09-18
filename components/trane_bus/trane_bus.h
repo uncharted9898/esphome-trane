@@ -248,19 +248,19 @@ class TraneBus : public Component {
 template<typename... Ts> class TraneBusSendJsonAction : public Action<Ts...>, public Parented<TraneBus> {
  public:
   TEMPLATABLE_VALUE(std::string, payload)
-  void play(Ts... x) override { this->parent_->send_json(this->payload_.value(x...)); }
+  void play(const Ts &...x) override { this->parent_->send_json(this->payload_.value(x...)); }
 };
 
 template<typename... Ts> class TraneBusSetTxEnabledAction : public Action<Ts...>, public Parented<TraneBus> {
  public:
   TEMPLATABLE_VALUE(bool, enabled)
-  void play(Ts... x) override { this->parent_->set_tx_enabled(this->enabled_.value(x...)); }
+  void play(const Ts &...x) override { this->parent_->set_tx_enabled(this->enabled_.value(x...)); }
 };
 
 template<typename... Ts> class TraneBusSetModeAction : public Action<Ts...>, public Parented<TraneBus> {
  public:
   TEMPLATABLE_VALUE(std::string, mode)
-  void play(Ts... x) override { this->parent_->set_system_mode(this->mode_.value(x...)); }
+  void play(const Ts &...x) override { this->parent_->set_system_mode(this->mode_.value(x...)); }
 };
 
 template<typename... Ts> class TraneBusSetSetpointsAction : public Action<Ts...>, public Parented<TraneBus> {
@@ -270,7 +270,7 @@ template<typename... Ts> class TraneBusSetSetpointsAction : public Action<Ts...>
   TEMPLATABLE_VALUE(int, zone)
   TEMPLATABLE_VALUE(int, hold_type)
   TEMPLATABLE_VALUE(int, source)
-  void play(Ts... x) override {
+  void play(const Ts &...x) override {
     this->parent_->set_setpoints(this->heat_f_.value(x...), this->cool_f_.value(x...), this->zone_.value(x...),
                                  this->hold_type_.value(x...), this->source_.value(x...));
   }
@@ -279,7 +279,7 @@ template<typename... Ts> class TraneBusSetSetpointsAction : public Action<Ts...>
 template<typename... Ts> class TraneBusGetProfileAction : public Action<Ts...>, public Parented<TraneBus> {
  public:
   TEMPLATABLE_VALUE(std::string, profile)
-  void play(Ts... x) override { this->parent_->request_profile(this->profile_.value(x...)); }
+  void play(const Ts &...x) override { this->parent_->request_profile(this->profile_.value(x...)); }
 };
 
 }  // namespace trane_bus
