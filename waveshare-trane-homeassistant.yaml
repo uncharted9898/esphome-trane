@@ -334,10 +334,13 @@ trane_bus:
           }
           if (get_value("E", p, e, v)) {
             id(trane_system_status_e_raw).publish_state(v);
-            if (as_float(v, f)) {
-              if (v.find('.') != std::string::npos && f > -60 && f < 160) id(trane_sc360_outdoor_temp).publish_state(f);
-              else if (f >= 0 && f <= 100) id(trane_indoor_humidity).publish_state(f);
-            }
+            // SystemOpStatus.E does not track outdoor ambient temperature or
+            // indoor humidity. Across captures it stays near 57-58 while the
+            // binary outdoor ambient channel moves through the upper-70s to
+            // mid-80s F. It instead scales as the full-speed compressor
+            // reference/ceiling used by OdStatus.B and 0x280.
+            if (as_float(v, f) && f >= 0.0f && f < 200.0f)
+              id(trane_sc360_outdoor_temp).publish_state(f);
           }
         }
 
