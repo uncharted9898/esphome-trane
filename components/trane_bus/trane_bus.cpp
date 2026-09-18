@@ -385,12 +385,14 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
 
   const uint8_t marker = data[0];
 
-  // Target-system segmented channels (0x601/0x641/0x649) carry a uint32
-  // little-endian wire length in bytes 4..7. The wire length includes the
-  // trailing NUL, while expected_len tracks JSON bytes only. Example captures:
-  //   0x601: C2 0A 30 00 25 00 00 00  -> 37 wire bytes / 36 JSON bytes
-  //   0x649: C2 0A 30 00 2D 00 00 00  -> 45 wire bytes / 44 JSON bytes
-  //   0x641: 21 0A 30 00 0E 00 00 00  -> 14 wire bytes / 13 JSON bytes
+  // These channels are standard CANopen SDO downloads to manufacturer object
+  // 0x300A:00. Bytes 4..7 of the initiate request carry the little-endian
+  // indicated transfer size. Trane includes a trailing NUL in that SDO size;
+  // expected_len tracks only the JSON bytes so the application receives a
+  // normal std::string. Target examples:
+  //   0x601: C2 0A 30 00 25 00 00 00 -> block download, 37 wire bytes / 36 JSON bytes
+  //   0x649: C2 0A 30 00 2E 00 00 00 -> block download, 46 wire bytes / 45 JSON bytes
+  //   0x641: 21 0A 30 00 0E 00 00 00 -> segmented download, 14 wire bytes / 13 JSON bytes
   auto target_payload_length = [&]() -> size_t {
     if (data.size() < 8)
       return 0;
@@ -409,7 +411,8 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
   // idle. The long sequence is seven-bit 1..0x7F and wraps 0x7F -> 0x01.
   if (state.expected_len != 0) {
     if (state.expected_seq & 0x80) {
-      // Short 0x641 response framing: 0x0n continuation, 0x1n final.
+      // CANopen segmented SDO download: 000tnnnc. The first observed segment
+      // uses toggle=0; the final segment uses toggle=1 and c=1.
       const uint8_t expected = state.expected_seq & 0x0F;
       const uint8_t frame_type = marker & 0xF0;
       const uint8_t sequence = marker & 0x0F;
@@ -444,9 +447,9 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
       return false;
     }
 
-    // Long segmented framing. Bit 7 marks the final frame; the lower seven
-    // bits are the sequence number, not a byte-count. This is why final marker
-    // 0xAD means sequence 45 rather than "44 payload bytes in this frame".
+    // CANopen block SDO sub-block: bit 7 marks the final segment and the lower
+    // seven bits are sequence number 1..127. This is why 0x87 means sequence 7
+    // plus "last", not a byte-count.
     if (marker & 0x80) {
       const uint8_t sequence = marker & 0x7F;
       if (sequence != state.expected_seq) {
@@ -483,9 +486,11 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
     return false;
   }
 
-  // Idle-state header recognition is deliberately exact. C1/CD/D1/D5/D9 and
-  // similar markers observed on the target are transport control/status frames,
-  // not payload starts, and should not inflate RX transport errors.
+  // Idle-state header recognition is deliberately exact. C1/C5/C9/CD/D1/D5/D9
+  // are valid CANopen block-download end requests (110nnn01; nnn is the count
+  // of unused bytes in the last 7-byte segment). The JSON payload is already
+  // complete by then, so these standard SDO control frames are ignored here
+  // rather than counted as receive errors.
   if (marker == 0xC2) {
     size_t payload_len = target_payload_length();
     if (payload_len == 0 || payload_len > MAX_RX_JSON_PAYLOAD) {
@@ -659,42 +664,17 @@ bool TraneBus::send_json_internal_(const std::string &payload, bool expect_ack, 
     return false;
   }
 
-  const uint32_t total = static_cast<uint32_t>(payload.size());
-  std::vector<uint8_t> header = {0xC2, static_cast<uint8_t>(total & 0xFF), static_cast<uint8_t>((total >> 8) & 0xFF),
-                                 0x00, 0x00, 0x00, 0x00, 0x00};
-  if (!send_frame_(header))
-    return false;
-
-  delay(INTER_FRAME_DELAY_MS);
-  size_t offset = 0;
-  uint8_t seq = 1;
-  while (offset < payload.size()) {
-    const size_t remaining = payload.size() - offset;
-    std::vector<uint8_t> frame(8, 0);
-    if (remaining <= 7) {
-      frame[0] = static_cast<uint8_t>(0x80 | (remaining + 1));
-      std::copy_n(payload.begin() + offset, remaining, frame.begin() + 1);
-      if (!send_frame_(frame))
-        return false;
-      offset += remaining;
-    } else {
-      frame[0] = seq++;
-      std::copy_n(payload.begin() + offset, 7, frame.begin() + 1);
-      if (!send_frame_(frame))
-        return false;
-      offset += 7;
-      delay(INTER_FRAME_DELAY_MS);
-    }
-  }
-
-  tx_messages_++;
-  if (expect_ack) {
-    pending_ack_ = true;
-    pending_ack_since_ms_ = millis();
-    pending_kind_ = kind;
-  }
-  ESP_LOGI(TAG, "Transmitted %s on 0x%03" PRIX32, kind, command_can_id_);
-  return true;
+  // Passive target captures now prove that Trane JSON is transported as a
+  // CANopen SDO download to object 0x300A:00. The legacy writer previously
+  // emitted guessed C2/sequence frames without an object index and without
+  // waiting for the mandatory SDO server responses (A0/A2/A1 or 60/20/30).
+  // Sending that sequence would be an invalid SDO transaction. Fail closed
+  // until a non-blocking SDO client state machine is implemented and command
+  // direction is qualified against a captured UX360 command transaction.
+  (void) expect_ack;
+  tx_blocked_++;
+  ESP_LOGE(TAG, "TX blocked: CANopen SDO writer for Trane object 0x300A:00 is not yet qualified (%s)", kind);
+  return false;
 }
 
 bool TraneBus::send_json(const std::string &payload) {
