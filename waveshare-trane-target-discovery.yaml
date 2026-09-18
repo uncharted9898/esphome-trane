@@ -24,13 +24,14 @@ sensor:
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x318, 0);'
     device_id: dev_air_handler
 
-  # 0x318 is compound. The cool-ambient capture separated these trailing words
-  # from 0x281's status tail: word2 sits near requested/delivered airflow while
-  # word3 sits near the Technician blower-speed reference and follows blower
-  # power/static. Keep Candidate wording until a synchronized Technician sweep.
+  # 0x318 is compound. Cross-capture lead/lag against 0x200.u16@2 now makes
+  # word2 the strongest blower-airflow feedback candidate: the 0x200 request
+  # moves first on shutdown while this value decays afterward. Word3 remains
+  # the strongest blower-speed/RPM candidate and follows blower power/static.
+  # Keep Candidate wording until a synchronized Technician sweep.
   - platform: template
     id: trane_318_u16_2
-    name: "0x318 Airflow Candidate"
+    name: "0x318 Blower Airflow Feedback Candidate"
     unit_of_measurement: "cfm"
     state_class: measurement
     accuracy_decimals: 0
