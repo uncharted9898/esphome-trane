@@ -415,28 +415,45 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
   // idle. The long sequence is seven-bit 1..0x7F and wraps 0x7F -> 0x01.
   if (state.expected_len != 0) {
     if (state.expected_seq & 0x80) {
-      // CANopen segmented SDO download: 000tnnnc. The first observed segment
-      // uses toggle=0; the final segment uses toggle=1 and c=1.
-      const uint8_t expected = state.expected_seq & 0x0F;
-      const uint8_t frame_type = marker & 0xF0;
-      const uint8_t sequence = marker & 0x0F;
-      if ((frame_type != 0x00 && frame_type != 0x10) || sequence != expected) {
+      // Standard CANopen segmented SDO download request: 000tnnnc.
+      //   t   toggle bit (alternates 0/1)
+      //   nnn unused data bytes in the final segment
+      //   c   last-segment flag
+      // expected_seq uses bit 7 only as our internal "segmented mode" marker;
+      // bit 0 stores the expected CANopen toggle.
+      if ((marker & 0xE0) != 0x00) {
+        rx_transport_errors_++;
+        state.reset();
+        return false;
+      }
+      const uint8_t expected_toggle = state.expected_seq & 0x01;
+      const uint8_t toggle = (marker >> 4) & 0x01;
+      const uint8_t unused = (marker >> 1) & 0x07;
+      const bool last = (marker & 0x01) != 0;
+      if (toggle != expected_toggle || (!last && unused != 0)) {
         rx_transport_errors_++;
         state.reset();
         return false;
       }
 
-      bool saw_nul = false;
-      for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
-        if (data[i] == 0) {
-          saw_nul = true;
-          break;
+      size_t data_bytes = data.size() > 1 ? data.size() - 1 : 0;
+      if (last) {
+        if (unused > data_bytes) {
+          rx_transport_errors_++;
+          state.reset();
+          return false;
         }
-        state.buffer.push_back(static_cast<char>(data[i]));
+        data_bytes -= unused;
       }
 
-      const bool final_frame = frame_type == 0x10 || saw_nul || state.buffer.size() == state.expected_len;
-      if (final_frame) {
+      for (size_t i = 0; i < data_bytes && state.buffer.size() < state.expected_len; i++) {
+        const uint8_t byte = data[i + 1];
+        if (byte == 0)
+          break;
+        state.buffer.push_back(static_cast<char>(byte));
+      }
+
+      if (last) {
         if (state.buffer.size() == state.expected_len) {
           complete = state.buffer;
           state.reset();
@@ -447,7 +464,7 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
         return false;
       }
 
-      state.expected_seq = static_cast<uint8_t>(0x80 | ((expected + 1U) & 0x0F));
+      state.expected_seq = static_cast<uint8_t>(0x80 | (expected_toggle ^ 0x01));
       return false;
     }
 
@@ -522,7 +539,7 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
       return false;
     }
     state.expected_len = payload_len;
-    state.expected_seq = 0x80;  // short framing flag + expected sequence 0
+    state.expected_seq = 0x80;  // segmented-mode flag + expected toggle 0
     state.buffer.reserve(state.expected_len);
     return false;
   }
