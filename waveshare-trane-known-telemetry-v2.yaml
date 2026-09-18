@@ -47,6 +47,11 @@ sensor:
     device_class: humidity
     state_class: measurement
     accuracy_decimals: 0
+    update_interval: 2s
+    lambda: |-
+      const float value = id(trane_link).get_last_byte_or_nan(0x490, 4);
+      if (!std::isfinite(value) || value < 0.0f || value > 100.0f) return NAN;
+      return value;
     device_id: dev_thermostat
   - platform: template
     id: trane_zone1_airflow
@@ -64,12 +69,17 @@ sensor:
     device_id: dev_thermostat
 
   - platform: template
+    # Legacy internal id retained for entity/API compatibility. SystemOpStatus.E
+    # does not track outdoor ambient temperature: it stayed near 57-58 while
+    # the binary outdoor sensor moved from the upper-70s into the mid-80s F.
+    # Instead E behaves like the full-scale compressor-speed ceiling used by
+    # OdStatus.B: 58 RPS * 99% ~= 57.42 RPS, matching 0x280 ~=57.45 RPS.
     id: trane_sc360_outdoor_temp
-    name: "SC360 Outdoor Temperature"
-    unit_of_measurement: "°F"
-    device_class: temperature
+    name: "System Compressor Speed Ceiling Candidate"
+    unit_of_measurement: "RPS"
     state_class: measurement
     accuracy_decimals: 1
+    entity_category: diagnostic
     device_id: dev_sc360
   - platform: template
     id: trane_od_widget_temp
