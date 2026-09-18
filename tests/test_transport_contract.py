@@ -158,8 +158,9 @@ class TransportSourceContractTests(unittest.TestCase):
     def test_target_headers_are_exact_canopen_sdo_download_headers(self):
         self.assertIn("if (marker == 0xC2)", CPP)
         self.assertIn("if (marker == 0x21)", CPP)
-        self.assertIn("standard CANopen SDO downloads", CPP)
+        self.assertIn("Trane JSON mailbox", CPP)
         self.assertIn("0x300A:00", CPP)
+        self.assertIn("data[1] == 0x0A && data[2] == 0x30 && data[3] == 0x00", CPP)
         self.assertNotIn("if ((marker & 0xF0) == 0xC0)", CPP)
 
     def test_legacy_guessed_tx_framing_is_fail_closed(self):
@@ -189,8 +190,11 @@ class TransportSourceContractTests(unittest.TestCase):
         self.assertIn("sequence != state.expected_seq", CPP)
         self.assertNotIn("used > 7", CPP)
 
-    def test_long_sequence_wraps_after_0x7f(self):
-        self.assertIn("state.expected_seq == 0x7F ? 1", CPP)
+    def test_block_sequence_resets_after_server_ack_and_can_roll_over(self):
+        self.assertIn("state.expected_seq = 1;", CPP)
+        self.assertIn("state.awaiting_block_ack = false;", CPP)
+        self.assertIn("sequence == 0x7F ? 1", CPP)
+        self.assertIn("marker == 0xA2", CPP)
 
 
 class TargetTransportFixtureTests(unittest.TestCase):
