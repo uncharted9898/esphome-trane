@@ -1,5 +1,8 @@
 # Target 5TAMX blower electrical correlation — 2026-09-17
 
+> **Superseded correlation note:** the later cool-ambient target capture disproves two conclusions below. `0x281.u16[3]` is not literal blower RPM (it changed from 356 to 2116/2117 while airflow stayed about 774/775 CFM), and `0x280.float[1]=2.5` occurs during active 775-CFM blower operation, so it is not a shutdown-only sentinel or literal power factor. The former V×I×PF identity also depended on the now-disproved `0x383.float[1]` line-voltage interpretation. Preserve the historical observations below, but use `TARGET-COOL-AMBIENT-REQUALIFICATION-2026-09-17.md` for current mappings. The leading blower-speed candidate is now `0x318.u16[3]`; `0x318.u16[2]` is an airflow-family candidate.
+
+
 This note records a cross-capture identity found in the target 5TAMXC03 telemetry. It is based on multiple live Link captures from the installed system and the older Trane Technician monitor point documented in `TARGET-TECHNICIAN-CORRELATION-2026-09-17.md`.
 
 ## Strong mapping
