@@ -179,6 +179,20 @@ std::string TraneBus::get_last_frame_hex(uint16_t can_id) const {
   return bytes;
 }
 
+float TraneBus::get_last_json_age_seconds() const {
+  if (last_json_ms_ == 0)
+    return NAN;
+  return static_cast<float>(millis() - last_json_ms_) / 1000.0f;
+}
+
+float TraneBus::get_json_snapshot_age_seconds(const std::string &root) const {
+  for (const auto &snapshot : json_snapshots_) {
+    if (snapshot.root == root && snapshot.updated_ms != 0)
+      return static_cast<float>(millis() - snapshot.updated_ms) / 1000.0f;
+  }
+  return NAN;
+}
+
 std::string TraneBus::get_last_json_value(const std::string &root, const std::string &scope,
                                           const std::string &key) const {
   const JsonSnapshot *snapshot = nullptr;
@@ -652,6 +666,7 @@ void TraneBus::remember_json_snapshot_(const std::string &root, const std::strin
   slot->root = root;
   slot->json = json;
   slot->sequence = ++json_snapshot_sequence_;
+  slot->updated_ms = millis();
   if (was_empty && json_snapshot_count_ < JSON_SNAPSHOT_SLOTS)
     json_snapshot_count_++;
 }
@@ -664,6 +679,7 @@ void TraneBus::handle_json_message_(uint32_t can_id, const std::string &json) {
   }
 
   last_json_can_id_ = can_id;
+  last_json_ms_ = millis();
   const size_t root_start = json.find('"');
   if (root_start != std::string::npos) {
     const size_t root_end = json.find('"', root_start + 1);
