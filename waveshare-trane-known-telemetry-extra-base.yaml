@@ -211,18 +211,29 @@ sensor:
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x281, 4);'
     device_id: dev_air_handler
+  # Bytes 6 and 7 are separate target-observed fields. The LE u16 view at
+  # offset 6 is retained only as a raw compatibility surface; it is literally
+  # byte6 + (byte7 << 8) and must not be treated as an independent telemetry
+  # channel.
   - platform: template
     id: trane_281_u16_3
-    name: "0x281 Tail Word Raw"
+    name: "0x281 Bytes 6-7 Composite Raw"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x281, 6);'
     device_id: dev_air_handler
+
+  # Active modulation captures put byte6 in the 60-100 range alongside
+  # blower demand. During the satisfied transition byte6 falls to zero while
+  # IndoorStatus.E and measured airflow remain non-zero during coast-down.
+  # That makes a command/demand semantic stronger than an actual-speed one.
   - platform: template
     id: trane_281_byte6
-    name: "0x281 Byte 6 Candidate"
+    name: "0x281 Blower Demand Candidate"
+    unit_of_measurement: "%"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
@@ -230,9 +241,12 @@ sensor:
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_byte_or_nan(0x281, 6);'
     device_id: dev_air_handler
+
+  # Byte7 remains 1 through the blower coast-down after byte6 reaches zero,
+  # then becomes 0 once the indoor blower is stopped.
   - platform: template
     id: trane_281_byte7
-    name: "0x281 Byte 7 State Candidate"
+    name: "0x281 Blower Active Flag Candidate"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
@@ -356,7 +370,7 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_384_float1
-    name: "0x384 Compressor Speed Candidate"
+    name: "0x384 Actual Compressor Speed Candidate"
     unit_of_measurement: "RPS"
     state_class: measurement
     accuracy_decimals: 2
