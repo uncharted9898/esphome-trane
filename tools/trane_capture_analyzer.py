@@ -136,27 +136,34 @@ def _feed_segment(state: SegmentedState, data: bytes) -> str | None:
 
     if state.expected_len:
         if state.expected_seq & 0x80:
-            # Short 0x641 response framing: high nibble 0x0 continuation,
-            # 0x1 final; low nibble is the sequence.
-            expected = state.expected_seq & 0x0F
-            frame_type = marker & 0xF0
-            sequence = marker & 0x0F
-            if frame_type not in (0x00, 0x10) or sequence != expected:
+            # Standard CANopen segmented SDO download request: 000tnnnc.
+            # expected_seq bit 7 is our mode marker; bit 0 stores expected
+            # toggle state.
+            if marker & 0xE0:
                 state.reset()
                 return None
-            saw_nul = False
-            for byte in data[1:]:
+            expected_toggle = state.expected_seq & 0x01
+            toggle = (marker >> 4) & 0x01
+            unused = (marker >> 1) & 0x07
+            final = bool(marker & 0x01)
+            if toggle != expected_toggle or (not final and unused):
+                state.reset()
+                return None
+
+            payload = data[1:]
+            if final:
+                if unused > len(payload):
+                    state.reset()
+                    return None
+                payload = payload[: len(payload) - unused]
+
+            for byte in payload:
                 if len(state.buffer) >= state.expected_len:
                     break
                 if byte == 0:
-                    saw_nul = True
                     break
                 state.buffer.append(byte)
-            final = (
-                frame_type == 0x10
-                or saw_nul
-                or len(state.buffer) == state.expected_len
-            )
+
             if final:
                 if len(state.buffer) == state.expected_len:
                     result = state.buffer.decode("utf-8", errors="strict")
@@ -164,7 +171,8 @@ def _feed_segment(state: SegmentedState, data: bytes) -> str | None:
                     return result
                 state.reset()
                 return None
-            state.expected_seq = 0x80 | ((expected + 1) & 0x0F)
+
+            state.expected_seq = 0x80 | (expected_toggle ^ 0x01)
             return None
 
         # Long framing: bit 7 marks final; lower seven bits are sequence.
