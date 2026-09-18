@@ -4,7 +4,7 @@
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
-#include "../trane_bus/trane_bus.h"
+#include "esphome/components/trane_bus/trane_bus.h"
 
 namespace esphome {
 namespace trane_hvac {
