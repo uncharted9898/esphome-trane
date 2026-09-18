@@ -221,3 +221,93 @@ NMT Start Remote Node, and reports operational.
 
 The offline capture analyzer now reconstructs this identity/configuration/NMT
 startup sequence as one LSS session instead of exposing only individual probes.
+
+
+## 15:01-15:04 active modulation capture
+
+The follow-up capture set `trane-5tv0x-2ton-upstairs-logs (9-12)`
+contains a long steady cooling modulation interval rather than another startup
+profile burst.
+
+### Structured compressor modulation
+
+Fresh 0x649 application updates observed in order include:
+
+- `OdStatus.CompDemandPercent = 66`
+- `OdStatus.B = 70`
+- `OdStatus.CompDemandPercent = 70`
+- `SystemOpStatus.D = 70`
+- `OdStatus.B = 71`
+- `OdStatus.B = 72`
+- `OdStatus.CompDemandPercent = 72`
+- `OdStatus.B = 73`
+
+The existing Home Assistant parser publishes `OdStatus.B` as the structured
+compressor-speed percentage. Across the 70 -> 73% steps, 0x384.float[0] rises
+from roughly 39.1 -> 39.6 -> 40.5 -> 41.2 RPS. This materially strengthens
+0x384.float[0] as **actual compressor speed**, so the diagnostic label is now
+`0x384 Actual Compressor Speed Candidate`.
+
+0x385.float[1] remains a distinct target-speed family value in roughly the
+50-54 RPS range during this interval. The target and actual channels therefore
+remain independently justified.
+
+0x387.float[0] remains pinned at exactly 55.0 throughout this modulation and
+was also 55.0 in the earlier satisfied/idle capture. It is not actual
+compressor speed. The stable non-zero value is now classified as
+`0x387 Compressor Speed Reference Limit Candidate` without claiming whether
+the OEM semantic is a maximum, minimum, rated, or another reference.
+
+### Indoor blower modulation
+
+Fresh `IndoorStatus.E` updates step through:
+
+`62 -> 63 -> 68 -> 69 -> 70 -> 71 -> 72`
+
+while measured 0x281 airflow stays in the high-600 / low-700 CFM range and the
+0x318 speed/current/power family rises in parallel.
+
+0x281 byte 6 also rises through the 60s/70s during this active interval.
+However, the earlier cooling-to-satisfied transition is decisive against
+equating it directly with `IndoorStatus.E`: when the structured status still
+reported `E=40` and measured airflow was about 550 CFM, byte 6 had already
+fallen to zero while byte 7 remained one. Byte 7 later falls to zero only when
+the blower stops.
+
+The binary fields are therefore exposed conservatively as:
+
+- `0x281 Blower Demand Candidate` (byte 6)
+- `0x281 Blower Active Flag Candidate` (byte 7)
+
+The former `0x281 Tail Word Raw` is renamed
+`0x281 Bytes 6-7 Composite Raw` and disabled by default because it is not an
+independent field; it is simply the little-endian composite
+`byte6 + (byte7 << 8)`.
+
+### 0x490 byte 4 is not proven relative humidity
+
+The same capture family exposes a qualification failure in the old
+`0x490.byte4 = relative humidity` label. Normal operation produces
+humidity-looking values such as 54 and 57, but during the node-3 transition
+the field repeatedly becomes `0x9D` (157). One frame contains a valid 79 F
+0x490 temperature while byte 4 is still 157, so this cannot be dismissed as a
+single malformed frame.
+
+The field is now exposed only as:
+
+`0x490 Zone 1 RH Status Byte Candidate`
+
+with no humidity device class or percent unit. The 0x490 temperature entity
+also filters the observed -99 unavailable sentinel to NaN while the raw frame
+remains available through the diagnostic surface.
+
+### No setpoint write captured
+
+There is no JSON object containing `Put` in any of logs 9-12. The capture
+contains routine 0x649 status updates and matching 0x641 `{"Ack":"200"}`
+responses, but no client-originated setpoint transaction. `SpOverride`
+snapshot age remains unavailable in this run.
+
+This capture must not be used to infer a setpoint write format. Application TX
+remains fail-closed until a capture starts before a physical UX360 setpoint
+change and records the originating transaction.
