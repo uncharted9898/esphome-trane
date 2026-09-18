@@ -231,7 +231,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x381 Suction Temperature",
             "0x383 Compressor Dome Discharge Temperature Candidate",
             "0x38F Line Voltage Candidate",
-            "0x387 Actual Compressor Speed",
+            "0x387 Float 1 Raw",
         ):
             self.assertIn(f'name: "{label}"', TELEMETRY)
 
@@ -242,13 +242,19 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertNotIn(stale, TELEMETRY)
 
+        # The satisfied-state capture held 0x387.f0 at 55.0 while the actual
+        # equipment was idle: compressor demand 0%, compressor power/current
+        # zero and outdoor fan stopped. It cannot be promoted as runtime speed.
+        self.assertNotIn('name: "0x387 Actual Compressor Speed"', TELEMETRY)
+        self.assertNotIn('name: "0x387 Compressor Speed RPM"', EXTRA)
+        self.assertNotIn("return rps * 60.0f;", EXTRA)
+
         # The compound/raw extension still exposes useful channels while its
         # remaining candidates are requalified against synchronized Technician
         # data in a follow-up capture.
         for label in (
             "0x384 Drive DC Voltage",
             "0x384 Outdoor Fan Speed",
-            "0x387 Compressor Speed RPM",
             "0x383 Liquid Pressure Candidate",
             "0x382 Liquid Temperature Candidate",
             "0x385 Compressor Power Candidate",
