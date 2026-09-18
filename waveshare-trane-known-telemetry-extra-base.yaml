@@ -356,7 +356,7 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_384_float1
-    name: "0x384 Compressor Target Max Speed Candidate"
+    name: "0x384 Compressor Speed Candidate"
     unit_of_measurement: "RPS"
     state_class: measurement
     accuracy_decimals: 2
