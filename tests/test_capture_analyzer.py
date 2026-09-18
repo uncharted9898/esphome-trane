@@ -20,6 +20,9 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertEqual(analyzer.u16_le(frames[0].data, 0), 774)
         self.assertEqual(analyzer.u16_le(frames[0].data, 2), 500)
         self.assertEqual(analyzer.u16_le(frames[0].data, 6), 356)
+        ranges = analyzer.typed_ranges(frames)
+        self.assertEqual(ranges["0x281"]["byte_6"]["last"], 100)
+        self.assertEqual(ranges["0x281"]["byte_7"]["last"], 1)
         self.assertEqual(analyzer.u32_le(frames[1].data, 0), 1789671486)
 
     def test_short_641_ack_reassembly(self):
@@ -33,6 +36,57 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertEqual(len(messages), 1)
         self.assertEqual(messages[0]["can_id"], "0x641")
         self.assertEqual(messages[0]["json"], {"Ack": "200"})
+
+    def test_zone_status_long_reassembly_and_companion_counts(self):
+        lines = [
+            "TRANE_CAN_LIVE,S,1000,649,8,C20A30002E000000",
+            "TRANE_CAN_LIVE,S,1002,5C9,8,A00A300007000000",
+            "TRANE_CAN_LIVE,S,1005,649,8,017B225A6F6E6553",
+            "TRANE_CAN_LIVE,S,1008,649,8,027461747573223A",
+            "TRANE_CAN_LIVE,S,1011,649,8,037B225570646174",
+            "TRANE_CAN_LIVE,S,1014,649,8,0465223A7B223122",
+            "TRANE_CAN_LIVE,S,1017,649,8,053A7B2248223A22",
+            "TRANE_CAN_LIVE,S,1020,649,8,0637362E3030227D",
+            "TRANE_CAN_LIVE,S,1023,649,8,877D7D7D0030227D",
+            "TRANE_CAN_LIVE,S,1026,5C9,8,A207000000000000",
+            "TRANE_CAN_LIVE,S,1029,649,8,CD00000000000000",
+            "TRANE_CAN_LIVE,S,1032,5C9,8,A100000000000000",
+        ]
+        frames = analyzer.parse_frames(lines)
+        messages = analyzer.reassemble_json(frames)
+        self.assertEqual(
+            messages[0]["json"],
+            {"ZoneStatus": {"Update": {"1": {"H": "76.00"}}}},
+        )
+
+        controls = analyzer.decode_private_transport_controls(frames)
+        self.assertEqual(
+            [(row["phase"], row.get("segment_count")) for row in controls],
+            [
+                ("long_announce", 7),
+                ("long_complete_count", 7),
+                ("long_release", None),
+            ],
+        )
+        self.assertTrue(all(row["payload_can_id"] == "0x649" for row in controls))
+
+    def test_short_ack_companion_control_sequence(self):
+        lines = [
+            "TRANE_CAN_LIVE,S,1000,641,8,210A30000E000000",
+            "TRANE_CAN_LIVE,S,1002,5C1,8,600A300000000000",
+            "TRANE_CAN_LIVE,S,1004,641,8,007B2241636B223A",
+            "TRANE_CAN_LIVE,S,1006,5C1,8,2000000000000000",
+            "TRANE_CAN_LIVE,S,1008,641,8,1122323030227D00",
+            "TRANE_CAN_LIVE,S,1010,5C1,8,3000000000000000",
+        ]
+        controls = analyzer.decode_private_transport_controls(
+            analyzer.parse_frames(lines)
+        )
+        self.assertEqual(
+            [row["phase"] for row in controls],
+            ["short_announce", "short_data", "short_complete"],
+        )
+        self.assertTrue(all(row["payload_can_id"] == "0x641" for row in controls))
 
     def test_canopen_lss_fastscan_initialize_decode(self):
         frames = analyzer.parse_frames(
@@ -86,6 +140,7 @@ class CaptureAnalyzerTests(unittest.TestCase):
         encoded = json.dumps(report)
         self.assertIn('"0x490"', encoded)
         self.assertIn('"canopen_management"', encoded)
+        self.assertIn('"private_transport_controls"', encoded)
         self.assertEqual(report["unique_standard_ids"], 1)
 
 
