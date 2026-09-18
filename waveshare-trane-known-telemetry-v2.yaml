@@ -23,6 +23,11 @@ sensor:
     device_class: temperature
     state_class: measurement
     accuracy_decimals: 1
+    update_interval: 2s
+    lambda: |-
+      const float value = id(trane_link).get_last_float_le_or_nan(0x490, 0);
+      if (!std::isfinite(value) || value <= -90.0f || value > 130.0f) return NAN;
+      return value;
     device_id: dev_thermostat
   - platform: template
     id: trane_heat_setpoint
