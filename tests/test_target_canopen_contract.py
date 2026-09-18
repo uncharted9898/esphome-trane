@@ -31,13 +31,17 @@ def test_cold_boot_canopen_ids_are_not_reported_as_novel():
     assert "can_id >= 0x080 && can_id <= 0x0FF" not in HEADER
 
 
-def test_target_segmented_debug_channel_remains_receive_only():
-    # 0x601 is a target-observed segmented JSON receive channel. Application
-    # transmission remains pinned to the separately configured command ID.
+def test_target_sdo_json_channels_remain_receive_only():
+    # 0x601 is a target-observed CANopen SDO JSON receive channel. The legacy
+    # application writer is fail-closed until a qualified SDO client exists.
     assert "can_id == 0x601 || can_id == 0x641 || can_id == 0x649" in CPP
     assert "state = &rx_601_" in CPP
-    assert "send_data(command_can_id_" in CPP
     assert "send_data(0x601" not in CPP
+    tx = CPP.split("bool TraneBus::send_json_internal_", 1)[1].split(
+        "bool TraneBus::send_json(const std::string &payload)", 1
+    )[0]
+    assert "CANopen SDO writer for Trane object 0x300A:00 is not yet qualified" in tx
+    assert "send_frame_(" not in tx
 
 
 def test_canopen_evidence_is_documented_without_node_role_guessing():
@@ -56,22 +60,9 @@ def test_canopen_evidence_is_documented_without_node_role_guessing():
     assert "do **not** map node 1..5" in CANOPEN_DOC
 
 
-def test_blower_electrical_identity_retains_pf_sentinel_caution():
-    for phrase in (
-        "0x318.float[0]` — **Indoor blower input current**",
-        "0x320.float[0]` — **Indoor blower real input power**",
-        "0x280.float[1]` — **power-factor-like raw field**",
-        "0 < PF <= 1",
-        "2.5",
-    ):
-        assert phrase in BLOWER_DOC
-
-    # The representative steady-running points should close the real-power
-    # equation to well under one watt.
-    samples = (
-        (238.43, 0.4141, 0.25, 24.56),
-        (233.2, 0.3970, 0.25, 22.9),
-        (232.4, 0.3799, 0.25, 21.61),
-    )
-    for volts, amps, pf, watts in samples:
-        assert abs(volts * amps * pf - watts) < 0.6
+def test_blower_doc_marks_old_electrical_identity_superseded():
+    assert "Superseded correlation note" in BLOWER_DOC
+    assert "0x281.u16[3]" in BLOWER_DOC
+    assert "not literal blower RPM" in BLOWER_DOC
+    assert "0x280.float[1]=2.5" in BLOWER_DOC
+    assert "not a shutdown-only sentinel or literal power factor" in BLOWER_DOC
