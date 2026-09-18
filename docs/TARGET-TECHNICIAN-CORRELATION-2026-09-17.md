@@ -1,5 +1,8 @@
 # Target Technician correlation — 2026-09-17
 
+> **Historical correlation warning:** several outdoor labels below were based on one nonsimultaneous Technician point and have since been requalified with additional target captures. In particular, `0x383.float[1]` is not line voltage, `0x38F.float[0]` is the leading line-voltage candidate, and `0x385.float[0]` is not a 500-step outdoor EEV position. Use `TARGET-HIGH-LOAD-REQUALIFICATION-2026-09-17.md` and `TARGET-COOL-AMBIENT-REQUALIFICATION-2026-09-17.md` for current conclusions.
+
+
 This note correlates the target 5TAMXC03 / 5TWV0X24 Link capture with an older Trane Technician 3.4.0 Monitor screenshot supplied from the same installation.
 
 The screenshot and capture are **not simultaneous**. Numeric agreement is therefore used only where the relationship is physically and structurally discriminating. Ambiguous channels remain candidates.
