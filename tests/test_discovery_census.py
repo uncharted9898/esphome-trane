@@ -80,7 +80,7 @@ class DiscoveryCensusContractTests(unittest.TestCase):
         self.assertIn("Last OEM GetProfile Request", EXTRA)
 
     def test_structured_snapshots_are_bounded_and_raw(self):
-        self.assertIn("JSON_SNAPSHOT_SLOTS = 16", HEADER)
+        self.assertIn("JSON_SNAPSHOT_SLOTS = 32", HEADER)
         self.assertIn("MAX_JSON_SNAPSHOT_BYTES = 2048", HEADER)
         self.assertIn("get_last_json_value", HEADER)
         self.assertIn("remember_json_snapshot_", CPP)
