@@ -173,9 +173,20 @@ class KnownTelemetryContractTests(unittest.TestCase):
 
     def test_601_segmented_json_is_receive_only_and_reassembled(self):
         self.assertIn("SegmentedRxState rx_601_{};", BUS_H)
-        self.assertIn("can_id == 0x601 || can_id == 0x621 || can_id == 0x641 || can_id == 0x649", BUS_CPP)
-        self.assertIn("state = &rx_601_;", BUS_CPP)
-        self.assertIn("0x601: C2 0A 30 00 25 00 00 00", BUS_CPP)
+        for token in (
+            "case 0x601:",
+            "case 0x621:",
+            "case 0x641:",
+            "case 0x649:",
+            "sdo_state = &rx_601_;",
+            "sdo_state = &rx_621_;",
+            "sdo_state = &rx_641_;",
+            "sdo_state = &rx_649_;",
+            "feed_sdo_json_response_(*sdo_state, data);",
+            "feed_segmented_json_(*sdo_state, data, complete)",
+            "0x300A:00",
+        ):
+            self.assertIn(token, BUS_CPP)
         self.assertNotIn("command_can_id_{0x601}", BUS_H)
 
     def test_target_correlated_indoor_channels_are_exposed(self):
