@@ -186,8 +186,11 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_387_float1
-    name: "0x387 Actual Compressor Speed"
-    unit_of_measurement: "RPS"
+    # 2026-09-17 idle/profile-sweep capture held this field at exactly 55.0
+    # while OdStatus demand, compressor power and drive currents were all zero.
+    # It is therefore not actual compressor speed. Preserve the raw float until
+    # its configuration/limit semantic is independently qualified.
+    name: "0x387 Float 1 Raw"
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
