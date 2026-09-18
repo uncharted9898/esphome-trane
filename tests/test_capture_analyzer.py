@@ -233,6 +233,50 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertEqual(event["direction"], "server_to_manager")
         self.assertEqual(event["service"], "lss_fastscan_response")
 
+    def test_lss_fastscan_session_reconstructs_identity_and_node_assignment(self):
+        lines = [
+            # Final positive bit-0 probes for all four Identity Object words.
+            "TRANE_CAN_LIVE,S,1000,7E5,8,5101000000000001",
+            "TRANE_CAN_LIVE,S,1001,7E4,8,4F00000000000000",
+            "TRANE_CAN_LIVE,S,1010,7E5,8,5104000000000102",
+            "TRANE_CAN_LIVE,S,1011,7E4,8,4F00000000000000",
+            "TRANE_CAN_LIVE,S,1020,7E5,8,5100000000000203",
+            "TRANE_CAN_LIVE,S,1021,7E4,8,4F00000000000000",
+            "TRANE_CAN_LIVE,S,1030,7E5,8,515F9845C3000304",
+            "TRANE_CAN_LIVE,S,1031,7E4,8,4F00000000000000",
+            # Configure node ID 3, switch to waiting, then normal NMT startup.
+            "TRANE_CAN_LIVE,S,1040,7E5,8,1103010000000000",
+            "TRANE_CAN_LIVE,S,1041,7E4,8,1100000000000000",
+            "TRANE_CAN_LIVE,S,1050,7E5,8,0400000000000000",
+            "TRANE_CAN_LIVE,S,1051,703,1,00",
+            "TRANE_CAN_LIVE,S,1052,703,1,7F",
+            "TRANE_CAN_LIVE,S,1053,000,2,0103",
+            "TRANE_CAN_LIVE,S,1054,703,1,05",
+        ]
+        frames = analyzer.parse_frames(lines)
+        management = analyzer.decode_canopen_management(frames)
+        sessions = management["lss_fastscan_sessions"]
+        self.assertEqual(len(sessions), 1)
+        session = sessions[0]
+        self.assertEqual(
+            session["identity_u32"],
+            {
+                "vendor_id": 1,
+                "product_code": 4,
+                "revision_number": 0,
+                "serial_number": 0xC345985F,
+            },
+        )
+        self.assertEqual(session["identity_hex"]["serial_number"], "0xC345985F")
+        self.assertEqual(session["assigned_node_id"], 3)
+        self.assertTrue(session["configure_success"])
+        self.assertEqual(session["switch_state"], "waiting")
+        self.assertEqual(session["nmt_command"], "start_remote_node")
+        self.assertEqual(
+            [row["state"] for row in session["node_state_sequence"]],
+            ["boot-up", "pre-operational", "operational"],
+        )
+
     def test_canopen_heartbeat_state_decode(self):
         frames = analyzer.parse_frames(
             [
