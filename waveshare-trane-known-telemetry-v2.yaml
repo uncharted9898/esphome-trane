@@ -189,11 +189,15 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_387_float1
-    # 2026-09-17 idle/profile-sweep capture held this field at exactly 55.0
-    # while OdStatus demand, compressor power and drive currents were all zero.
-    # It is therefore not actual compressor speed. Preserve the raw float until
-    # its configuration/limit semantic is independently qualified.
-    name: "0x387 Float 1 Raw"
+    # 2026-09-17 idle/profile-sweep held this field at exactly 55.0 while the
+    # compressor was stopped. 2026-09-18 active modulation then held it at the
+    # same 55.0 while actual compressor speed moved through roughly 36-42 RPS
+    # and structured OdStatus.B moved through 70-73%. It is not actual speed;
+    # the stable non-zero value is now best classified as a speed reference or
+    # limit family field. Keep Candidate wording until the OEM service surface
+    # identifies which limit/reference it represents.
+    name: "0x387 Compressor Speed Reference Limit Candidate"
+    unit_of_measurement: "RPS"
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
