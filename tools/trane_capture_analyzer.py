@@ -667,12 +667,48 @@ def decode_canopen_sdo_transport(frames: Sequence[Frame]) -> list[dict[str, obje
 def decode_canopen_management(frames: Sequence[Frame]) -> dict[str, object]:
     """Decode standards-backed CANopen management traffic on Trane Link.
 
-    This deliberately does not map node IDs to physical Trane products. It only
-    names protocol-level NMT heartbeat and CiA-305 LSS behavior.
+    This deliberately does not map CANopen node IDs to physical Trane products.
+    It names protocol-level NMT/heartbeat and CiA-305 LSS behavior, and
+    reconstructs complete Fastscan identity sessions when the capture contains
+    the positive final probe for all four Identity Object 0x1018 words.
     """
     heartbeats: list[dict[str, object]] = []
     lss: list[dict[str, object]] = []
     nmt: list[dict[str, object]] = []
+    fastscan_sessions: list[dict[str, object]] = []
+
+    active_session: dict[str, object] | None = None
+    latest_complete_session: dict[str, object] | None = None
+    pending_fastscan: dict[str, int] | None = None
+    pending_node_config: dict[str, int] | None = None
+
+    nmt_names = {
+        0x01: "start_remote_node",
+        0x02: "stop_remote_node",
+        0x80: "enter_pre_operational",
+        0x81: "reset_node",
+        0x82: "reset_communication",
+    }
+
+    def attach_node_state(node_id: int, row: dict[str, object]) -> None:
+        nonlocal latest_complete_session
+        session = latest_complete_session
+        if session is None or session.get("assigned_node_id") != node_id:
+            return
+        end_tick = int(session.get("end_tick_ms", 0))
+        if row["tick_ms"] - end_tick > 5000:
+            return
+        states = session.setdefault("node_state_sequence", [])
+        if isinstance(states, list):
+            state_name = row["state"]
+            if not states or states[-1].get("state") != state_name:
+                states.append(
+                    {
+                        "line": row["line"],
+                        "tick_ms": row["tick_ms"],
+                        "state": state_name,
+                    }
+                )
 
     for frame in frames:
         if frame.kind != "S":
@@ -680,26 +716,35 @@ def decode_canopen_management(frames: Sequence[Frame]) -> dict[str, object]:
 
         if 0x701 <= frame.can_id <= 0x77F and frame.data:
             state = frame.data[0]
-            heartbeats.append(
-                {
-                    "line": frame.line_no,
-                    "tick_ms": frame.tick_ms,
-                    "node_id": frame.can_id - 0x700,
-                    "state": HEARTBEAT_STATES.get(state, f"0x{state:02X}"),
-                    "state_raw": state,
-                }
-            )
+            heartbeat = {
+                "line": frame.line_no,
+                "tick_ms": frame.tick_ms,
+                "node_id": frame.can_id - 0x700,
+                "state": HEARTBEAT_STATES.get(state, f"0x{state:02X}"),
+                "state_raw": state,
+            }
+            heartbeats.append(heartbeat)
+            attach_node_state(int(heartbeat["node_id"]), heartbeat)
             continue
 
         if frame.can_id == 0x000 and len(frame.data) >= 2:
-            nmt.append(
-                {
-                    "line": frame.line_no,
-                    "tick_ms": frame.tick_ms,
-                    "command": frame.data[0],
-                    "target_node": frame.data[1],
-                }
-            )
+            row = {
+                "line": frame.line_no,
+                "tick_ms": frame.tick_ms,
+                "command": frame.data[0],
+                "command_name": nmt_names.get(frame.data[0], f"0x{frame.data[0]:02X}"),
+                "target_node": frame.data[1],
+            }
+            nmt.append(row)
+            session = latest_complete_session
+            if (
+                session is not None
+                and session.get("assigned_node_id") == frame.data[1]
+                and frame.tick_ms - int(session.get("end_tick_ms", 0)) <= 5000
+            ):
+                session["nmt_command"] = row["command_name"]
+                session["nmt_line"] = frame.line_no
+                session["nmt_tick_ms"] = frame.tick_ms
             continue
 
         if frame.can_id not in (0x7E4, 0x7E5) or len(frame.data) != 8:
@@ -716,14 +761,17 @@ def decode_canopen_management(frames: Sequence[Frame]) -> dict[str, object]:
             "raw": frame.data.hex().upper(),
         }
 
-        # CiA-305 Fastscan request. After command specifier 0x51 the layout is
-        # IDNumber[0..3], BitCheck, LSSSub, LSSNext. BitCheck 0x80 with the
-        # remaining selection fields zero is the Fastscan initialization form.
         if frame.can_id == 0x7E5 and frame.data[0] == 0x51:
             id_number = u32_le(frame.data, 1) or 0
             bit_check = frame.data[5]
             lss_sub = frame.data[6]
             lss_next = frame.data[7]
+            initialize = (
+                id_number == 0
+                and bit_check == 0x80
+                and lss_sub == 0
+                and lss_next == 0
+            )
             entry.update(
                 {
                     "service": "lss_fastscan",
@@ -731,20 +779,125 @@ def decode_canopen_management(frames: Sequence[Frame]) -> dict[str, object]:
                     "bit_check": bit_check,
                     "lss_sub": lss_sub,
                     "lss_next": lss_next,
-                    "phase": (
-                        "initialize"
-                        if id_number == 0
-                        and bit_check == 0x80
-                        and lss_sub == 0
-                        and lss_next == 0
-                        else "probe"
-                    ),
+                    "phase": "initialize" if initialize else "probe",
                 }
             )
+            if initialize:
+                active_session = {
+                    "start_line": frame.line_no,
+                    "start_tick_ms": frame.tick_ms,
+                    "identity": [None, None, None, None],
+                    "complete": False,
+                }
+            pending_fastscan = {
+                "line": frame.line_no,
+                "tick_ms": frame.tick_ms,
+                "id_number": id_number,
+                "bit_check": bit_check,
+                "lss_sub": lss_sub,
+                "lss_next": lss_next,
+            }
+
         elif frame.can_id == 0x7E4 and frame.data[0] == 0x4F:
             entry["service"] = "lss_fastscan_response"
+            if pending_fastscan is not None and active_session is not None:
+                sub = pending_fastscan["lss_sub"]
+                if (
+                    pending_fastscan["bit_check"] == 0
+                    and 0 <= sub < 4
+                    and pending_fastscan["lss_next"] == sub + 1
+                ):
+                    identity = active_session["identity"]
+                    if isinstance(identity, list):
+                        identity[sub] = pending_fastscan["id_number"]
+                        if sub == 3 and all(value is not None for value in identity):
+                            names = (
+                                "vendor_id",
+                                "product_code",
+                                "revision_number",
+                                "serial_number",
+                            )
+                            active_session["identity_u32"] = {
+                                name: int(value)
+                                for name, value in zip(names, identity)
+                            }
+                            active_session["identity_hex"] = {
+                                name: f"0x{int(value):08X}"
+                                for name, value in zip(names, identity)
+                            }
+                            active_session["complete"] = True
+                            active_session["end_line"] = frame.line_no
+                            active_session["end_tick_ms"] = frame.tick_ms
+                            fastscan_sessions.append(active_session)
+                            latest_complete_session = active_session
+                            active_session = None
+            pending_fastscan = None
+
+        elif frame.can_id == 0x7E5 and frame.data[0] == 0x11:
+            entry.update(
+                {
+                    "service": "lss_configure_node_id",
+                    "node_id": frame.data[1],
+                    # CiA-305 reserves the remaining bytes. Preserve them
+                    # because the target capture carries a non-zero byte 2.
+                    "trailing_bytes": frame.data[2:].hex().upper(),
+                }
+            )
+            pending_node_config = {
+                "node_id": frame.data[1],
+                "tick_ms": frame.tick_ms,
+            }
+            if (
+                latest_complete_session is not None
+                and frame.tick_ms - int(latest_complete_session.get("end_tick_ms", 0)) <= 2000
+            ):
+                latest_complete_session["assigned_node_id"] = frame.data[1]
+                latest_complete_session["configure_request_line"] = frame.line_no
+                latest_complete_session["configure_request_tick_ms"] = frame.tick_ms
+                latest_complete_session["configure_request_trailing_bytes"] = frame.data[2:].hex().upper()
+
+        elif frame.can_id == 0x7E4 and frame.data[0] == 0x11:
+            entry.update(
+                {
+                    "service": "lss_configure_node_id_response",
+                    "error_code": frame.data[1],
+                    "manufacturer_error": frame.data[2],
+                    "success": frame.data[1] == 0,
+                }
+            )
+            if (
+                pending_node_config is not None
+                and latest_complete_session is not None
+                and latest_complete_session.get("assigned_node_id") == pending_node_config["node_id"]
+            ):
+                latest_complete_session["configure_response_line"] = frame.line_no
+                latest_complete_session["configure_response_tick_ms"] = frame.tick_ms
+                latest_complete_session["configure_success"] = frame.data[1] == 0
+                latest_complete_session["configure_error_code"] = frame.data[1]
+            pending_node_config = None
+
+        elif frame.can_id == 0x7E5 and frame.data[0] == 0x04:
+            state_name = {
+                0: "waiting",
+                1: "configuration",
+            }.get(frame.data[1], f"0x{frame.data[1]:02X}")
+            entry.update(
+                {
+                    "service": "lss_switch_state_global",
+                    "state": state_name,
+                }
+            )
+            if (
+                latest_complete_session is not None
+                and frame.tick_ms - int(latest_complete_session.get("end_tick_ms", 0)) <= 3000
+            ):
+                latest_complete_session["switch_state"] = state_name
+                latest_complete_session["switch_state_line"] = frame.line_no
+                latest_complete_session["switch_state_tick_ms"] = frame.tick_ms
+
         else:
             entry["service"] = "lss_raw"
+
         lss.append(entry)
 
     latest_heartbeat_by_node: dict[int, dict[str, object]] = {}
@@ -758,8 +911,8 @@ def decode_canopen_management(frames: Sequence[Frame]) -> dict[str, object]:
             for node_id in sorted(latest_heartbeat_by_node)
         ],
         "lss": lss,
+        "lss_fastscan_sessions": fastscan_sessions,
     }
-
 
 def id_summary(frames: Sequence[Frame]) -> list[dict[str, object]]:
     grouped: dict[tuple[str, int], list[Frame]] = defaultdict(list)
