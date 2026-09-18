@@ -1,6 +1,5 @@
 # Trane HVAC CAN bus ESPHome external component
 
-# The climate component has an optional guarded trane_bus control path. Auto-load
-# the sibling component so legacy configurations that name only trane_hvac still
-# compile/link without having to instantiate trane_bus.
-AUTO_LOAD = ["trane_bus"]
+# Keep trane_bus optional. The legacy monolithic decoder uses the climate
+# platform without a trane_bus instance, while the maintained guarded profiles
+# explicitly configure trane_bus_id and materialize that sibling component.
