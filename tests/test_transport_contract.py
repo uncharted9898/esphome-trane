@@ -42,21 +42,28 @@ class ReferenceTargetDecoder:
         # State first: marker 0x21 is a legitimate long sequence number.
         if self.expected_len:
             if self.mode == "short":
-                frame_type = marker & 0xF0
-                sequence = marker & 0x0F
-                if frame_type not in (0x00, 0x10) or sequence != self.expected_seq:
+                if marker & 0xE0:
                     self.errors += 1
                     self.reset()
                     return None
-                saw_nul = False
-                for byte in frame[1:]:
-                    if len(self.buf) >= self.expected_len:
-                        break
-                    if byte == 0:
-                        saw_nul = True
+                toggle = (marker >> 4) & 0x01
+                unused = (marker >> 1) & 0x07
+                final = bool(marker & 0x01)
+                if toggle != self.expected_seq or (not final and unused):
+                    self.errors += 1
+                    self.reset()
+                    return None
+                payload = frame[1:]
+                if final:
+                    if unused > len(payload):
+                        self.errors += 1
+                        self.reset()
+                        return None
+                    payload = payload[: len(payload) - unused]
+                for byte in payload:
+                    if len(self.buf) >= self.expected_len or byte == 0:
                         break
                     self.buf.append(byte)
-                final = frame_type == 0x10 or saw_nul or len(self.buf) == self.expected_len
                 if final:
                     if len(self.buf) == self.expected_len:
                         out = bytes(self.buf).decode()
@@ -65,7 +72,7 @@ class ReferenceTargetDecoder:
                     self.errors += 1
                     self.reset()
                     return None
-                self.expected_seq = (self.expected_seq + 1) & 0x0F
+                self.expected_seq ^= 1
                 return None
 
             if marker & 0x80:
@@ -171,6 +178,12 @@ class TransportSourceContractTests(unittest.TestCase):
         self.assertLess(state_pos, c2_pos)
         self.assertLess(state_pos, short_pos)
 
+    def test_segmented_sdo_source_uses_toggle_unused_and_last_bits(self):
+        self.assertIn("const uint8_t toggle = (marker >> 4) & 0x01", CPP)
+        self.assertIn("const uint8_t unused = (marker >> 1) & 0x07", CPP)
+        self.assertIn("const bool last = (marker & 0x01) != 0", CPP)
+        self.assertNotIn("const uint8_t frame_type = marker & 0xF0", CPP)
+
     def test_long_final_marker_is_sequence_not_byte_count(self):
         self.assertIn("const uint8_t sequence = marker & 0x7F", CPP)
         self.assertIn("sequence != state.expected_seq", CPP)
@@ -198,6 +211,19 @@ class TargetTransportFixtureTests(unittest.TestCase):
         ]
         decoder, messages = self.decode_all(frames)
         self.assertEqual(messages, ['{"Ack":"200"}'])
+        self.assertEqual(decoder.errors, 0)
+
+    def test_segmented_sdo_partial_final_segment_uses_n_bits(self):
+        # {"A":"B"} is 9 JSON bytes + NUL = 10 indicated SDO bytes.
+        # Segment 2 carries three valid bytes and four unused bytes, so the
+        # standard 000tnnnc command byte is 0x19 (toggle=1, n=4, last=1).
+        frames = [
+            [0x21, 0x0A, 0x30, 0x00, 0x0A, 0x00, 0x00, 0x00],
+            [0x00, 0x7B, 0x22, 0x41, 0x22, 0x3A, 0x22, 0x42],
+            [0x19, 0x22, 0x7D, 0x00, 0xAA, 0xBB, 0xCC, 0xDD],
+        ]
+        decoder, messages = self.decode_all(frames)
+        self.assertEqual(messages, ['{"A":"B"}'])
         self.assertEqual(decoder.errors, 0)
 
     def test_target_long_indoor_status(self):
