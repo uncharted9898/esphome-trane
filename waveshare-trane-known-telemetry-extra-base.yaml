@@ -586,13 +586,13 @@ sensor:
       return value;
     device_id: dev_thermostat
 
-  # Byte4 often lands in a humidity-looking range (54-69), but the node-3
-  # startup/satisfied transition held it at 0x9D (157) for repeated frames,
-  # including one frame where the room-temperature float had already recovered
-  # to 79 F. It is therefore not safe to expose as literal relative humidity.
+  # Raw byte behind the user-facing Indoor Humidity entity. Normal target
+  # operation repeatedly produces plausible RH values in the 50s/60s; node-3
+  # startup can temporarily publish 0x9D (157), so keep the unfiltered byte as
+  # a disabled diagnostic while the friendly entity rejects values >100.
   - platform: template
     id: trane_490_byte4
-    name: "0x490 Zone 1 RH Status Byte Candidate"
+    name: "0x490 Zone 1 Humidity Byte Raw"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
