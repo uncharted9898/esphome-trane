@@ -84,6 +84,8 @@ class TraneBus : public Component {
 
   const std::string &get_last_json_root() const { return last_json_root_; }
   const std::string &get_last_profile_request() const { return last_profile_request_; }
+  const std::string &get_debug_idble() const { return debug_idble_; }
+  const std::string &get_debug_odble() const { return debug_odble_; }
   uint32_t get_last_json_can_id() const { return last_json_can_id_; }
 
   uint32_t get_rx_frames() const { return rx_frames_; }
@@ -177,8 +179,11 @@ class TraneBus : public Component {
   std::string pending_kind_{};
   std::string last_json_root_{};
   std::string last_profile_request_{};
+  std::string debug_idble_{};
+  std::string debug_odble_{};
   uint32_t last_json_can_id_{0};
   SegmentedRxState rx_601_{};
+  SegmentedRxState rx_621_{};
   SegmentedRxState rx_641_{};
   SegmentedRxState rx_649_{};
   Trigger<std::string, uint32_t> json_trigger_;
