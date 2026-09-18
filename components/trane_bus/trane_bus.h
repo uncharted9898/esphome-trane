@@ -116,7 +116,10 @@ class TraneBus : public Component {
 
  protected:
   static constexpr size_t STANDARD_CAN_ID_COUNT = 0x800;
-  static constexpr size_t JSON_SNAPSHOT_SLOTS = 16;
+  // A full SC360 profile sweep can expose more than sixteen distinct roots
+  // (settings, status, notifications, weather, version, etc.). Keep enough
+  // bounded slots that useful roots are not immediately evicted during boot.
+  static constexpr size_t JSON_SNAPSHOT_SLOTS = 32;
   static constexpr size_t MAX_JSON_SNAPSHOT_BYTES = 2048;
 
   struct SegmentedRxState {
