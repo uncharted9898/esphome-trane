@@ -205,7 +205,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x300 ID Superheat Candidate",
             "0x200 Indoor EEV Position Candidate",
             "0x490 Zone 1 Room Temperature",
-            "0x490 Zone 1 Relative Humidity",
+            "0x490 Zone 1 RH Status Byte Candidate",
             "0x318 Blower Input Current Candidate",
             "0x318 Airflow Candidate",
             "0x318 Blower Speed Candidate",
@@ -223,6 +223,12 @@ class KnownTelemetryContractTests(unittest.TestCase):
         # remain absent until an actual line-voltage source is qualified.
         self.assertNotIn("Blower V I PF Calculated Power", TARGET_DISCOVERY)
         self.assertNotIn("return volts * amps * pf;", TARGET_DISCOVERY)
+
+    def test_0x490_invalid_humidity_is_not_published_as_humidity(self):
+        self.assertIn('name: "0x490 Zone 1 RH Status Byte Candidate"', EXTRA_BASE)
+        self.assertNotIn('name: "0x490 Zone 1 Relative Humidity"', EXTRA_BASE)
+        self.assertIn("value <= -90.0f", EXTRA_BASE)
+        self.assertIn("value > 130.0f", EXTRA_BASE)
 
     def test_high_load_requalified_core_outdoor_channels_are_exposed(self):
         # Core entities should no longer claim the meanings disproved by the
