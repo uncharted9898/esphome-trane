@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 HEADER = (ROOT / "components/trane_bus/trane_bus.h").read_text()
 CPP = (ROOT / "components/trane_bus/trane_bus.cpp").read_text()
 CANOPEN_DOC = (ROOT / "docs/CANOPEN-LINK-TRANSPORT.md").read_text()
-BLOWER_DOC = (ROOT / "docs/TARGET-BLOWER-ELECTRICAL-2026-09-17.md").read_text()
+BLOWER_DOC = (ROOT / "docs/evidence/2026-09-17/blower-electrical.md").read_text()
 
 
 def test_cold_boot_canopen_ids_are_not_reported_as_novel():
