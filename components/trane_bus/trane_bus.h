@@ -81,6 +81,8 @@ class TraneBus : public Component {
   std::string get_last_frame_hex(uint16_t can_id) const;
   std::string get_last_json_value(const std::string &root, const std::string &scope, const std::string &key) const;
   uint8_t get_json_snapshot_count() const { return json_snapshot_count_; }
+  float get_last_json_age_seconds() const;
+  float get_json_snapshot_age_seconds(const std::string &root) const;
 
   const std::string &get_last_json_root() const { return last_json_root_; }
   const std::string &get_last_profile_request() const { return last_profile_request_; }
@@ -157,6 +159,7 @@ class TraneBus : public Component {
     std::string root{};
     std::string json{};
     uint32_t sequence{0};
+    uint32_t updated_ms{0};
   };
 
   bool send_frame_(const std::vector<uint8_t> &frame);
@@ -188,6 +191,7 @@ class TraneBus : public Component {
   uint32_t pending_ack_since_ms_{0};
   uint32_t last_trane_frame_ms_{0};
   uint32_t last_sc360_frame_ms_{0};
+  uint32_t last_json_ms_{0};
 
   float setpoint_min_f_{50.0f};
   float setpoint_max_f_{90.0f};
