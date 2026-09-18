@@ -49,11 +49,13 @@ def test_canopen_evidence_is_documented_without_node_role_guessing():
         "0x703 00",
         "0x703 7F",
         "0x703 05",
-        "0x000 81 03",
-        "0x000 01 03",
+        "`81 03`",
+        "`01 03`",
         "0x7E5",
         "0x7E4",
-        "SDO-like channel pairs",
+        "CANopen SDO JSON transport",
+        "0x300A:00",
+        "Debug.ODBLE",
     ):
         assert phrase in CANOPEN_DOC
 
