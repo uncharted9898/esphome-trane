@@ -129,9 +129,12 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         )[0]
         self.assertNotIn("send_frame_(", tx)
 
-    def test_segmented_json_is_reassembled_in_source(self):
+    def test_canopen_sdo_json_is_reassembled_in_source(self):
         self.assertIn("feed_segmented_json_", BUS_CPP)
-        self.assertIn("can_id == 0x641 || can_id == 0x649", BUS_CPP)
+        self.assertIn("feed_sdo_json_response_", BUS_CPP)
+        for token in ("case 0x601:", "case 0x621:", "case 0x641:", "case 0x649:"):
+            self.assertIn(token, BUS_CPP)
+        self.assertIn("0x300A:00", BUS_CPP)
         self.assertIn("json_trigger_.trigger(json, can_id)", BUS_CPP)
         self.assertIn('CONF_ON_JSON = "on_json"', BUS_PY)
 
