@@ -9,9 +9,9 @@ sensor:
   # Indoor blower electrical block -----------------------------------------
   # 0x318.float[0] follows blower operation and remains the leading input-
   # current candidate. The former V*I*PF derived-power entity is intentionally
-  # gone: the high-load 2026-09-17 capture disproved 0x383.float[1] as line
-  # voltage, so keeping that calculation would turn an old coincidence into a
-  # misleading runtime value. See TARGET-HIGH-LOAD-REQUALIFICATION-2026-09-17.
+  # gone. A later active-blower capture also held 0x280.float[1] at 2.5, proving
+  # that field is not a literal power factor or an inactive-only sentinel.
+  # Preserve 0x280.float[1] only through its generic raw entity in extra-base.
   - platform: template
     id: trane_318_blower_input_current
     name: "0x318 Blower Input Current Candidate"
@@ -24,29 +24,14 @@ sensor:
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x318, 0);'
     device_id: dev_air_handler
 
-  - platform: template
-    id: trane_280_pf_candidate_physical
-    name: "0x280 Blower Power-Factor-Like Candidate"
-    state_class: measurement
-    accuracy_decimals: 3
-    entity_category: diagnostic
-    update_interval: 2s
-    lambda: |-
-      const float value = id(trane_link).get_last_float_le_or_nan(0x280, 4);
-      // The same raw field has been observed as 2.5 during shutdown. Publish
-      // only its physically bounded operating-state value, while preserving
-      // Candidate wording because the high-load pass invalidated the previous
-      // electrical identity that had been used to infer a literal PF.
-      if (!std::isfinite(value) || value <= 0.0f || value > 1.0f) return NAN;
-      return value;
-    device_id: dev_air_handler
-
-  # 0x318 is compound. These two words track the blower strongly but are not
-  # qualified enough for units yet. Requested-airflow and target/feedback RPM
-  # are leading hypotheses.
+  # 0x318 is compound. The cool-ambient capture separated these trailing words
+  # from 0x281's status tail: word2 sits near requested/delivered airflow while
+  # word3 sits near the Technician blower-speed reference and follows blower
+  # power/static. Keep Candidate wording until a synchronized Technician sweep.
   - platform: template
     id: trane_318_u16_2
-    name: "0x318 U16 2 Candidate"
+    name: "0x318 Airflow Candidate"
+    unit_of_measurement: "cfm"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
@@ -56,7 +41,8 @@ sensor:
 
   - platform: template
     id: trane_318_u16_3
-    name: "0x318 U16 3 Candidate"
+    name: "0x318 Blower Speed Candidate"
+    unit_of_measurement: "rpm"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
