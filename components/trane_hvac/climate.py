@@ -5,6 +5,11 @@ from esphome.components.climate import ClimateMode, ClimatePreset
 from esphome.const import CONF_ID
 from esphome import automation
 
+# The guarded climate control path references the sibling trane_bus C++ type.
+# Declare it here as well as in the package module because ESPHome loads
+# platform modules independently when materializing external components.
+AUTO_LOAD = ["trane_bus"]
+
 trane_hvac_ns = cg.esphome_ns.namespace("trane_hvac")
 TraneClimate = trane_hvac_ns.class_("TraneClimate", climate.Climate, cg.Component)
 trane_bus_ns = cg.esphome_ns.namespace("trane_bus")
