@@ -311,9 +311,10 @@ sensor:
   # 5TWV0X outdoor telemetry ------------------------------------------------
   - platform: template
     id: trane_381_float2
-    name: "0x381 Suction Pressure"
-    unit_of_measurement: "psi"
-    device_class: pressure
+    # This channel moves like a refrigerant-pressure family value, but the
+    # loaded-cooling operating point does not yet justify a 1:1 psi scale or a
+    # specific suction/high-side assignment. Preserve the raw float.
+    name: "0x381 Pressure Family Raw"
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
