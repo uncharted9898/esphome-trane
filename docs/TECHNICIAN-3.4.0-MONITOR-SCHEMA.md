@@ -1,5 +1,7 @@
 # Trane Technician 3.4.0 monitor schema evidence
 
+> **Scope note:** this is app-side schema/reference evidence, not the maintained wire mapping. Current target semantics live in [TELEMETRY.md](TELEMETRY.md). An app identifier is not promoted to a CAN/HA meaning until target capture correlation supports it.
+
 This note records static-analysis evidence from the Trane Technician Android application that is useful when correlating the Link CAN captures from this project.
 
 It is intentionally **not** a wire-protocol decoder. The identifiers below are app-side monitor/model keys unless and until a target-system capture proves where and how they are represented on the Link bus.
