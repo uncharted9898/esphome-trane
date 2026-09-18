@@ -228,7 +228,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         # Core entities should no longer claim the meanings disproved by the
         # later high-load operating point.
         for label in (
-            "0x381 Suction Temperature",
+            "0x381 Outdoor Coil Temperature Candidate",
             "0x383 Compressor Dome Discharge Temperature Candidate",
             "0x38F Line Voltage Candidate",
             "0x387 Float 1 Raw",
@@ -236,7 +236,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             self.assertIn(f'name: "{label}"', TELEMETRY)
 
         for stale in (
-            'name: "0x381 Outdoor Coil Temperature Candidate"',
+            'name: "0x381 Suction Temperature"',
             'name: "0x386 Vapor Saturation Temperature Candidate"',
             'name: "0x38F Liquid Pressure"',
         ):
@@ -256,6 +256,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x384 Drive DC Voltage",
             "0x384 Outdoor Fan Speed",
             "0x383 Liquid Pressure Candidate",
+            "0x381 Pressure Family Raw",
             "0x382 Liquid Temperature Candidate",
             "0x385 Compressor Power Candidate",
             "0x385 Compressor Target Speed Candidate",
