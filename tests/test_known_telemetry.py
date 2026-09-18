@@ -94,6 +94,12 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn('unit_of_measurement: "%"', EXTRA_BASE)
         self.assertNotIn('name: "SystemOpStatus D Numeric Candidate"', EXTRA_BASE)
 
+    def test_friendly_room_temp_uses_live_0x490_source(self):
+        self.assertIn('name: "Room Temperature"', TELEMETRY)
+        self.assertIn("get_last_float_le_or_nan(0x490, 0)", TELEMETRY)
+        self.assertIn("value <= -90.0f", TELEMETRY)
+        self.assertNotIn("id(trane_room_temp).publish_state(f);", HA)
+
     def test_system_status_e_no_longer_fakes_outdoor_temp_or_humidity(self):
         self.assertIn('name: "System Compressor Speed Ceiling Candidate"', TELEMETRY)
         self.assertNotIn('name: "SC360 Outdoor Temperature"', TELEMETRY)
@@ -219,7 +225,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x300 ID Superheat Candidate",
             "0x200 Indoor EEV Position Candidate",
             "0x490 Zone 1 Room Temperature",
-            "0x490 Zone 1 RH Status Byte Candidate",
+            "0x490 Zone 1 Humidity Byte Raw",
             "0x318 Blower Input Current Candidate",
             "0x318 Blower Airflow Feedback Candidate",
             "0x318 Blower Speed Candidate",
@@ -239,7 +245,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertNotIn("return volts * amps * pf;", TARGET_DISCOVERY)
 
     def test_0x490_invalid_humidity_is_not_published_as_humidity(self):
-        self.assertIn('name: "0x490 Zone 1 RH Status Byte Candidate"', EXTRA_BASE)
+        self.assertIn('name: "0x490 Zone 1 Humidity Byte Raw"', EXTRA_BASE)
         self.assertNotIn('name: "0x490 Zone 1 Relative Humidity"', EXTRA_BASE)
         self.assertIn("value <= -90.0f", EXTRA_BASE)
         self.assertIn("value > 130.0f", EXTRA_BASE)
