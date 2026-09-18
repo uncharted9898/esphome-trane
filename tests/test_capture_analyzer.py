@@ -112,6 +112,34 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertTrue(sdo[4]["toggle"])
         self.assertTrue(sdo[4]["last"])
 
+    def test_621_odble_reassembles_as_sdo_json(self):
+        lines = [
+            "TRANE_CAN_LIVE,S,1000,621,8,C20A300025000000",
+            "TRANE_CAN_LIVE,S,1002,5A1,8,A00A300006000000",
+            "TRANE_CAN_LIVE,S,1004,621,8,017B224465627567",
+            "TRANE_CAN_LIVE,S,1006,621,8,02223A7B224F4442",
+            "TRANE_CAN_LIVE,S,1008,621,8,034C45223A224E4F",
+            "TRANE_CAN_LIVE,S,1010,621,8,0454414456455254",
+            "TRANE_CAN_LIVE,S,1012,621,8,054953494E47227D",
+            "TRANE_CAN_LIVE,S,1014,621,8,867D00494E47227D",
+            "TRANE_CAN_LIVE,S,1016,5A1,8,A206000000000000",
+            "TRANE_CAN_LIVE,S,1018,621,8,D500000000000000",
+            "TRANE_CAN_LIVE,S,1020,5A1,8,A100000000000000",
+        ]
+        frames = analyzer.parse_frames(lines)
+        messages = analyzer.reassemble_json(frames)
+        self.assertEqual(
+            messages[0]["json"],
+            {"Debug": {"ODBLE": "NOTADVERTISING"}},
+        )
+        sdo = analyzer.decode_canopen_sdo_transport(frames)
+        self.assertEqual(sdo[0]["index"], 0x300A)
+        self.assertTrue(sdo[0]["trane_json_object"])
+        self.assertEqual(
+            next(row for row in sdo if row["phase"] == "block_download_end_request")["unused_bytes"],
+            5,
+        )
+
     def test_canopen_lss_fastscan_initialize_decode(self):
         frames = analyzer.parse_frames(
             ["TRANE_CAN_LIVE,S,1000,7E5,8,5100000000800000"]
