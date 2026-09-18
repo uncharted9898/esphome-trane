@@ -154,9 +154,15 @@ sensor:
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x200, 0);'
     device_id: dev_air_handler
+  # This word leads the 0x318 airflow-family feedback. At high load it is
+  # roughly 660 while 0x318.u16@4 is ~651; during moderate modulation it is
+  # ~490-570 while feedback trails by roughly 5-15; and on satisfaction it
+  # drops immediately to 320 while the feedback remains ~644 before ramping
+  # down. That is strong request/target-versus-feedback behavior.
   - platform: template
     id: trane_200_u16_1
-    name: "0x200 U16 1 Candidate"
+    name: "0x200 Blower Airflow Request Candidate"
+    unit_of_measurement: "cfm"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
