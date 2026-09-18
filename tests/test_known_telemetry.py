@@ -207,7 +207,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x490 Zone 1 Room Temperature",
             "0x490 Zone 1 RH Status Byte Candidate",
             "0x318 Blower Input Current Candidate",
-            "0x318 Airflow Candidate",
+            "0x318 Blower Airflow Feedback Candidate",
             "0x318 Blower Speed Candidate",
         ):
             self.assertIn(f'name: "{label}"', combined)
@@ -277,6 +277,13 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertNotIn('name: "0x384 Compressor Target Max Speed Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x385 Compressor Target Speed Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x3D0 Compressor Target Minimum Speed Candidate"', TARGET_DISCOVERY)
+
+    def test_blower_airflow_request_feedback_pair_is_exposed(self):
+        combined = TELEMETRY + EXTRA
+        self.assertIn('name: "0x200 Blower Airflow Request Candidate"', combined)
+        self.assertIn('name: "0x318 Blower Airflow Feedback Candidate"', combined)
+        self.assertNotIn('name: "0x200 U16 1 Candidate"', combined)
+        self.assertNotIn('name: "0x318 Airflow Candidate"', combined)
 
     def test_0x280_is_upstream_compressor_speed_request_candidate(self):
         self.assertIn('name: "0x280 Compressor Speed Request Candidate"', EXTRA_BASE)
