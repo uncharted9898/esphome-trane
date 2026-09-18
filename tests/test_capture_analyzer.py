@@ -82,6 +82,77 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertEqual(end_req["unused_bytes"], 3)
         self.assertEqual(sdo[-1]["phase"], "block_download_end_response")
 
+    def test_block_download_reassembly_resets_sequence_after_a2(self):
+        payload = '{"Long":"abcdefghijklmnop"}'
+        wire = payload.encode() + b"\x00"
+        lines = [
+            f"TRANE_CAN_LIVE,S,1000,649,8,{bytes([0xC2,0x0A,0x30,0x00]) + len(wire).to_bytes(4,'little')!s}",
+        ]
+        # Use exact hex records so the fixture mirrors a captured CAN log.
+        lines = [
+            "TRANE_CAN_LIVE,S,1000,649,8,"
+            + (bytes([0xC2, 0x0A, 0x30, 0x00]) + len(wire).to_bytes(4, "little")).hex(),
+            "TRANE_CAN_LIVE,S,1001,5C9,8,A00A300002000000",
+        ]
+
+        offset = 0
+        tick = 1002
+        # First negotiated sub-block: sequence 1,2, neither marked final.
+        for seq in (1, 2):
+            chunk = wire[offset : offset + 7]
+            offset += len(chunk)
+            lines.append(
+                f"TRANE_CAN_LIVE,S,{tick},649,8,"
+                + (bytes([seq]) + chunk.ljust(7, b"\x00")).hex()
+            )
+            tick += 1
+        lines.append(
+            f"TRANE_CAN_LIVE,S,{tick},5C9,8,A202020000000000"
+        )
+        tick += 1
+
+        # Server ACK restarts the next sub-block sequence at 1.
+        seq = 1
+        while offset < len(wire):
+            chunk = wire[offset : offset + 7]
+            offset += len(chunk)
+            last = offset >= len(wire)
+            marker = seq | (0x80 if last else 0)
+            lines.append(
+                f"TRANE_CAN_LIVE,S,{tick},649,8,"
+                + (bytes([marker]) + chunk.ljust(7, b"\x00")).hex()
+            )
+            tick += 1
+            seq += 1
+
+        frames = analyzer.parse_frames(lines)
+        messages = analyzer.reassemble_json(frames)
+        self.assertEqual([row["json"] for row in messages], [{"Long": "abcdefghijklmnop"}])
+
+    def test_segmented_reassembly_honors_unused_final_bytes(self):
+        lines = [
+            "TRANE_CAN_LIVE,S,1000,641,8,210A30000A000000",
+            "TRANE_CAN_LIVE,S,1001,5C1,8,600A300000000000",
+            "TRANE_CAN_LIVE,S,1002,641,8,007B2241223A2242",
+            "TRANE_CAN_LIVE,S,1003,5C1,8,2000000000000000",
+            "TRANE_CAN_LIVE,S,1004,641,8,19227D00AABBCCDD",
+            "TRANE_CAN_LIVE,S,1005,5C1,8,3000000000000000",
+        ]
+        messages = analyzer.reassemble_json(analyzer.parse_frames(lines))
+        self.assertEqual([row["json"] for row in messages], [{"A": "B"}])
+
+    def test_non_300a_sdo_does_not_enter_json_reassembler(self):
+        lines = [
+            # Same SDO shape but object 0x300B:00 instead of Trane mailbox 0x300A:00.
+            "TRANE_CAN_LIVE,S,1000,649,8,C20B30000A000000",
+            "TRANE_CAN_LIVE,S,1001,5C9,8,A00B300002000000",
+            "TRANE_CAN_LIVE,S,1002,649,8,817B2241223A2242",
+        ]
+        frames = analyzer.parse_frames(lines)
+        self.assertEqual(analyzer.reassemble_json(frames), [])
+        events = analyzer.decode_canopen_sdo_transport(frames)
+        self.assertFalse(events[0]["trane_json_object"])
+
     def test_short_ack_is_canopen_sdo_segmented_download(self):
         lines = [
             "TRANE_CAN_LIVE,S,1000,641,8,210A30000E000000",
