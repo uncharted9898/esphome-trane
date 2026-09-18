@@ -4,9 +4,13 @@
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
-#include "esphome/components/trane_bus/trane_bus.h"
 
 namespace esphome {
+
+namespace trane_bus {
+class TraneBus;
+}
+
 namespace trane_hvac {
 
 // Forward-declare trigger types so climate.py can bind automations to them
