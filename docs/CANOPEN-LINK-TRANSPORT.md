@@ -57,14 +57,40 @@ We intentionally do **not** map node 1..5 to UX360, SC360, 5TAMX, 5TWV0X, or the
 
 ## LSS evidence
 
-The capture contains the standard LSS identifiers:
+The target bus uses the standard LSS identifiers:
 
-- `0x7E5` requests from the LSS manager
-- `0x7E4` responses from an LSS server
+- `0x7E5` — manager requests
+- `0x7E4` — server responses
 
-The response pattern includes repeated `4F ...` frames matching the CANopen LSS identification/fast-scan family documented by CiA. The startup sequence then proceeds into node-3 NMT/heartbeat activity.
+A complete target capture contains a positive CiA-305 Fastscan for all four
+32-bit Identity Object words:
 
-This strongly indicates that at least one Link participant is being discovered/configured through standard CANopen LSS during startup.
+- vendor ID: `0x00000001`
+- product code: `0x00000004`
+- revision number: `0x00000000`
+- serial number: `0xC345985F`
+
+After the final positive Fastscan probe, the manager sends a successful node-ID
+configuration for **node 3**, switches the LSS state, and the node then follows
+the normal CANopen startup sequence:
+
+```text
+0x7E5 11 03 ...   configure node ID 3
+0x7E4 11 00 ...   success
+0x7E5 04 00 ...   switch state
+0x703 00          boot-up
+0x703 7F          pre-operational
+0x000 01 03       NMT Start Remote Node 3
+0x703 05          operational
+```
+
+The offline capture analyzer reconstructs this as one LSS identity/assignment
+session.
+
+This proves standards-backed discovery/configuration behavior, but it still does
+**not** prove which physical Trane assembly owns CANopen node 3. Keep physical
+node-role mapping separate until a controlled topology/disconnect capture
+identifies it.
 
 ## CANopen SDO JSON transport
 
