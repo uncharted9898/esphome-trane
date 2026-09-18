@@ -128,3 +128,96 @@ SpOverride SDO write/echo.
 - No application TX was emitted by the bridge.
 - Unclassified CAN frame count is zero in the Home Assistant snapshot.
 
+
+
+## Cooling-to-satisfied transition capture
+
+A later capture beginning around 14:42:41 local time contains the full transition
+from active cooling into a satisfied/idle state.
+
+### Compressor ramp-down
+
+The binary telemetry shows a coherent compressor ramp:
+
+- 0x384.float[0] (compressor speed candidate) falls from about 57.9 RPS through
+  55, 52.5, 47.4, 40.6, 35.4, 29.2 and 5.9 RPS before reaching 0.
+- 0x385.float[1] (target speed candidate) begins around 64-65 RPS, then steps
+  down through the 50s/40s/30s, reaches about 26 RPS during final rundown and
+  then falls to zero.
+- 0x385.float[0] (compressor-power candidate) falls from about 1544 W to
+  roughly 696 W and then zero.
+- 0x38C input power falls from roughly 1.73 kW through about 802 W, then
+  180 W / 32 W and finally the ~15 W standby baseline.
+
+This dynamic correlation materially strengthens 0x384.float[0] as actual
+compressor speed and 0x385.float[1] as target/commanded speed.
+
+### Indoor airflow ramp-down
+
+The indoor side also transitions coherently:
+
+- 0x281 actual-airflow word starts at 774 CFM;
+- steps to 550 CFM while the blower is reducing;
+- reaches 200 CFM during the final rundown;
+- then reaches 0 CFM.
+- 0x318 u16@4 / u16@6 fall in parallel from roughly 647/434 through
+  612/405, 565/376, 514/347, 462/318 and finally 0/0.
+- 0x320 blower power falls from about 44 W through the 30/25/20 W range and
+  then zero.
+
+0x281 u16@2 remains 500 throughout this transition, so it is not actual
+airflow. Preserve it as a target/configuration candidate until OEM service
+telemetry identifies it.
+
+### Structured state transition
+
+The same transition produces fresh application-level state updates:
+
+- `IndoorStatus.D` changes from `B` during active operation to `A` as
+  the indoor unit stops.
+- `IndoorStatus.E` reports a numeric blower/status value during operation
+  and explicitly updates to `0` when the blower has stopped.
+- `ZoneStatus.HcStatus` updates to `4` during the shutdown transition and
+  later to `1` once the zone is satisfied.
+- two transient SOP alarms are deleted as the transition completes.
+
+Because IndoorStatus.E has also been observed carrying a non-numeric string in
+older retained data, keep the raw entity alongside the numeric blower-speed
+interpretation rather than assuming the field is always numeric.
+
+### Fresh SpOverride update is startup/profile hydration, not a Put
+
+The capture contains a fresh:
+
+`{"SpOverride":{"Update":{"1":{"Csp":"78","Hsp":"62","Source":"1","HoldType":"1"}, ...}}}`
+
+at approximately 14:42:56.791. This is important, but it is **not** evidence
+of the client-side setpoint write syntax.
+
+Immediately before this profile burst, CANopen LSS assigns node 3 and NMT
+starts it. The controller then emits UnitID and a sequence of normal 0x649
+profile `Update` objects, each acknowledged by `{"Ack":"200"}` on 0x641.
+No JSON object containing `Put` appears anywhere in the three capture files.
+
+Therefore application TX remains fail-closed until a capture starts before a
+physical UX360 setpoint change and records the originating write.
+
+## Complete CANopen LSS Fastscan identity
+
+This capture contains a complete positive CiA-305 Fastscan for the node that is
+subsequently assigned node ID 3.
+
+The four reconstructed 32-bit identity words are:
+
+- vendor ID: `0x00000001`
+- product code: `0x00000004`
+- revision number: `0x00000000`
+- serial number: `0xC345985F`
+
+After the final positive Fastscan probe the manager sends the node-ID
+configuration request for node 3 and receives success. It then switches the
+LSS state, after which node 3 emits boot-up, enters pre-operational, receives
+NMT Start Remote Node, and reports operational.
+
+The offline capture analyzer now reconstructs this identity/configuration/NMT
+startup sequence as one LSS session instead of exposing only individual probes.
