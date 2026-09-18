@@ -79,7 +79,7 @@ Observed COB-ID pairs use the CANopen client/server SDO pairing pattern:
 | Client/request side | Server/response side | Target observation |
 | ---: | ---: | --- |
 | `0x601` | `0x581` | block-download `Debug` JSON |
-| `0x621` | `0x5A1` | boot-time SDO-looking traffic; object semantics still raw |
+| `0x621` | `0x5A1` | block-download `Debug.ODBLE` JSON |
 | `0x641` | `0x5C1` | segmented JSON including `{"Ack":"200"}` |
 | `0x649` | `0x5C9` | block-download status/profile JSON |
 
@@ -128,6 +128,19 @@ The same arithmetic validates the `0x601` Debug captures. A 37-byte transfer
 uses six seven-byte segments (42 bytes capacity), leaving five unused bytes, so
 the observed end command is `D5 = C1 | (5 << 2)`. A 34-byte transfer uses five
 segments and leaves one unused byte, producing the observed `C5`.
+
+The `0x621/0x5A1` pair independently repeats the same SDO transaction shape
+and the same object `0x300A:00`, carrying:
+
+```json
+{"Debug":{"ODBLE":"NOTADVERTISING"}}
+{"Debug":{"ODBLE":"ADVERTISING"}}
+```
+
+while `0x601/0x581` carries the corresponding `Debug.IDBLE` states. Because
+those are partial updates under the same JSON root, the runtime retains IDBLE
+and ODBLE independently instead of allowing the generic `Debug` snapshot to
+erase the previously observed sibling key.
 
 ### Segmented download: 0x641 / 0x5C1 example
 
