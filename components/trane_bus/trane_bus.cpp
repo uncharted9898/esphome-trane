@@ -747,9 +747,14 @@ bool TraneBus::validate_payload_shape_(const std::string &payload) const {
 }
 
 bool TraneBus::validate_profile_name_(const std::string &profile) const {
-  static const char *const ALLOWED[] = {"SYSOP", "INDOOR", "ZONE", "ALARMS", "SPOVERRIDE", "PRESET", "SYSTEM",
-                                         "SCHEDULE", "VERSION", "ZONECARD", "ZONING", "WEATHERDATA", "UNITID",
-                                         "THERMOSETTINGS"};
+  // Names observed verbatim in the target SC360's stock 0x641
+  // GetProfile sweep are listed explicitly. Retain earlier upstream names as
+  // historical vocabulary, but do not invent aliases for captured names.
+  static const char *const ALLOWED[] = {
+      "SYSOP", "INDOOR", "ZONE", "ALARMS", "SPOVERRIDE", "PRESET", "SYSTEM",
+      "SCHEDULE", "VERSION", "ZONECARD", "ZONING", "WEATHERDATA", "UNITID",
+      "THERMOSETTINGS", "TECHAPPSETTINGS", "NOTIFICATIONDATA", "INDOORSTATE",
+      "ZONESTATE", "ODSTATE", "ODSETTINGS"};
   for (const char *allowed : ALLOWED) {
     if (profile == allowed)
       return true;
