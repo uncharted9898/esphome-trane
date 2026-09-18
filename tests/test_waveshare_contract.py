@@ -120,11 +120,14 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("on_boot: !remove", FULL)
         self.assertIn("services: !remove", FULL)
 
-    def test_transport_requires_recent_sc360_and_serializes_writes(self):
+    def test_transport_requires_recent_sc360_and_legacy_writer_fails_closed(self):
         self.assertIn("require_sc360_before_tx_ && !has_recent_trane_activity()", BUS_CPP)
         self.assertIn("if (pending_ack_)", BUS_CPP)
-        self.assertIn("pending_ack_since_ms_", BUS_CPP)
-        self.assertIn("ack_timeouts_", BUS_CPP)
+        self.assertIn("CANopen SDO writer for Trane object 0x300A:00 is not yet qualified", BUS_CPP)
+        tx = BUS_CPP.split("bool TraneBus::send_json_internal_", 1)[1].split(
+            "bool TraneBus::send_json(const std::string &payload)", 1
+        )[0]
+        self.assertNotIn("send_frame_(", tx)
 
     def test_segmented_json_is_reassembled_in_source(self):
         self.assertIn("feed_segmented_json_", BUS_CPP)
