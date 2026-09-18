@@ -128,6 +128,23 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertNotIn("id(hvac_can).send_data(0x641", LEGACY)
         self.assertNotIn("std::vector<uint8_t> f0", LEGACY)
 
+    def test_trane_hvac_platform_materializes_guarded_bus_dependency(self):
+        self.assertIn('AUTO_LOAD = ["trane_bus"]', CLIMATE_PY)
+        self.assertIn('#include "esphome/components/trane_bus/trane_bus.h"', CLIMATE_H)
+        self.assertNotIn('#include "../trane_bus/trane_bus.h"', CLIMATE_H)
+
+    def test_target_profile_vocabulary_and_snapshot_capacity_are_retained(self):
+        for profile in (
+            "TECHAPPSETTINGS",
+            "NOTIFICATIONDATA",
+            "INDOORSTATE",
+            "ZONESTATE",
+            "ODSTATE",
+            "ODSETTINGS",
+        ):
+            self.assertIn(f'"{profile}"', BUS_CPP)
+        self.assertIn("JSON_SNAPSHOT_SLOTS = 32", BUS_H)
+
     def test_transport_requires_recent_sc360_and_legacy_writer_fails_closed(self):
         self.assertIn("require_sc360_before_tx_ && !has_recent_trane_activity()", BUS_CPP)
         self.assertIn("if (pending_ack_)", BUS_CPP)
