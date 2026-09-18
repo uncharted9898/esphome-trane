@@ -6,6 +6,7 @@ LISTEN = (ROOT / "waveshare-trane-listenonly.yaml").read_text()
 COMMISSION = (ROOT / "waveshare-trane-commissioning.yaml").read_text()
 HOMEASSISTANT = (ROOT / "waveshare-trane-homeassistant.yaml").read_text()
 FULL = (ROOT / "waveshare-trane-full.yaml").read_text()
+LEGACY = (ROOT / "esphome-trane.yaml").read_text()
 BUS_CPP = (ROOT / "components/trane_bus/trane_bus.cpp").read_text()
 BUS_H = (ROOT / "components/trane_bus/trane_bus.h").read_text()
 BUS_PY = (ROOT / "components/trane_bus/__init__.py").read_text()
@@ -119,6 +120,13 @@ class WaveshareSafetyContractTests(unittest.TestCase):
     def test_full_profile_removes_legacy_raw_surfaces(self):
         self.assertIn("on_boot: !remove", FULL)
         self.assertIn("services: !remove", FULL)
+
+    def test_legacy_profile_fail_closes_pre_sdo_raw_writer(self):
+        self.assertIn("components: [trane_hvac, trane_bus]", LEGACY)
+        self.assertIn("Blocked legacy JSON TX", LEGACY)
+        self.assertIn("object 0x300A:00 is not yet qualified", LEGACY)
+        self.assertNotIn("id(hvac_can).send_data(0x641", LEGACY)
+        self.assertNotIn("std::vector<uint8_t> f0", LEGACY)
 
     def test_transport_requires_recent_sc360_and_legacy_writer_fails_closed(self):
         self.assertIn("require_sc360_before_tx_ && !has_recent_trane_activity()", BUS_CPP)
