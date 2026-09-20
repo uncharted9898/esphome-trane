@@ -177,6 +177,14 @@ text_sensor:
     lambda: 'return {id(trane_link).get_last_frame_hex(0x330)};'
     device_id: dev_discovery
   - platform: template
+    name: "Last 0x3C0 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x3C0)};'
+    device_id: dev_discovery
+
+  - platform: template
     name: "Last 0x420 Raw"
     entity_category: diagnostic
     disabled_by_default: true
