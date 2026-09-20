@@ -38,11 +38,11 @@ The friendly environmental entities intentionally use the live binary sources ab
 |---|---|---|---|
 | `0x200.u16@0` | Indoor EEV Position Candidate | Candidate | Tracks a step-like control value; exact OEM label not independently confirmed. |
 | `0x200.u16@2` | Blower Airflow Request Candidate | Strong candidate | Leads `0x318.u16@4` during modulation/shutdown. |
-| `0x280.float[0]` | Compressor Speed Request Candidate | Strong candidate | Scales closely with structured `OdStatus.B`; ~58.05 RPS implied full-scale across 70-73% modulation. |
+| `0x280.float[0]` | Compressor Speed Request | Strong/confirmed | Commanded/requested compressor RPS. Tracks ~29 RPS low load, ~40-43 moderate load, ~57.5-58 high load, and changes ahead of achieved speed on shutdown. |
 | `0x280.float[1]` | Raw/Candidate | Candidate | Do not call literal power factor. |
 | `0x281.u16@0` | Actual Airflow | Confirmed | 774 CFM at high load; ramps 774→550→200→0 during shutdown. |
 | `0x281.u16@2` | Raw fixed/configuration field | Raw | Often 500; remains 500 with blower stopped, so not actual airflow. |
-| `0x281.byte6` | Blower Demand Candidate | Strong candidate | Active values in 60-100 range; drops to zero before coast-down completes. |
+| `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Blower Active Flag Candidate | Strong candidate | Remains 1 during blower coast-down, reaches 0 when stopped. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
@@ -65,7 +65,6 @@ Current best interpretation:
 0x200.u16@2   -> requested blower airflow
 0x318.u16@4   -> airflow-family feedback
 0x281.u16@0   -> delivered/actual airflow
-0x281.byte6   -> blower demand %
 0x281.byte7   -> blower active flag
 0x318.u16@6   -> blower speed/RPM family
 0x320.float0  -> blower power
@@ -89,7 +88,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x384.u16@4` | Drive DC Voltage | Strong candidate | ~340-352 Vdc. |
 | `0x384.u16@6` | Outdoor Fan Speed | Strong candidate | ~750-775 RPM under high load, 0 stopped. |
 | `0x385.float[0]` | Compressor Power Candidate | Strong candidate | ~1.3-1.5 kW high load; 0 stopped. |
-| `0x385.float[1]` | Compressor Target Speed Candidate | Strong candidate | Distinct from actual speed and upstream request. |
+| `0x385.float[1]` | Compressor Speed Ceiling Candidate | Strong candidate | Sits above the immediate `0x280` request across low/moderate/high load (~40 vs 29, ~63 vs 56, ~66-68 vs ~58 RPS) and becomes 0 idle. |
 | `0x386.float[0]` | Raw | Raw | Often 2.0 in target captures. |
 | `0x386.float[1]` | Raw | Raw | Often fixed 50.0; old saturation-temperature label disproved. |
 | `0x387.float[0]` | Compressor Speed Reference/Limit Candidate | Strong candidate | Fixed ~55 RPS across idle and varying load; not actual speed. |
@@ -112,9 +111,10 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 Three distinct speed-family channels are now supported by transition/modulation evidence:
 
 ```text
-0x280.float0 -> upstream/requested speed candidate
-0x384.float0 -> achieved/actual compressor speed candidate
-0x385.float1 -> outdoor-drive target speed candidate
+0x281.byte6  -> compressor demand % mirror
+0x280.float0 -> commanded/requested compressor speed
+0x384.float0 -> achieved/actual compressor speed
+0x385.float1 -> compressor speed ceiling candidate
 0x387.float0 -> fixed speed reference/limit candidate
 0x3D0/3E0    -> minimum-speed limit family
 ```
