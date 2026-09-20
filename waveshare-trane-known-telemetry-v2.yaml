@@ -142,7 +142,7 @@ sensor:
 
   - platform: template
     id: trane_compressor_speed
-    name: "Compressor Speed"
+    name: "Compressor Speed Percent"
     unit_of_measurement: "%"
     state_class: measurement
     accuracy_decimals: 0
@@ -153,6 +153,15 @@ sensor:
     unit_of_measurement: "%"
     state_class: measurement
     accuracy_decimals: 0
+    update_interval: 2s
+    lambda: |-
+      // 2026-09-18/20 structured correlations proved 0x281.byte6 is the
+      // binary mirror of OdStatus.CompDemandPercent: 72, 82, 84 and 82 all
+      // matched exactly at independent SDO updates. Prefer the live binary
+      // source so HA does not depend on a sparse structured update.
+      const float value = id(trane_link).get_last_byte_or_nan(0x281, 6);
+      if (!std::isfinite(value) || value < 0.0f || value > 100.0f) return NAN;
+      return value;
     device_id: dev_heat_pump
   - platform: template
     id: trane_outdoor_air_temp
