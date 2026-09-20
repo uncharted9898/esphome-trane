@@ -38,7 +38,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn("waveshare-trane-target-discovery.yaml", EXTRA_AGGREGATOR)
 
     def test_candidate_and_raw_entities_default_to_disabled(self):
-        for package in (TELEMETRY, EXTRA_BASE):
+        for package in (TELEMETRY, EXTRA_BASE, TARGET_DISCOVERY):
             blocks = package.split("  - platform: template")
             for block in blocks:
                 if 'entity_category: diagnostic' not in block:
@@ -107,6 +107,34 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "Unit Firmware",
             "Thermostat Display Name",
             "Outdoor Temperature User Offset",
+        ):
+            self.assertIn(f'name: "{name}"', combined)
+
+    def test_promoted_live_entities_have_clean_names(self):
+        combined = TELEMETRY + EXTRA
+        for name in (
+            "Return Air Temperature",
+            "Supply Air Temperature",
+            "Actual Airflow",
+            "Total Static Pressure",
+            "Blower Motor Current",
+            "Blower Motor Speed",
+            "Blower Power",
+            "Indoor Gas Temperature",
+            "Indoor Evaporator Temperature",
+            "Indoor Superheat",
+            "Outdoor Air Temperature",
+            "Outdoor Coil Temperature",
+            "Liquid Line Temperature",
+            "Compressor Discharge Temperature",
+            "Actual Compressor Speed",
+            "Compressor Target Speed",
+            "Compressor Power",
+            "Line Voltage",
+            "Input Current",
+            "Input Power",
+            "Drive DC Voltage",
+            "Outdoor Fan Speed",
         ):
             self.assertIn(f'name: "{name}"', combined)
 
@@ -241,15 +269,15 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "Supply Air Temperature",
             "Total Static Pressure",
             "Blower Power",
-            "0x300 ID Gas Temperature Candidate",
-            "0x300 ID Evap Liquid Temperature Candidate",
-            "0x300 ID Superheat Candidate",
+            "Indoor Gas Temperature",
+            "Indoor Evaporator Temperature",
+            "Indoor Superheat",
             "0x200 Indoor EEV Position Candidate",
             "0x490 Zone 1 Room Temperature",
             "0x490 Zone 1 Humidity Byte Raw",
-            "0x318 Blower Input Current Candidate",
+            "Blower Motor Current",
             "0x318 Blower Airflow Feedback Candidate",
-            "0x318 Blower Speed Candidate",
+            "Blower Motor Speed",
         ):
             self.assertIn(f'name: "{label}"', combined)
         self.assertIn('unit_of_measurement: "cfm"', EXTRA)
@@ -275,9 +303,9 @@ class KnownTelemetryContractTests(unittest.TestCase):
         # Core entities should no longer claim the meanings disproved by the
         # later high-load operating point.
         for label in (
-            "0x381 Outdoor Coil Temperature Candidate",
-            "0x383 Compressor Dome Discharge Temperature Candidate",
-            "0x38F Line Voltage Candidate",
+            "Outdoor Coil Temperature",
+            "Compressor Discharge Temperature",
+            "Line Voltage",
             "0x387 Compressor Speed Reference Limit Candidate",
         ):
             self.assertIn(f'name: "{label}"', TELEMETRY)
@@ -304,19 +332,19 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "Outdoor Fan Speed",
             "0x383 Liquid Pressure Candidate",
             "0x381 Pressure Family Raw",
-            "0x382 Liquid Temperature Candidate",
-            "0x385 Compressor Power Candidate",
-            "0x385 Compressor Target Speed Candidate",
-            "0x389 Input AC Current Candidate",
+            "Liquid Line Temperature",
+            "Compressor Power",
+            "Compressor Target Speed",
+            "Input Current",
             "Input Power",
             "0x460 Temperature Candidate",
         ):
             self.assertIn(f'name: "{label}"', EXTRA)
 
     def test_active_load_requalifies_0x384_as_compressor_speed(self):
-        self.assertIn('name: "0x384 Actual Compressor Speed Candidate"', EXTRA_BASE)
+        self.assertIn('name: "Actual Compressor Speed"', EXTRA_BASE)
         self.assertNotIn('name: "0x384 Compressor Target Max Speed Candidate"', EXTRA_BASE)
-        self.assertIn('name: "0x385 Compressor Target Speed Candidate"', EXTRA_BASE)
+        self.assertIn('name: "Compressor Target Speed"', EXTRA_BASE)
         self.assertIn('name: "0x3D0 Compressor Target Minimum Speed Candidate"', TARGET_DISCOVERY)
 
     def test_blower_airflow_request_feedback_pair_is_exposed(self):
@@ -334,7 +362,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn('name: "0x281 Blower Demand Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x281 Blower Active Flag Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x281 Bytes 6-7 Composite Raw"', EXTRA_BASE)
-        self.assertIn('name: "0x384 Actual Compressor Speed Candidate"', EXTRA_BASE)
+        self.assertIn('name: "Actual Compressor Speed"', EXTRA_BASE)
         self.assertIn('name: "0x387 Compressor Speed Reference Limit Candidate"', TELEMETRY)
         self.assertNotIn('name: "0x281 Tail Word Raw"', EXTRA_BASE)
         self.assertNotIn('name: "0x281 Byte 6 Candidate"', EXTRA_BASE)
