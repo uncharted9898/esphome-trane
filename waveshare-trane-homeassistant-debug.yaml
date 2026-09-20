@@ -1,0 +1,20 @@
+# Opt-in Home Assistant profile for protocol development.
+#
+# Loads the normal curated HA profile plus the raw per-CAN-ID evidence surface.
+# Use this when actively reverse engineering; use waveshare-trane-homeassistant.yaml
+# for the normal installed bridge.
+
+packages:
+  normal_ha:
+    url: https://github.com/uncharted9898/esphome-trane
+    ref: dev
+    refresh: always
+    files:
+      - waveshare-trane-homeassistant.yaml
+
+  target_raw:
+    url: https://github.com/uncharted9898/esphome-trane
+    ref: dev
+    refresh: always
+    files:
+      - waveshare-trane-target-raw.yaml
