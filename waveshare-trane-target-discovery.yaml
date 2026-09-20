@@ -51,6 +51,64 @@ sensor:
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x318, 6);'
     device_id: dev_air_handler
 
+  # Populated unresolved numeric families ---------------------------------
+  # These are intentionally word-level diagnostics only. They move across
+  # operating states, but no OEM semantic has been proven yet.
+  - platform: template
+    id: trane_2d0_u16_1_raw
+    name: "0x2D0 Word 1 Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x2D0, 2);'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_2d0_u16_2_raw
+    name: "0x2D0 Word 2 Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x2D0, 4);'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_3c0_u16_0_raw
+    name: "0x3C0 Word 0 Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x3C0, 0);'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_3c0_u16_1_raw
+    name: "0x3C0 Word 1 Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x3C0, 2);'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_420_u16_2_raw
+    name: "0x420 Word 2 Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x420, 4);'
+    device_id: dev_discovery
+
   # Compressor minimum-target family. Technician previously displayed a
   # target minimum speed near 20 RPS; both target frames sit at ~20.1 RPS.
   - platform: template
