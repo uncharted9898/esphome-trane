@@ -300,6 +300,7 @@ bool TraneBus::is_known_trane_id_(uint32_t can_id) const {
     case 0x320:
     case 0x328:
     case 0x330:
+    case 0x3C0:
     case 0x3D0:
     case 0x3E0:
     case 0x410:
