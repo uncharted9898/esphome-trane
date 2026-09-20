@@ -85,6 +85,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
   - platform: template
     id: trane_od_widget_temp
@@ -110,6 +111,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_air_handler
   - platform: template
     id: trane_283_float2
@@ -119,24 +121,23 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_air_handler
   - platform: template
     id: trane_308_float1
-    name: "0x308 Return Air Temperature"
+    name: "Return Air Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
     device_id: dev_air_handler
   - platform: template
     id: trane_308_float2
-    name: "0x308 Supply Air Temperature"
+    name: "Supply Air Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
     device_id: dev_air_handler
 
   - platform: template
@@ -172,6 +173,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_heat_pump
   - platform: template
     id: trane_discharge_temp
@@ -181,12 +183,14 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_heat_pump
   - platform: template
     id: trane_380_float1
     name: "0x380 Float 1 Raw"
     accuracy_decimals: 3
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_heat_pump
   - platform: template
     id: trane_386_float1
@@ -194,6 +198,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_heat_pump
   - platform: template
     id: trane_386_float2
@@ -201,6 +206,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_heat_pump
   - platform: template
     id: trane_387_float1
@@ -216,6 +222,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_heat_pump
   - platform: template
     id: trane_38f_pressure
@@ -225,6 +232,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_heat_pump
 
   - platform: template
@@ -235,6 +243,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_discovery
   - platform: template
     id: trane_430_temp
@@ -242,6 +251,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_discovery
   - platform: template
     id: trane_450_temp
@@ -249,6 +259,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_discovery
 
   - platform: template
@@ -374,11 +385,13 @@ text_sensor:
     id: trane_system_status_d_raw
     name: "SystemOpStatus D Raw"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
   - platform: template
     id: trane_system_status_e_raw
     name: "SystemOpStatus E Raw"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
 
   - platform: template
@@ -412,11 +425,13 @@ text_sensor:
     id: trane_indoor_status_e_raw
     name: "IndoorStatus E Raw"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_air_handler
   - platform: template
     id: trane_indoor_status_f_raw
     name: "IndoorStatus F Raw"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_air_handler
   - platform: template
     id: trane_indoor_fault
@@ -580,6 +595,7 @@ text_sensor:
     id: trane_490_raw
     name: "Last 0x490 Raw"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_discovery
   - platform: template
     id: trane_last_unknown_id
