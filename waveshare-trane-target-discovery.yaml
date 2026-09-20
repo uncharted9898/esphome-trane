@@ -14,12 +14,11 @@ sensor:
   # Preserve 0x280.float[1] only through its generic raw entity in extra-base.
   - platform: template
     id: trane_318_blower_input_current
-    name: "0x318 Blower Input Current Candidate"
+    name: "Blower Motor Current"
     unit_of_measurement: "A"
     device_class: current
     state_class: measurement
     accuracy_decimals: 4
-    entity_category: diagnostic
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x318, 0);'
     device_id: dev_air_handler
@@ -42,11 +41,10 @@ sensor:
 
   - platform: template
     id: trane_318_u16_3
-    name: "0x318 Blower Speed Candidate"
+    name: "Blower Motor Speed"
     unit_of_measurement: "rpm"
     state_class: measurement
     accuracy_decimals: 0
-    entity_category: diagnostic
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x318, 6);'
     device_id: dev_air_handler
