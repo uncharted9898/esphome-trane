@@ -50,8 +50,27 @@ class KnownTelemetryContractTests(unittest.TestCase):
 
     def test_structured_data_status_is_visible(self):
         self.assertIn('name: "Structured Data Status"', HA)
+        self.assertIn('name: "Profile Coverage"', HA)
         self.assertIn("get_json_snapshot_count()", HA)
         self.assertIn("get_last_json_age_seconds()", HA)
+        for root in (
+            "SystemOpStatus",
+            "IndoorStatus",
+            "ZoneStatus",
+            "SpOverride",
+            "UnitID",
+            "VersionDetails",
+            "IndoorSettings",
+            "SystemSettings",
+        ):
+            self.assertIn(f'"{root}"', HA)
+
+    def test_only_unknown_traffic_health_counter_remains_visible(self):
+        idx = TELEMETRY.index("id: trane_unknown_frames")
+        start = TELEMETRY.rfind("  - platform: template", 0, idx)
+        end = TELEMETRY.find("  - platform:", idx + 5)
+        block = TELEMETRY[start:end if end >= 0 else len(TELEMETRY)]
+        self.assertNotIn("disabled_by_default: true", block)
 
     def test_packages_own_no_hardware_or_esphome_root(self):
         for package in (TELEMETRY, EXTRA_AGGREGATOR, EXTRA_BASE, TARGET_DISCOVERY):
