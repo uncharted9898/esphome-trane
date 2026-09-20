@@ -179,22 +179,18 @@ sensor:
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x200, 2);'
     device_id: dev_air_handler
 
-  # Cross-capture modulation strongly matches an upstream compressor-speed
-  # request: ~57.92 RPS at full load while 0x384 actual is ~57.9 RPS; roughly
-  # 40-43 RPS at moderate load while actual trails by ~1-2 RPS; and during
-  # satisfaction this drops immediately to ~20.97 RPS and then zero while the
-  # compressor itself coasts down through the 50s/40s/30s.
+  # Cross-capture modulation identifies this as the commanded compressor
+  # speed: ~29.15 RPS at low load, ~40-43 RPS at moderate load, ~57.5-58 RPS
+  # at high load, and it drops ahead of measured speed during satisfaction.
   - platform: template
     id: trane_280_float1
-    name: "0x280 Compressor Speed Request Candidate"
+    name: "Compressor Speed Request"
     unit_of_measurement: "RPS"
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x280, 0);'
-    device_id: dev_air_handler
+    device_id: dev_heat_pump
   - platform: template
     id: trane_280_float2
     name: "0x280 Float 2 Candidate"
@@ -250,13 +246,13 @@ sensor:
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x281, 6);'
     device_id: dev_air_handler
 
-  # Active modulation captures put byte6 in the 60-100 range alongside
-  # blower demand. During the satisfied transition byte6 falls to zero while
-  # IndoorStatus.E and measured airflow remain non-zero during coast-down.
-  # That makes a command/demand semantic stronger than an actual-speed one.
+  # Structured OdStatus.CompDemandPercent matched this byte exactly across
+  # four independent update points (72, 82, 84, 82). Keep the raw mirror as a
+  # diagnostic compatibility surface; the normal Compressor Demand entity uses
+  # this same binary source directly.
   - platform: template
     id: trane_281_byte6
-    name: "0x281 Blower Demand Candidate"
+    name: "0x281 Compressor Demand Mirror"
     unit_of_measurement: "%"
     state_class: measurement
     accuracy_decimals: 0
@@ -264,7 +260,7 @@ sensor:
     disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_byte_or_nan(0x281, 6);'
-    device_id: dev_air_handler
+    device_id: dev_heat_pump
 
   # Byte7 remains 1 through the blower coast-down after byte6 reaches zero,
   # then becomes 0 once the indoor blower is stopped.
@@ -428,12 +424,17 @@ sensor:
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x385, 0);'
     device_id: dev_heat_pump
+  # This stays above the commanded 0x280 speed at low/moderate/high load
+  # (~40 vs 29, ~63 vs 56, ~66-68 vs ~58 RPS) and falls to zero when idle.
+  # That behavior is a ceiling/limit, not the immediate speed request.
   - platform: template
     id: trane_385_float2
-    name: "Compressor Target Speed"
+    name: "0x385 Compressor Speed Ceiling Candidate"
     unit_of_measurement: "RPS"
     state_class: measurement
     accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x385, 4);'
     device_id: dev_heat_pump
