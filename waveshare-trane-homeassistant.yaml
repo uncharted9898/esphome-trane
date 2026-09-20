@@ -32,15 +32,15 @@ esphome:
     version: "dev-ha-waveshare"
   devices:
     - id: dev_thermostat
-      name: "Trane UX360"
+      name: "Trane UX360 Thermostat"
     - id: dev_sc360
-      name: "Trane SC360"
+      name: "Trane SC360 Controller"
     - id: dev_air_handler
       name: "Trane 5TAMX Air Handler"
     - id: dev_heat_pump
       name: "Trane 5TWV0X Heat Pump"
     - id: dev_discovery
-      name: "Trane Link Discovery"
+      name: "Trane Link Diagnostics"
 
 esp32:
   variant: esp32s3
@@ -573,63 +573,122 @@ trane_bus:
 binary_sensor:
   - platform: template
     name: "SC360 Seen"
+    entity_category: diagnostic
+    device_id: dev_discovery
     lambda: 'return id(trane_link).has_seen_sc360();'
+
   - platform: template
     name: "SC360 Recently Active"
+    entity_category: diagnostic
+    device_id: dev_discovery
     lambda: 'return id(trane_link).has_recent_trane_activity();'
+
   - platform: template
     name: "Trane Command Awaiting ACK"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_discovery
     lambda: 'return id(trane_link).has_pending_ack();'
 
 sensor:
   - platform: template
     name: "CAN Frames Seen"
     accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_discovery
     update_interval: 10s
     lambda: 'return id(trane_link).get_rx_frames();'
+
   - platform: template
     name: "Known Trane Frames Seen"
     accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_discovery
     update_interval: 10s
     lambda: 'return id(trane_link).get_trane_frames();'
+
   - platform: template
     name: "SC360 RX Frames"
     accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_discovery
     update_interval: 10s
     lambda: 'return id(trane_link).get_sc360_frames();'
+
   - platform: template
     name: "Trane TX Messages"
     accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_discovery
     update_interval: 10s
     lambda: 'return id(trane_link).get_tx_messages();'
+
   - platform: template
     name: "Trane TX Blocked"
     accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_discovery
     update_interval: 10s
     lambda: 'return id(trane_link).get_tx_blocked();'
+
   - platform: template
     name: "Segmented JSON Messages"
     accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_discovery
     update_interval: 10s
     lambda: 'return id(trane_link).get_rx_json_messages();'
+
   - platform: template
     name: "RX Transport Errors"
     accuracy_decimals: 0
+    entity_category: diagnostic
+    device_id: dev_discovery
     update_interval: 10s
     lambda: 'return id(trane_link).get_rx_transport_errors();'
+
   - platform: template
     name: "Captured CAN Frames"
     accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_discovery
     update_interval: 10s
     lambda: 'return id(trane_link).get_capture_size();'
+
   - platform: template
     name: "Capture Ring Overwrites"
     accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_discovery
     update_interval: 10s
     lambda: 'return id(trane_link).get_capture_overwrites();'
 
 text_sensor:
   - platform: template
     name: "Trane Bridge Mode"
+    entity_category: diagnostic
+    device_id: dev_discovery
     lambda: 'return {"NORMAL CAN / APPLICATION TX DISABLED"};'
     update_interval: 60s
+
+  - platform: template
+    name: "Structured Data Status"
+    entity_category: diagnostic
+    device_id: dev_discovery
+    update_interval: 10s
+    lambda: |-
+      const float age = id(trane_link).get_last_json_age_seconds();
+      const unsigned roots = id(trane_link).get_json_snapshot_count();
+      if (!std::isfinite(age)) return {"not seen"};
+      const char *state = age <= 300.0f ? "fresh" : (age <= 1800.0f ? "aging" : "stale");
+      char out[64];
+      snprintf(out, sizeof(out), "%s / %u roots / %.0fs", state, roots, age);
+      return {std::string(out)};
