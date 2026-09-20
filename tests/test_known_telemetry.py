@@ -117,7 +117,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "System Demand Stage",
             "System Demand Percent Candidate",
             "Indoor Blower Speed",
-            "Compressor Speed",
+            "Compressor Speed Percent",
             "Compressor Demand",
             "Outdoor Air Temperature",
             "Outdoor Fault Code",
@@ -147,7 +147,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "Liquid Line Temperature",
             "Compressor Discharge Temperature",
             "Actual Compressor Speed",
-            "Compressor Target Speed",
+            "Compressor Speed Request",
             "Compressor Power",
             "Line Voltage",
             "Input Current",
@@ -353,7 +353,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x381 Pressure Family Raw",
             "Liquid Line Temperature",
             "Compressor Power",
-            "Compressor Target Speed",
+            "Compressor Speed Request",
             "Input Current",
             "Input Power",
             "0x460 Temperature Candidate",
@@ -363,7 +363,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
     def test_active_load_requalifies_0x384_as_compressor_speed(self):
         self.assertIn('name: "Actual Compressor Speed"', EXTRA_BASE)
         self.assertNotIn('name: "0x384 Compressor Target Max Speed Candidate"', EXTRA_BASE)
-        self.assertIn('name: "Compressor Target Speed"', EXTRA_BASE)
+        self.assertIn('name: "0x385 Compressor Speed Ceiling Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x3D0 Compressor Target Minimum Speed Candidate"', TARGET_DISCOVERY)
 
     def test_blower_airflow_request_feedback_pair_is_exposed(self):
@@ -373,12 +373,28 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertNotIn('name: "0x200 U16 1 Candidate"', combined)
         self.assertNotIn('name: "0x318 Airflow Candidate"', combined)
 
-    def test_0x280_is_upstream_compressor_speed_request_candidate(self):
-        self.assertIn('name: "0x280 Compressor Speed Request Candidate"', EXTRA_BASE)
+    def test_0x280_is_live_compressor_speed_request(self):
+        self.assertIn('name: "Compressor Speed Request"', EXTRA_BASE)
+        self.assertNotIn('name: "0x280 Compressor Speed Request Candidate"', EXTRA_BASE)
         self.assertNotIn('name: "0x280 Float 1 Candidate"', EXTRA_BASE)
 
+    def test_compressor_demand_uses_0x281_binary_mirror(self):
+        self.assertIn('name: "Compressor Demand"', TELEMETRY)
+        self.assertIn("get_last_byte_or_nan(0x281, 6)", TELEMETRY)
+        self.assertIn('name: "0x281 Compressor Demand Mirror"', EXTRA_BASE)
+        self.assertNotIn('name: "0x281 Blower Demand Candidate"', EXTRA_BASE)
+
+    def test_0x385_is_hidden_speed_ceiling_candidate(self):
+        self.assertIn('name: "0x385 Compressor Speed Ceiling Candidate"', EXTRA_BASE)
+        idx = EXTRA_BASE.index('name: "0x385 Compressor Speed Ceiling Candidate"')
+        start = EXTRA_BASE.rfind("  - platform: template", 0, idx)
+        end = EXTRA_BASE.find("  - platform:", idx + 5)
+        block = EXTRA_BASE[start:end if end >= 0 else len(EXTRA_BASE)]
+        self.assertIn("entity_category: diagnostic", block)
+        self.assertIn("disabled_by_default: true", block)
+
     def test_active_modulation_refines_blower_and_speed_reference_fields(self):
-        self.assertIn('name: "0x281 Blower Demand Candidate"', EXTRA_BASE)
+        self.assertIn('name: "0x281 Compressor Demand Mirror"', EXTRA_BASE)
         self.assertIn('name: "0x281 Blower Active Flag Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x281 Bytes 6-7 Composite Raw"', EXTRA_BASE)
         self.assertIn('name: "Actual Compressor Speed"', EXTRA_BASE)
