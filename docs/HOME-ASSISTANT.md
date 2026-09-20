@@ -62,10 +62,10 @@ Enabled by default:
 - Outdoor Coil Temperature
 - Liquid Line Temperature
 - Compressor Discharge Temperature
-- Compressor Speed (%)
-- Compressor Demand (%)
+- Compressor Speed Percent
+- Compressor Demand
+- Compressor Speed Request (RPS)
 - Actual Compressor Speed (RPS)
-- Compressor Target Speed (RPS)
 - Compressor Power
 - Input Current
 - Input Power
@@ -75,9 +75,9 @@ Enabled by default:
 - Outdoor Unit State
 - Outdoor Fault Code
 
-Unresolved pressure-family, current subchannels, speed-limit/reference fields
-and other raw/candidate channels remain disabled diagnostics until independently
-qualified.
+Unresolved pressure-family, current subchannels, the 0x385 speed-ceiling field,
+speed-limit/reference fields and other raw/candidate channels remain disabled
+diagnostics until independently qualified.
 
 ### Trane Link Diagnostics
 
