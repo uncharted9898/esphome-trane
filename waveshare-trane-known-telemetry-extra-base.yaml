@@ -125,6 +125,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
 
   # Generic census ----------------------------------------------------------
@@ -133,6 +134,7 @@ sensor:
     name: "Unique Standard CAN IDs Seen"
     accuracy_decimals: 0
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_unique_standard_ids_seen();'
     device_id: dev_discovery
@@ -141,13 +143,14 @@ sensor:
     name: "Structured Profile Snapshots Retained"
     accuracy_decimals: 0
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_json_snapshot_count();'
     device_id: dev_discovery
 
   # 5TAMX target telemetry --------------------------------------------------
   # Cross-operating-point correlation against a Technician monitor capture is
-  # documented in docs/TARGET-TECHNICIAN-CORRELATION-2026-09-17.md.
+  # documented in docs/evidence/2026-09-17/technician-correlation.md.
   - platform: template
     id: trane_200_u16_0
     name: "0x200 Indoor EEV Position Candidate"
@@ -603,6 +606,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 2s
     lambda: |-
       const float value = id(trane_link).get_last_float_le_or_nan(0x490, 0);
@@ -754,32 +758,38 @@ text_sensor:
     id: trane_alarm_level_2
     name: "Active Alarm 2 Level"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
 
   - platform: template
     id: trane_thermostat_display_name
     name: "Thermostat Display Name"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_timezone_local_offset
     name: "Local Timezone Offset"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_timezone_standard_offset
     name: "Standard Timezone Offset"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_weather_country
     name: "Weather Country Code"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_weather_region
     name: "Weather Region Code"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
 
   - platform: template
@@ -799,6 +809,7 @@ text_sensor:
     id: trane_last_json_root
     name: "Last Structured JSON Root"
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 2s
     lambda: 'return {id(trane_link).get_last_json_root()};'
     device_id: dev_discovery
@@ -806,6 +817,7 @@ text_sensor:
     id: trane_last_profile_request
     name: "Last OEM GetProfile Request"
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 2s
     lambda: 'return {id(trane_link).get_last_profile_request()};'
     device_id: dev_discovery
@@ -813,6 +825,7 @@ text_sensor:
     id: trane_4b1_epoch
     name: "0x4B1 Epoch Seconds"
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: |-
       const uint32_t value = id(trane_link).get_last_u32_le_or_zero(0x4B1, 0);
@@ -1172,23 +1185,27 @@ button:
   - platform: template
     name: "Dump Structured Profile Snapshots"
     entity_category: diagnostic
+    disabled_by_default: true
     on_press:
       - lambda: 'id(trane_link).dump_json_snapshots();'
 
   - platform: template
     name: "Dump CAN ID Census"
     entity_category: diagnostic
+    disabled_by_default: true
     on_press:
       - lambda: 'id(trane_link).dump_id_census();'
 
   - platform: template
     name: "Clear CAN ID Census"
     entity_category: diagnostic
+    disabled_by_default: true
     on_press:
       - lambda: 'id(trane_link).clear_id_census();'
 
   - platform: template
     name: "Dump CAN Capture Snapshot"
     entity_category: diagnostic
+    disabled_by_default: true
     on_press:
       - lambda: 'id(trane_link).dump_capture();'
