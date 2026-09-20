@@ -281,36 +281,30 @@ sensor:
 
   - platform: template
     id: trane_300_float1
-    name: "0x300 ID Gas Temperature Candidate"
+    name: "Indoor Gas Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x300, 0);'
     device_id: dev_air_handler
   - platform: template
     id: trane_300_float2
-    name: "0x300 ID Evap Liquid Temperature Candidate"
+    name: "Indoor Evaporator Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x300, 4);'
     device_id: dev_air_handler
   - platform: template
     id: trane_300_superheat
-    name: "0x300 ID Superheat Candidate"
+    name: "Indoor Superheat"
     unit_of_measurement: "°F"
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 2s
     lambda: |-
       const float gas = id(trane_link).get_last_float_le_or_nan(0x300, 0);
@@ -376,13 +370,11 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_382_float2
-    name: "0x382 Liquid Temperature Candidate"
+    name: "Liquid Line Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x382, 4);'
     device_id: dev_heat_pump
@@ -400,12 +392,10 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_384_float1
-    name: "0x384 Actual Compressor Speed Candidate"
+    name: "Actual Compressor Speed"
     unit_of_measurement: "RPS"
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x384, 0);'
     device_id: dev_heat_pump
@@ -430,24 +420,20 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_385_float1
-    name: "0x385 Compressor Power Candidate"
+    name: "Compressor Power"
     unit_of_measurement: "W"
     device_class: power
     state_class: measurement
     accuracy_decimals: 1
-    entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x385, 0);'
     device_id: dev_heat_pump
   - platform: template
     id: trane_385_float2
-    name: "0x385 Compressor Target Speed Candidate"
+    name: "Compressor Target Speed"
     unit_of_measurement: "RPS"
     state_class: measurement
     accuracy_decimals: 1
-    entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x385, 4);'
     device_id: dev_heat_pump
@@ -501,13 +487,11 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_389_float2
-    name: "0x389 Input AC Current Candidate"
+    name: "Input Current"
     unit_of_measurement: "A"
     device_class: current
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x389, 4);'
     device_id: dev_heat_pump
