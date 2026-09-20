@@ -692,3 +692,29 @@ text_sensor:
       char out[64];
       snprintf(out, sizeof(out), "%s / %u roots / %.0fs", state, roots, age);
       return {std::string(out)};
+
+  - platform: template
+    name: "Profile Coverage"
+    entity_category: diagnostic
+    device_id: dev_discovery
+    update_interval: 30s
+    lambda: |-
+      static const char *const roots[] = {
+        "SystemOpStatus", "IndoorStatus", "ZoneStatus", "SpOverride",
+        "UnitID", "VersionDetails", "IndoorSettings", "SystemSettings"
+      };
+      unsigned present = 0;
+      std::string missing;
+      for (const char *root : roots) {
+        const float age = id(trane_link).get_json_snapshot_age_seconds(root);
+        if (std::isfinite(age)) {
+          present++;
+        } else {
+          if (!missing.empty()) missing += ",";
+          missing += root;
+        }
+      }
+      char prefix[24];
+      snprintf(prefix, sizeof(prefix), "%u/8", present);
+      if (missing.empty()) return {std::string(prefix) + " complete"};
+      return {std::string(prefix) + " missing " + missing};
