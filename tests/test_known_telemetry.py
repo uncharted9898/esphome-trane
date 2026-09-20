@@ -32,6 +32,27 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn("waveshare-trane-known-telemetry-extra-base.yaml", EXTRA_AGGREGATOR)
         self.assertIn("waveshare-trane-target-discovery.yaml", EXTRA_AGGREGATOR)
 
+    def test_normal_ha_profile_excludes_raw_can_package(self):
+        self.assertNotIn("waveshare-trane-target-raw.yaml", EXTRA_AGGREGATOR)
+        self.assertIn("waveshare-trane-known-telemetry-extra-base.yaml", EXTRA_AGGREGATOR)
+        self.assertIn("waveshare-trane-target-discovery.yaml", EXTRA_AGGREGATOR)
+
+    def test_candidate_and_raw_entities_default_to_disabled(self):
+        for package in (TELEMETRY, EXTRA_BASE):
+            blocks = package.split("  - platform: template")
+            for block in blocks:
+                if 'entity_category: diagnostic' not in block:
+                    continue
+                if 'name: "' not in block:
+                    continue
+                if "Candidate" in block or " Raw" in block:
+                    self.assertIn("disabled_by_default: true", block)
+
+    def test_structured_data_status_is_visible(self):
+        self.assertIn('name: "Structured Data Status"', HA)
+        self.assertIn("get_json_snapshot_count()", HA)
+        self.assertIn("get_last_json_age_seconds()", HA)
+
     def test_packages_own_no_hardware_or_esphome_root(self):
         for package in (TELEMETRY, EXTRA_AGGREGATOR, EXTRA_BASE, TARGET_DISCOVERY):
             self.assertNotIn("\nesphome:", package)
@@ -212,14 +233,14 @@ class KnownTelemetryContractTests(unittest.TestCase):
     def test_target_correlated_indoor_channels_are_exposed(self):
         combined = TELEMETRY + EXTRA
         for label in (
-            "0x281 Actual Airflow",
+            "Actual Airflow",
             "0x281 Bytes 6-7 Composite Raw",
             "0x281 Blower Demand Candidate",
             "0x281 Blower Active Flag Candidate",
-            "0x308 Return Air Temperature",
-            "0x308 Supply Air Temperature",
-            "0x310 Total Static Pressure",
-            "0x320 Blower Power",
+            "Return Air Temperature",
+            "Supply Air Temperature",
+            "Total Static Pressure",
+            "Blower Power",
             "0x300 ID Gas Temperature Candidate",
             "0x300 ID Evap Liquid Temperature Candidate",
             "0x300 ID Superheat Candidate",
@@ -279,15 +300,15 @@ class KnownTelemetryContractTests(unittest.TestCase):
         # remaining candidates are requalified against synchronized Technician
         # data in a follow-up capture.
         for label in (
-            "0x384 Drive DC Voltage",
-            "0x384 Outdoor Fan Speed",
+            "Drive DC Voltage",
+            "Outdoor Fan Speed",
             "0x383 Liquid Pressure Candidate",
             "0x381 Pressure Family Raw",
             "0x382 Liquid Temperature Candidate",
             "0x385 Compressor Power Candidate",
             "0x385 Compressor Target Speed Candidate",
             "0x389 Input AC Current Candidate",
-            "0x38C Input Power",
+            "Input Power",
             "0x460 Temperature Candidate",
         ):
             self.assertIn(f'name: "{label}"', EXTRA)
@@ -370,7 +391,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertNotIn(f'name: "{label}"', combined)
 
-    def test_raw_discovery_surfaces_exist(self):
+    def test_curated_discovery_surfaces_exist(self):
         combined = TELEMETRY + EXTRA
         for name in (
             "Last JSON 0x649",
