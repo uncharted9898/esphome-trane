@@ -32,13 +32,13 @@ class DiscoveryCensusContractTests(unittest.TestCase):
             function.index("is_known_trane_id_(can_id)"),
         )
 
-    def test_aggregator_loads_all_discovery_children(self):
+    def test_normal_aggregator_loads_curated_children_only(self):
         for child in (
             "waveshare-trane-known-telemetry-extra-base.yaml",
             "waveshare-trane-target-discovery.yaml",
-            "waveshare-trane-target-raw.yaml",
         ):
             self.assertIn(child, EXTRA_AGGREGATOR)
+        self.assertNotIn("waveshare-trane-target-raw.yaml", EXTRA_AGGREGATOR)
 
     def test_census_dump_is_compact_and_machine_parseable(self):
         self.assertIn("TRANE_ID_CENSUS_BEGIN", CPP)
@@ -67,9 +67,15 @@ class DiscoveryCensusContractTests(unittest.TestCase):
         for can_id in (
             "0x281", "0x300", "0x310", "0x318", "0x320",
             "0x382", "0x385", "0x388", "0x389", "0x38C",
-            "0x490", "0x4B1", "0x4B2",
+            "0x490", "0x4B1", "0x4B2", "0x2D0", "0x3C0", "0x420",
         ):
             self.assertIn(can_id, EXTRA)
+
+    def test_3c0_is_known_and_debuggable(self):
+        self.assertIn("case 0x3C0:", CPP)
+        self.assertIn('name: "Last 0x3C0 Raw"', TARGET_RAW)
+        self.assertIn('name: "0x3C0 Word 0 Raw"', TARGET_DISCOVERY)
+        self.assertIn('name: "0x3C0 Word 1 Raw"', TARGET_DISCOVERY)
 
     def test_observed_profile_metadata_is_retained_passively(self):
         self.assertIn("last_json_root_", HEADER)
