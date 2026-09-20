@@ -5,6 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LISTEN = (ROOT / "waveshare-trane-listenonly.yaml").read_text()
 COMMISSION = (ROOT / "waveshare-trane-commissioning.yaml").read_text()
 HOMEASSISTANT = (ROOT / "waveshare-trane-homeassistant.yaml").read_text()
+HOMEASSISTANT_DEBUG = (ROOT / "waveshare-trane-homeassistant-debug.yaml").read_text()
 FULL = (ROOT / "waveshare-trane-full.yaml").read_text()
 LEGACY = (ROOT / "esphome-trane.yaml").read_text()
 BUS_CPP = (ROOT / "components/trane_bus/trane_bus.cpp").read_text()
@@ -32,6 +33,16 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("tx_enabled: false", HOMEASSISTANT)
         self.assertIn("raw_json_enabled: false", HOMEASSISTANT)
         self.assertIn("github://uncharted9898/esphome-trane@dev", HOMEASSISTANT)
+
+    def test_debug_ha_profile_loads_raw_surface(self):
+        self.assertIn("waveshare-trane-homeassistant.yaml", HOMEASSISTANT_DEBUG)
+        self.assertIn("waveshare-trane-target-raw.yaml", HOMEASSISTANT_DEBUG)
+        self.assertNotIn("waveshare-trane-target-raw.yaml", HOMEASSISTANT)
+
+    def test_homeassistant_health_entities_are_grouped_as_diagnostics(self):
+        self.assertIn('name: "Trane Link Diagnostics"', HOMEASSISTANT)
+        self.assertIn('name: "Structured Data Status"', HOMEASSISTANT)
+        self.assertGreaterEqual(HOMEASSISTANT.count("device_id: dev_discovery"), 8)
 
     def test_homeassistant_uses_std_isfinite_for_gcc14(self):
         self.assertIn("std::isfinite", HOMEASSISTANT)
