@@ -10,6 +10,7 @@ If a dated capture note conflicts with a maintained reference document, the main
 |---|---|
 | [WIRING.md](WIRING.md) | Physical Waveshare/Trane Link wiring, pins, termination, and safe tap topology |
 | [COMMISSIONING.md](COMMISSIONING.md) | First-connect, capture, qualification, and guarded-control workflow |
+| [HOME-ASSISTANT.md](HOME-ASSISTANT.md) | Curated vs debug entity layout and visibility policy |
 | [TELEMETRY.md](TELEMETRY.md) | **Current authoritative telemetry map**, confidence levels, and unresolved fields |
 | [CANOPEN-LINK-TRANSPORT.md](CANOPEN-LINK-TRANSPORT.md) | CANopen NMT/LSS/SDO transport decode and Trane JSON mailbox framing |
 | [CONTEXT.md](CONTEXT.md) | Current architecture, repo state, safety boundaries, and next engineering work |
