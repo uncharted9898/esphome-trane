@@ -112,9 +112,9 @@ A small subset of the current map:
 | actual airflow | `0x281.u16@0` |
 | blower speed | `0x318.u16@6` candidate |
 | blower power | `0x320.float[0]` |
-| compressor speed request | `0x280.float[0]` candidate |
+| compressor speed request | `0x280.float[0]` |
 | actual compressor speed | `0x384.float[0]` candidate |
-| compressor target speed | `0x385.float[1]` candidate |
+| compressor speed ceiling | `0x385.float[1]` candidate |
 | line voltage | `0x38F.float[0]` candidate |
 | input power | `0x38C.float[1]` |
 | outdoor fan speed | `0x384.u16@6` |
