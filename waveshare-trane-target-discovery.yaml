@@ -35,6 +35,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x318, 4);'
     device_id: dev_air_handler
@@ -116,6 +117,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x3D0, 4);'
     device_id: dev_heat_pump
@@ -127,6 +129,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x3E0, 0);'
     device_id: dev_heat_pump
@@ -137,6 +140,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_last_byte_or_nan(0x3E0, 4);'
     device_id: dev_heat_pump
@@ -152,6 +156,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_last_json_age_seconds();'
     device_id: dev_discovery
@@ -202,6 +207,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_last_byte_or_nan(0x53E, 5);'
     device_id: dev_discovery
@@ -238,6 +244,7 @@ text_sensor:
     id: trane_debug_idble
     name: "Debug IDBLE State"
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: 'return {id(trane_link).get_debug_idble()};'
     device_id: dev_discovery
@@ -246,6 +253,7 @@ text_sensor:
     id: trane_debug_odble
     name: "Debug ODBLE State"
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: 'return {id(trane_link).get_debug_odble()};'
     device_id: dev_discovery
@@ -288,6 +296,7 @@ text_sensor:
     id: trane_canopen_node_3_state
     name: "CANopen Node 3 State"
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: |-
       const float raw = id(trane_link).get_last_byte_or_nan(0x703, 0);
@@ -386,6 +395,7 @@ text_sensor:
     id: trane_53e_raw
     name: "Last 0x53E Network Status Raw"
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: 'return {id(trane_link).get_last_frame_hex(0x53E)};'
     device_id: dev_discovery
