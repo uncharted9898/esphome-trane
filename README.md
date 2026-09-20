@@ -69,7 +69,8 @@ For wiring details, power guidance, and tap topology see [docs/WIRING.md](docs/W
 |---|---|
 | `waveshare-trane-listenonly.yaml` | Safest first-connect profile; listen-only capture/discovery |
 | `waveshare-trane-commissioning.yaml` | Commissioning/census workflow |
-| `waveshare-trane-homeassistant.yaml` | Main Home Assistant monitoring profile |
+| `waveshare-trane-homeassistant.yaml` | Curated Home Assistant monitoring profile |
+| `waveshare-trane-homeassistant-debug.yaml` | Opt-in raw/debug HA profile for protocol work |
 | `waveshare-trane-control.yaml` | Guarded control-development profile; TX still fail-closed |
 | `waveshare-trane-full.yaml` | Full decoder/integration profile |
 | `esphome-trane.yaml` | Legacy full decoder retained for compatibility/testing |
@@ -123,7 +124,7 @@ For the maintained map, confidence levels, and unresolved fields see [docs/TELEM
 
 ## Documentation
 
-Start at [docs/README.md](docs/README.md).
+Start at [docs/README.md](docs/README.md). For the HA entity layout, see [docs/HOME-ASSISTANT.md](docs/HOME-ASSISTANT.md).
 
 The docs are intentionally split between:
 
