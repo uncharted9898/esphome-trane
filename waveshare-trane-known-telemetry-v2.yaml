@@ -270,6 +270,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_weather_current_temp
@@ -279,6 +280,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_weather_feels_like
@@ -288,6 +290,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_weather_high
@@ -297,6 +300,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_weather_low
@@ -306,6 +310,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
 
   - platform: template
@@ -316,6 +321,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_preset_home_cool
@@ -325,6 +331,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_preset_away_heat
@@ -334,6 +341,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_preset_away_cool
@@ -343,6 +351,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_preset_sleep_heat
@@ -352,6 +361,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_preset_sleep_cool
@@ -361,6 +371,7 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
 
   - platform: template
@@ -368,6 +379,7 @@ sensor:
     name: "Unclassified CAN Frames"
     accuracy_decimals: 0
     entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_unknown_frame_count);'
     device_id: dev_discovery
@@ -410,11 +422,13 @@ text_sensor:
     id: trane_setpoint_source
     name: "Setpoint Source"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_hold_type
     name: "Hold Type"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
 
   - platform: template
@@ -437,6 +451,7 @@ text_sensor:
     id: trane_indoor_fault
     name: "Indoor Fault String"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_air_handler
   - platform: template
     id: trane_hum_control
@@ -459,6 +474,7 @@ text_sensor:
     id: trane_outdoor_active
     name: "Outdoor Active Flag"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_heat_pump
   - platform: template
     id: trane_outdoor_state
@@ -473,26 +489,31 @@ text_sensor:
     id: trane_unit_model
     name: "Unit Model"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
   - platform: template
     id: trane_unit_serial
     name: "Unit Serial"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
   - platform: template
     id: trane_unit_firmware
     name: "Unit Firmware"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
   - platform: template
     id: trane_config_version
     name: "Config Properties Version"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
   - platform: template
     id: trane_alarm_db_version
     name: "Alarm Details Version"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
 
   - platform: template
@@ -503,11 +524,13 @@ text_sensor:
     id: trane_alarm_origin_1
     name: "Active Alarm 1 Origin"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
   - platform: template
     id: trane_alarm_level_1
     name: "Active Alarm 1 Level"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
   - platform: template
     id: trane_alarm_id_2
@@ -517,12 +540,14 @@ text_sensor:
     id: trane_alarm_origin_2
     name: "Active Alarm 2 Origin"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
 
   - platform: template
     id: trane_zone_name_1
     name: "Zone 1 Name"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_zone_name_2
@@ -559,37 +584,44 @@ text_sensor:
     id: trane_schedule_enabled
     name: "Schedule Enabled"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_weather_status
     name: "Weather Data Status"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_weather_zip
     name: "Weather ZIP"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_weather_city
     name: "Weather City"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
   - platform: template
     id: trane_weather_condition
     name: "Weather Condition Code"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_thermostat
 
   - platform: template
     id: trane_last_json_649
     name: "Last JSON 0x649"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_discovery
   - platform: template
     id: trane_last_json_641
     name: "Last JSON 0x641"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_discovery
   - platform: template
     id: trane_490_raw
@@ -601,9 +633,11 @@ text_sensor:
     id: trane_last_unknown_id
     name: "Last Unknown CAN ID"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_discovery
   - platform: template
     id: trane_last_unknown_frame
     name: "Last Unknown CAN Frame"
     entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_discovery
