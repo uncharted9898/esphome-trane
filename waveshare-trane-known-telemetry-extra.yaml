@@ -1,9 +1,9 @@
-# Supplemental read-only telemetry package aggregator.
+# Curated supplemental read-only telemetry package for the normal Home
+# Assistant profile.
 #
-# The original mature/candidate surface is preserved byte-for-byte in
-# waveshare-trane-known-telemetry-extra-base.yaml. Target-specific discoveries
-# live separately so qualification work does not churn or erase the historical
-# declarations and comments.
+# Raw per-CAN-ID text surfaces intentionally do NOT live here. They are loaded
+# only by waveshare-trane-homeassistant-debug.yaml so the normal HA device pages
+# stay useful while reverse-engineering evidence remains available on demand.
 #
 # No child package owns CAN hardware or transmit actions.
 
@@ -21,10 +21,3 @@ packages:
     refresh: always
     files:
       - waveshare-trane-target-discovery.yaml
-
-  target_raw:
-    url: https://github.com/uncharted9898/esphome-trane
-    ref: dev
-    refresh: always
-    files:
-      - waveshare-trane-target-raw.yaml
