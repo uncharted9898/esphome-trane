@@ -30,3 +30,10 @@ A useful pattern is:
 1. Read the current mapping in [../TELEMETRY.md](../TELEMETRY.md).
 2. Follow the evidence links/dated notes when you need to understand *why* a field has its current confidence level.
 3. When new captures disprove a mapping, update the maintained map and append a new evidence note rather than rewriting old observations.
+
+
+## 2026-09-20
+
+| File | What it captured |
+|---|---|
+| [active-cooling-ha-validation.md](2026-09-20/active-cooling-ha-validation.md) | Curated HA validation, 0x281 compressor-demand proof, compressor speed request/ceiling requalification, and 0x2D0/0x430 follow-up |
