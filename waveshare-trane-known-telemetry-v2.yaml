@@ -373,7 +373,6 @@ sensor:
     name: "Unclassified CAN Frames"
     accuracy_decimals: 0
     entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_unknown_frame_count);'
     device_id: dev_discovery
