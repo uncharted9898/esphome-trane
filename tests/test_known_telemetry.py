@@ -382,7 +382,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn('name: "Compressor Demand"', TELEMETRY)
         self.assertIn("get_last_byte_or_nan(0x281, 6)", TELEMETRY)
         self.assertIn('name: "0x281 Compressor Demand Mirror"', EXTRA_BASE)
-        self.assertNotIn('name: "0x281 Compressor Demand Mirror"', EXTRA_BASE)
+        self.assertNotIn('name: "0x281 Blower Demand Candidate"', EXTRA_BASE)
 
     def test_0x385_is_hidden_speed_ceiling_candidate(self):
         self.assertIn('name: "0x385 Compressor Speed Ceiling Candidate"', EXTRA_BASE)
