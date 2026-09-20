@@ -167,23 +167,19 @@ sensor:
     # Loaded cooling capture tracked this channel with the outdoor coil rather
     # than the evaporator/suction line. Keep the legacy id for package/API
     # compatibility while exposing the requalified semantic as a candidate.
-    name: "0x381 Outdoor Coil Temperature Candidate"
+    name: "Outdoor Coil Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
-    disabled_by_default: true
     device_id: dev_heat_pump
   - platform: template
     id: trane_discharge_temp
-    name: "0x383 Compressor Dome Discharge Temperature Candidate"
+    name: "Compressor Discharge Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
-    disabled_by_default: true
     device_id: dev_heat_pump
   - platform: template
     id: trane_380_float1
@@ -226,13 +222,11 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_38f_pressure
-    name: "0x38F Line Voltage Candidate"
+    name: "Line Voltage"
     unit_of_measurement: "V"
     device_class: voltage
     state_class: measurement
     accuracy_decimals: 1
-    entity_category: diagnostic
-    disabled_by_default: true
     device_id: dev_heat_pump
 
   - platform: template
