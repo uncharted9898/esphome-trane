@@ -43,27 +43,41 @@ Enabled by default:
 - Supply Air Temperature
 - Actual Airflow
 - Total Static Pressure
+- Blower Motor Current
+- Blower Motor Speed
 - Blower Power
+- Indoor Gas Temperature
+- Indoor Evaporator Temperature
+- Indoor Superheat
 - Indoor Blower Speed/status when fresh structured data exists
 
-Unqualified refrigerant, EEV, raw-word and candidate channels remain available
-as disabled diagnostics.
+Unqualified EEV, airflow-request/feedback, raw-word and other candidate channels
+remain available as disabled diagnostics.
 
 ### Trane 5TWV0X Heat Pump
 
 Enabled by default:
 
 - Outdoor Air Temperature
-- Compressor Speed
-- Compressor Demand
-- Outdoor Unit State
-- Outdoor Fault Code
+- Outdoor Coil Temperature
+- Liquid Line Temperature
+- Compressor Discharge Temperature
+- Compressor Speed (%)
+- Compressor Demand (%)
+- Actual Compressor Speed (RPS)
+- Compressor Target Speed (RPS)
+- Compressor Power
+- Input Current
+- Input Power
+- Line Voltage
 - Drive DC Voltage
 - Outdoor Fan Speed
-- Input Power
+- Outdoor Unit State
+- Outdoor Fault Code
 
-Candidate/raw refrigerant, current, speed-limit and pressure-family fields are
-disabled diagnostics until independently qualified.
+Unresolved pressure-family, current subchannels, speed-limit/reference fields
+and other raw/candidate channels remain disabled diagnostics until independently
+qualified.
 
 ### Trane Link Diagnostics
 
@@ -76,10 +90,13 @@ Useful visible health surfaces include:
 - SC360 Recently Active
 - RX Transport Errors
 - Structured Data Status
-- Last Structured JSON Age
+- Profile Coverage
 - Unclassified CAN Frames
 
-High-volume counters/capture internals are disabled by default.
+`Profile Coverage` checks the eight high-value structured roots used for
+system/zone/configuration metadata and reports which have not been observed
+since bridge boot. High-volume counters, raw frames, snapshot ages, CANopen
+state internals and capture controls are disabled by default.
 
 `Structured Data Status` summarizes freshness as:
 
