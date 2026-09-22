@@ -62,18 +62,19 @@ sensor:
     disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x2D0, 2);'
-    device_id: dev_discovery
+    device_id: dev_air_handler
 
   - platform: template
     id: trane_2d0_u16_2_raw
-    name: "0x2D0 Word 2 Raw"
+    name: "0x2D0 Airflow Limit Candidate"
+    unit_of_measurement: "cfm"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
     disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x2D0, 4);'
-    device_id: dev_discovery
+    device_id: dev_air_handler
 
   - platform: template
     id: trane_3c0_u16_0_raw
