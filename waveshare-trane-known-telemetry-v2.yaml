@@ -240,30 +240,32 @@ sensor:
 
   - platform: template
     id: trane_410_temp
-    name: "0x410 Drive Temperature 1 Candidate"
+    name: "0x410 Drive Inverter/IPM Temperature Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
     disabled_by_default: true
-    device_id: dev_discovery
+    device_id: dev_heat_pump
   - platform: template
     id: trane_430_temp
-    name: "0x430 Float 1 Candidate"
+    name: "0x430 Outdoor Fan IPM Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
     disabled_by_default: true
-    device_id: dev_discovery
+    device_id: dev_heat_pump
   - platform: template
     id: trane_450_temp
-    name: "0x450 Float 1 Candidate"
+    name: "0x450 Float 1 Raw"
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
     disabled_by_default: true
-    device_id: dev_discovery
+    device_id: dev_heat_pump
 
   - platform: template
     id: trane_weather_humidity
