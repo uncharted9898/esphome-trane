@@ -137,20 +137,26 @@ Maintained details live in [TELEMETRY.md](TELEMETRY.md). High-value qualified/ca
 - airflow request candidate: `0x200.u16@2`;
 - airflow feedback candidate: `0x318.u16@4`;
 - actual airflow: `0x281.u16@0`;
-- demand candidate: `0x281.byte6`;
+- compressor demand: `0x281.byte6` (binary mirror of structured `OdStatus.CompDemandPercent`);
 - active flag candidate: `0x281.byte7`;
 - speed candidate: `0x318.u16@6`;
 - power: `0x320.float[0]`.
 
 ### Compressor/outdoor
 
-- upstream speed request candidate: `0x280.float[0]`;
-- actual speed candidate: `0x384.float[0]`;
-- target speed candidate: `0x385.float[1]`;
+- compressor speed request: `0x280.float[0]`;
+- actual compressor speed: `0x384.float[0]`;
+- speed ceiling candidate: `0x385.float[1]`;
 - speed reference/limit candidate: `0x387.float[0]`;
 - minimum speed family: `0x3D0/0x3E0`;
-- line voltage candidate: `0x38F.float[0]`;
+- line voltage: `0x38F.float[0]`;
 - input power: `0x38C.float[1]`;
+- suction line temperature: `0x382.float[0]`;
+- liquid line temperature: `0x382.float[1]`;
+- suction-pressure signal: `0x381.float[1]` (semantic identified, conversion unresolved);
+- liquid-line pressure candidate: `0x383.float[1]`;
+- drive IPM/PFC temperature candidates: `0x410.float[0..1]`;
+- outdoor-fan IPM temperature candidate: `0x430.float[0]`;
 - fan speed: `0x384.u16@6`;
 - drive DC bus: `0x384.u16@4`.
 
@@ -185,8 +191,8 @@ Highest-value remaining work:
 
 1. capture a physical UX360 setpoint/mode change from before the user action;
 2. implement/qualify application SDO TX only after that capture;
-3. independently identify `0x381.float[1]` pressure role/scaling;
-4. identify `0x382.float[0]`, `0x430`, `0x450`, and `0x460`;
+3. reconstruct the wire-to-display conversion for the identified `0x381.float[1]` suction-pressure signal;
+4. independently qualify `0x430.float[1]`, `0x450.float[0..1]`, and `0x460.float[0]`;
 5. capture defrost/reversing-valve behavior;
 6. identify A2L mitigation telemetry and node/device identity;
 7. correlate electric heat stages;
