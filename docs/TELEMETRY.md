@@ -56,6 +56,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x318.u16@4` | Blower Airflow Feedback Candidate | Strong candidate | Lags `0x200.u16@2` request on transitions. |
 | `0x318.u16@6` | Blower Speed Candidate | Strong candidate | Tracks blower modulation; ~500 RPM at high load. |
 | `0x320.float[0]` | Blower Power | Confirmed/strong | ~45-73 W under observed active states and 0 W stopped. |
+| `0x2D0.u16@2` | Airflow Limit Candidate | Candidate | ~775 CFM at high load and ~771 while delivered airflow was only ~658 CFM; behaves more like an airflow ceiling/configuration value than actual airflow. |
 
 ### Blower request/feedback chain
 
@@ -79,11 +80,11 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x380.float[0]` | unavailable/raw | Raw | Frequently `-99`; treat as unavailable sentinel. |
 | `0x380.float[1]` | Outdoor Air Temperature | Confirmed | Live ambient temperature. |
 | `0x381.float[0]` | Outdoor Coil Temperature Candidate | Strong candidate | Tracks condenser/outdoor-coil family rather than suction temp in later captures. |
-| `0x381.float[1]` | Pressure Family Raw | Raw | Pressure-like but exact role/scaling not qualified; do not publish as literal suction PSI. |
-| `0x382.float[0]` | Temperature 1 Candidate | Candidate | Around upper-60s/low-70s in cooling; exact physical sensor unresolved. |
+| `0x381.float[1]` | Suction Pressure Signal Raw | Strong semantic / raw scaling | Outdoor-board sensor topology and adjacent frame ordering strongly identify the suction-pressure channel, but its wire-to-display conversion is unresolved. Do **not** publish the raw 192-194 values as psi. |
+| `0x382.float[0]` | Suction Line Temperature | Strong/confirmed | Fits the outdoor-board suction-temperature position between coil and liquid-temperature channels and behaves coherently across the active-cooling captures. |
 | `0x382.float[1]` | Liquid Temperature Candidate | Strong candidate | Tracks liquid-line temperature family. |
 | `0x383.float[0]` | Compressor Dome/Discharge Temperature Candidate | Strong candidate | ~140-150°F under observed cooling load. |
-| `0x383.float[1]` | Liquid/High-Side Pressure Candidate | Strong candidate | ~370-420 pressure-family values under active cooling. |
+| `0x383.float[1]` | Liquid Line Pressure Candidate | Strong candidate | ~278-380 pressure-family values across supplied operating points; direct psi remains a candidate until synchronized Technician pressure is captured. |
 | `0x384.float[0]` | Actual Compressor Speed Candidate | Strong candidate | 0 when satisfied; ~58 RPS at high load; coherent ramp-down. |
 | `0x384.u16@4` | Drive DC Voltage | Strong candidate | ~340-352 Vdc. |
 | `0x384.u16@6` | Outdoor Fan Speed | Strong candidate | ~750-775 RPM under high load, 0 stopped. |
@@ -101,9 +102,11 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
 | `0x3D0.float[1]` | Compressor Target Minimum Speed Candidate | Strong candidate | ~20-21 RPS even when live speed/target are zero. |
 | `0x3E0` | Minimum-speed mirror/status family | Candidate | Sparse/NA in some captures. |
-| `0x410.float[0..1]` | Drive Temperature 1/2 Candidate | Candidate | ~98-100°F high load. |
-| `0x430.float[0..1]` | Raw candidate pair | Candidate | Exact source unresolved. |
-| `0x450.float[0..1]` | Raw candidate pair | Candidate | Exact source unresolved. |
+| `0x410.float[0]` | Drive Inverter/IPM Temperature Candidate | Strong candidate | ~98°F at high load; matches the Technician `MocDriveIpmTemperature` family. |
+| `0x410.float[1]` | Drive Rectifier/PFC Temperature Candidate | Strong candidate | ~99-100°F at high load; adjacent to the IPM channel and matches the Technician `MocDrivePfcTemperature` family. |
+| `0x430.float[0]` | Outdoor Fan IPM Temperature Candidate | Candidate | ~97°F and closely tracks the drive thermal family; Technician exposes a separate `OdFanIpmTemperature` monitor. |
+| `0x430.float[1]` | Raw | Raw | Highly dynamic ~260-360 values in otherwise steady operation; not credible as a direct temperature. |
+| `0x450.float[0..1]` | Raw pair | Raw | Both vary broadly in the new captures and have no trustworthy physical label yet. |
 | `0x460.float[0]` | Temperature Candidate | Candidate | Old liquid-saturation label disproved. |
 
 ### Compressor speed chain
@@ -250,10 +253,9 @@ These names should not be reintroduced without new independent evidence:
 
 Do not invent friendly names for these until captured against a known OEM value:
 
-- exact physical semantic/scaling of `0x381.float[1]` pressure family;
-- exact identity of `0x382.float[0]`;
+- exact wire-to-display scaling of the `0x381.float[1]` suction-pressure signal;
 - exact meaning of `0x386` fields;
-- exact source of `0x430` and `0x450` pairs;
+- exact identity/scaling of `0x430.float[1]` and both `0x450` fields;
 - exact meaning of `0x460.float[0]`;
 - outdoor EEV command/position;
 - both suction and liquid/high-side pressure with independently verified units;
@@ -283,6 +285,6 @@ Key dated evidence is indexed at [evidence/README.md](evidence/README.md).
 
 The most current multi-capture active-cooling/requalification note is:
 
-- [evidence/2026-09-18/active-cooling.md](evidence/2026-09-18/active-cooling.md)
+- [evidence/2026-09-22/outdoor-sensor-chain-long-pass.md](evidence/2026-09-22/outdoor-sensor-chain-long-pass.md)
 
 Earlier 2026-09-17 notes are intentionally preserved because they document how current mappings were falsified and requalified.
