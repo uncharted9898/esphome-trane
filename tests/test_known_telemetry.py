@@ -144,6 +144,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "Indoor Superheat",
             "Outdoor Air Temperature",
             "Outdoor Coil Temperature",
+            "Suction Line Temperature",
             "Liquid Line Temperature",
             "Compressor Discharge Temperature",
             "Actual Compressor Speed",
@@ -349,8 +350,8 @@ class KnownTelemetryContractTests(unittest.TestCase):
         for label in (
             "Drive DC Voltage",
             "Outdoor Fan Speed",
-            "0x383 Liquid Pressure Candidate",
-            "0x381 Pressure Family Raw",
+            "0x383 Liquid Line Pressure Candidate",
+            "Suction Pressure Signal Raw",
             "Liquid Line Temperature",
             "Compressor Power",
             "Compressor Speed Request",
@@ -359,6 +360,45 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x460 Temperature Candidate",
         ):
             self.assertIn(f'name: "{label}"', EXTRA)
+
+    def test_outdoor_sensor_chain_long_pass(self):
+        combined = TELEMETRY + EXTRA
+        for label in (
+            "Suction Line Temperature",
+            "Suction Pressure Signal Raw",
+            "0x383 Liquid Line Pressure Candidate",
+            "0x410 Drive Inverter/IPM Temperature Candidate",
+            "0x410 Drive Rectifier/PFC Temperature Candidate",
+            "0x430 Outdoor Fan IPM Temperature Candidate",
+            "0x430 Float 2 Raw",
+            "0x450 Float 1 Raw",
+            "0x450 Float 2 Raw",
+            "0x2D0 Airflow Limit Candidate",
+        ):
+            self.assertIn(f'name: "{label}"', combined)
+
+        idx = EXTRA_BASE.index('name: "Suction Pressure Signal Raw"')
+        start = EXTRA_BASE.rfind("  - platform: template", 0, idx)
+        end = EXTRA_BASE.find("  - platform:", idx + 5)
+        block = EXTRA_BASE[start:end if end >= 0 else len(EXTRA_BASE)]
+        self.assertNotIn('unit_of_measurement: "psi"', block)
+        self.assertNotIn("device_class: pressure", block)
+
+        idx = EXTRA_BASE.index('name: "Suction Line Temperature"')
+        start = EXTRA_BASE.rfind("  - platform: template", 0, idx)
+        end = EXTRA_BASE.find("  - platform:", idx + 5)
+        block = EXTRA_BASE[start:end if end >= 0 else len(EXTRA_BASE)]
+        self.assertNotIn("entity_category: diagnostic", block)
+        self.assertNotIn("disabled_by_default: true", block)
+        self.assertIn("device_id: dev_heat_pump", block)
+
+    def test_0x450_raw_value_is_not_temperature_clamped(self):
+        self.assertIn("if (std::isfinite(v)) id(trane_450_temp).publish_state(v);", HA)
+        self.assertNotIn(
+            "if (std::isfinite(v) && v > -100 && v < 300) id(trane_450_temp).publish_state(v);",
+            HA,
+        )
+        self.assertIn('name: "0x450 Float 1 Raw"', TELEMETRY)
 
     def test_active_load_requalifies_0x384_as_compressor_speed(self):
         self.assertIn('name: "Actual Compressor Speed"', EXTRA_BASE)
