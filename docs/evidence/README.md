@@ -37,3 +37,9 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [active-cooling-ha-validation.md](2026-09-20/active-cooling-ha-validation.md) | Curated HA validation, 0x281 compressor-demand proof, compressor speed request/ceiling requalification, and 0x2D0/0x430 follow-up |
+
+## 2026-09-22
+
+| File | What it captured |
+|---|---|
+| [outdoor-sensor-chain-long-pass.md](2026-09-22/outdoor-sensor-chain-long-pass.md) | Logs 16-21 outdoor sensor-chain decode, suction-pressure scaling boundary, drive/fan thermal candidates, 0x450 stale-value fix, and 0x2D0 airflow-limit clue |
