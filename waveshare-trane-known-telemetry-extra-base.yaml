@@ -341,10 +341,10 @@ sensor:
   # 5TWV0X outdoor telemetry ------------------------------------------------
   - platform: template
     id: trane_381_float2
-    # This channel moves like a refrigerant-pressure family value, but the
-    # loaded-cooling operating point does not yet justify a 1:1 psi scale or a
-    # specific suction/high-side assignment. Preserve the raw float.
-    name: "0x381 Pressure Family Raw"
+    # Sensor-chain ordering and cross-load behavior identify this as the
+    # suction-pressure signal family. Its wire-to-display conversion is still
+    # unresolved, so keep the raw value unitless rather than claiming psi.
+    name: "Suction Pressure Signal Raw"
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
@@ -354,13 +354,11 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_382_float1
-    name: "0x382 Temperature 1 Candidate"
+    name: "Suction Line Temperature"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
     accuracy_decimals: 2
-    entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x382, 0);'
     device_id: dev_heat_pump
@@ -376,7 +374,7 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_383_float2
-    name: "0x383 Liquid Pressure Candidate"
+    name: "0x383 Liquid Line Pressure Candidate"
     unit_of_measurement: "psi"
     device_class: pressure
     state_class: measurement
@@ -539,7 +537,7 @@ sensor:
 
   - platform: template
     id: trane_410_float2
-    name: "0x410 Drive Temperature 2 Candidate"
+    name: "0x410 Drive Rectifier/PFC Temperature Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
@@ -548,27 +546,27 @@ sensor:
     disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x410, 4);'
-    device_id: dev_discovery
+    device_id: dev_heat_pump
   - platform: template
     id: trane_430_float2
-    name: "0x430 Float 2 Candidate"
+    name: "0x430 Float 2 Raw"
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
     disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x430, 4);'
-    device_id: dev_discovery
+    device_id: dev_heat_pump
   - platform: template
     id: trane_450_float2
-    name: "0x450 Float 2 Candidate"
+    name: "0x450 Float 2 Raw"
     state_class: measurement
     accuracy_decimals: 2
     entity_category: diagnostic
     disabled_by_default: true
     update_interval: 5s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x450, 4);'
-    device_id: dev_discovery
+    device_id: dev_heat_pump
   - platform: template
     id: trane_460_float1
     name: "0x460 Temperature Candidate"
