@@ -242,7 +242,7 @@ canbus:
         then:
           - lambda: |-
               if (x.size() < 4) return; float v; memcpy(&v, &x[0], 4);
-              if (std::isfinite(v) && v > -100 && v < 300) id(trane_450_temp).publish_state(v);
+              // 0x450 is still an unresolved raw numeric family. New target\n              // captures legitimately exceed 300, so do not apply the old\n              // temperature-shaped clamp and leave Home Assistant stale.\n              if (std::isfinite(v)) id(trane_450_temp).publish_state(v);
 
       - can_id: 0x490
         can_id_mask: 0x7FF
