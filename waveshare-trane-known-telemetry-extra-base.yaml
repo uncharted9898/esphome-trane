@@ -341,10 +341,12 @@ sensor:
   # 5TWV0X outdoor telemetry ------------------------------------------------
   - platform: template
     id: trane_381_float2
-    # Sensor-chain ordering and cross-load behavior identify this as the
-    # suction-pressure signal family. Its wire-to-display conversion is still
-    # unresolved, so keep the raw value unitless rather than claiming psi.
-    name: "Suction Pressure Signal Raw"
+    # 2026-09-23 long-idle evidence disproved the old suction-pressure label.
+    # This field falls into the 75-81 F range while 0x383.f0/f1 equalize as a
+    # pressure pair, and previously rose into the 155-194 F range under load.
+    name: "Compressor Discharge Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
     state_class: measurement
     accuracy_decimals: 1
     entity_category: diagnostic
@@ -374,7 +376,9 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_383_float2
-    name: "0x383 Liquid Line Pressure Candidate"
+    # Paired with 0x383.f0. Both converge near the same absolute pressure when
+    # the system is idle; do not silently subtract atmospheric pressure here.
+    name: "0x383 Liquid Pressure Absolute Candidate"
     unit_of_measurement: "psi"
     device_class: pressure
     state_class: measurement
