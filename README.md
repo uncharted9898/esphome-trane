@@ -158,17 +158,39 @@ For current architecture and outstanding engineering work, see [docs/CONTEXT.md]
 
 ## Long-term capture
 
-A tiny foreground collector can subscribe directly to the ESPHome native API and
-append Trane records to JSONL without involving Home Assistant Recorder:
+A tiny foreground collector subscribes directly to the ESPHome native API and
+writes long-term Trane evidence without involving Home Assistant Recorder:
 
 ```bash
 python -m pip install aioesphomeapi
-python tools/trane_log_collector.py trane-link-bridge.local -o trane-longterm.jsonl
+python tools/trane_log_collector.py trane-link-bridge.local -o /data/trane/trane.jsonl
 ```
 
+The `-o` value is an **output base**, not one indefinitely growing file. With
+the example above the collector creates one JSONL chunk per host-local hour:
+
+```text
+/data/trane/trane-2026-09-23-00.jsonl
+/data/trane/trane-2026-09-23-01.jsonl
+...
+/data/trane/trane-2026-09-23-23.jsonl
+```
+
+After midnight, once a day is complete, those hourly chunks are consolidated
+into:
+
+```text
+/data/trane/trane-2026-09-23.tar.gz
+```
+
+The archive contains the original hourly JSONL files. The collector verifies the
+temporary tar/gzip can be reopened and contains every source chunk, atomically
+renames it into place, and only then removes the hourly files. On restart it
+also sweeps and archives leftover chunks from completed days.
+
 It records `TRANE_CAN_LIVE`, `TRANE_JSON`, and other `TRANE_*` lines with a
-host timestamp while preserving the original log text. The client automatically
-reconnects if the ESP32 drops off the network.
+host timestamp while preserving the original log text. The API client
+automatically reconnects if the ESP32 drops off the network.
 
 Stop the capture with **Ctrl-C**. On POSIX terminals **Ctrl-Z** is intentionally
 treated as a clean stop as well, rather than suspending the recorder.
@@ -178,8 +200,10 @@ on the command line:
 
 ```bash
 export ESPHOME_NOISE_PSK='your-api-encryption-key'
-python tools/trane_log_collector.py 192.0.2.10 -o /data/trane/trane-longterm.jsonl
+python tools/trane_log_collector.py 192.0.2.10 -o /data/trane/trane.jsonl
 ```
 
-Omit `-o` to create a timestamped `trane-capture-YYYYMMDD-HHMMSS.jsonl` file.
-Use `--all` only when ordinary non-Trane ESPHome log lines are also wanted.
+If `-o` is omitted, the base defaults to `trane-capture.jsonl`, producing
+`trane-capture-YYYY-MM-DD-HH.jsonl` chunks and
+`trane-capture-YYYY-MM-DD.tar.gz` daily archives. Use `--all` only when
+ordinary non-Trane ESPHome log lines are also wanted.
