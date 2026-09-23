@@ -146,7 +146,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "Outdoor Coil Temperature",
             "Suction Line Temperature",
             "Liquid Line Temperature",
-            "Compressor Discharge Temperature",
+            "Compressor Discharge Temperature Candidate",
             "Actual Compressor Speed",
             "Compressor Speed Request",
             "Compressor Power",
@@ -324,7 +324,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         # later high-load operating point.
         for label in (
             "Outdoor Coil Temperature",
-            "Compressor Discharge Temperature",
+            "Compressor Discharge Temperature Candidate",
             "Line Voltage",
             "0x387 Compressor Speed Reference Limit Candidate",
         ):
@@ -350,8 +350,8 @@ class KnownTelemetryContractTests(unittest.TestCase):
         for label in (
             "Drive DC Voltage",
             "Outdoor Fan Speed",
-            "0x383 Liquid Line Pressure Candidate",
-            "Suction Pressure Signal Raw",
+            "0x383 Liquid Pressure Absolute Candidate",
+            "0x383 Suction Pressure Absolute Candidate",
             "Liquid Line Temperature",
             "Compressor Power",
             "Compressor Speed Request",
@@ -365,8 +365,8 @@ class KnownTelemetryContractTests(unittest.TestCase):
         combined = TELEMETRY + EXTRA
         for label in (
             "Suction Line Temperature",
-            "Suction Pressure Signal Raw",
-            "0x383 Liquid Line Pressure Candidate",
+            "0x383 Suction Pressure Absolute Candidate",
+            "0x383 Liquid Pressure Absolute Candidate",
             "0x410 Drive Inverter/IPM Temperature Candidate",
             "0x410 Drive Rectifier/PFC Temperature Candidate",
             "0x430 Outdoor Fan IPM Temperature Candidate",
@@ -377,7 +377,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertIn(f'name: "{label}"', combined)
 
-        idx = EXTRA_BASE.index('name: "Suction Pressure Signal Raw"')
+        idx = EXTRA_BASE.index('name: "0x383 Suction Pressure Absolute Candidate"')
         start = EXTRA_BASE.rfind("  - platform: template", 0, idx)
         end = EXTRA_BASE.find("  - platform:", idx + 5)
         block = EXTRA_BASE[start:end if end >= 0 else len(EXTRA_BASE)]
