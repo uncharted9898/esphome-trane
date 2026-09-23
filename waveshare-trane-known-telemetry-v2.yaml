@@ -184,11 +184,16 @@ sensor:
     device_id: dev_heat_pump
   - platform: template
     id: trane_discharge_temp
-    name: "Compressor Discharge Temperature"
-    unit_of_measurement: "°F"
-    device_class: temperature
+    # Legacy id retained for package/API compatibility. Long idle equalization
+    # on 2026-09-23 disproved the old discharge-temperature interpretation:
+    # 0x383.f0 converges with 0x383.f1 near 193-197 while the compressor is off.
+    name: "0x383 Suction Pressure Absolute Candidate"
+    unit_of_measurement: "psi"
+    device_class: pressure
     state_class: measurement
     accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_heat_pump
   - platform: template
     id: trane_380_float1
