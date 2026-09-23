@@ -80,11 +80,11 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x380.float[0]` | unavailable/raw | Raw | Frequently `-99`; treat as unavailable sentinel. |
 | `0x380.float[1]` | Outdoor Air Temperature | Confirmed | Live ambient temperature. |
 | `0x381.float[0]` | Outdoor Coil Temperature Candidate | Strong candidate | Tracks condenser/outdoor-coil family rather than suction temp in later captures. |
-| `0x381.float[1]` | Suction Pressure Signal Raw | Strong semantic / raw scaling | Outdoor-board sensor topology and adjacent frame ordering strongly identify the suction-pressure channel, but its wire-to-display conversion is unresolved. Do **not** publish the raw 192-194 values as psi. |
+| `0x381.float[1]` | Compressor Discharge Temperature Candidate | Strong candidate | Long-idle capture on 2026-09-23 disproved the old suction-pressure interpretation: this field cooled through ~81→75°F while `0x383.f0/f1` equalized as a pressure pair, and earlier active captures put it in the ~155-194°F range. |
 | `0x382.float[0]` | Suction Line Temperature | Strong/confirmed | Fits the outdoor-board suction-temperature position between coil and liquid-temperature channels and behaves coherently across the active-cooling captures. |
 | `0x382.float[1]` | Liquid Temperature Candidate | Strong candidate | Tracks liquid-line temperature family. |
-| `0x383.float[0]` | Compressor Dome/Discharge Temperature Candidate | Strong candidate | ~140-150°F under observed cooling load. |
-| `0x383.float[1]` | Liquid Line Pressure Candidate | Strong candidate | ~278-380 pressure-family values across supplied operating points; direct psi remains a candidate until synchronized Technician pressure is captured. |
+| `0x383.float[0]` | Suction Pressure Absolute Candidate | Strong candidate | Long-idle capture held this near ~193-197 while compressor/fan/airflow were all zero, converging with `0x383.float[1]`. Active captures were much lower, consistent with the low side. Values appear to be absolute pressure rather than gauge pressure; do not silently subtract atmosphere in firmware. |
+| `0x383.float[1]` | Liquid Pressure Absolute Candidate | Strong candidate | ~278-380 under active cooling, then ~193-197 during long idle equalization with `0x383.float[0]`. Behavior strongly supports high-side absolute pressure; synchronized Technician PSI is still needed before asserting exact display conversion. |
 | `0x384.float[0]` | Actual Compressor Speed Candidate | Strong candidate | 0 when satisfied; ~58 RPS at high load; coherent ramp-down. |
 | `0x384.u16@4` | Drive DC Voltage | Strong candidate | ~340-352 Vdc. |
 | `0x384.u16@6` | Outdoor Fan Speed | Strong candidate | ~750-775 RPM under high load, 0 stopped. |
@@ -253,7 +253,7 @@ These names should not be reintroduced without new independent evidence:
 
 Do not invent friendly names for these until captured against a known OEM value:
 
-- exact wire-to-display scaling of the `0x381.float[1]` suction-pressure signal;
+- confirm `0x381.float[1]` against synchronized Technician discharge-temperature telemetry;
 - exact meaning of `0x386` fields;
 - exact identity/scaling of `0x430.float[1]` and both `0x450` fields;
 - exact meaning of `0x460.float[0]`;
