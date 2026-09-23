@@ -208,6 +208,88 @@ class CaptureAnalyzerTests(unittest.TestCase):
             5,
         )
 
+
+    def test_technician_auxiliary_sdo_channels_reassemble(self):
+        cases = [
+            (
+                0x611,
+                0x591,
+                [
+                    "C20A30001C000000",
+                    "017B2231223A2243",
+                    "02222C2233223A7B",
+                    "032241636B223A22",
+                    "84323030227D7D00",
+                    "C100000000000000",
+                ],
+                ["A00A300004000000", "A204000000000000", "A100000000000000"],
+                {"1": "C", "3": {"Ack": "200"}},
+            ),
+            (
+                0x619,
+                0x599,
+                [
+                    "C20A300033000000",
+                    "017B2232223A2243",
+                    "02222C2233223A7B",
+                    "0322426C7565746F",
+                    "046F7468436F6E6E",
+                    "05656374696F6E52",
+                    "0671657565737422",
+                    "073A224F4646227D",
+                    "887D004F4646227D",
+                    "D500000000000000",
+                ],
+                ["A00A300008000000", "A208000000000000", "A100000000000000"],
+                {"2": "C", "3": {"BluetoothConnectionRequest": "OFF"}},
+            ),
+        ]
+
+        for request_id, response_id, request_data, response_data, expected in cases:
+            lines = []
+            tick = 1000
+            # Interleave enough of the response handshake to mirror the real
+            # block-download transaction shape seen in the 2026-09-23 capture.
+            lines.append(
+                f"TRANE_CAN_LIVE,S,{tick},{request_id:X},8,{request_data[0]}"
+            )
+            tick += 1
+            lines.append(
+                f"TRANE_CAN_LIVE,S,{tick},{response_id:X},8,{response_data[0]}"
+            )
+            tick += 1
+            for payload in request_data[1:-1]:
+                lines.append(
+                    f"TRANE_CAN_LIVE,S,{tick},{request_id:X},8,{payload}"
+                )
+                tick += 1
+            lines.append(
+                f"TRANE_CAN_LIVE,S,{tick},{response_id:X},8,{response_data[1]}"
+            )
+            tick += 1
+            lines.append(
+                f"TRANE_CAN_LIVE,S,{tick},{request_id:X},8,{request_data[-1]}"
+            )
+            tick += 1
+            lines.append(
+                f"TRANE_CAN_LIVE,S,{tick},{response_id:X},8,{response_data[-1]}"
+            )
+
+            frames = analyzer.parse_frames(lines)
+            messages = analyzer.reassemble_json(frames)
+            self.assertEqual(len(messages), 1)
+            self.assertEqual(messages[0]["can_id"], f"0x{request_id:03X}")
+            self.assertEqual(messages[0]["json"], expected)
+
+            transport = analyzer.decode_canopen_sdo_transport(frames)
+            self.assertEqual(transport[0]["response_can_id"], f"0x{response_id:03X}")
+            self.assertTrue(transport[0]["trane_json_object"])
+
+        # The mirrored 0x631/0x5B1 and 0x639/0x5B9 pairs use the same standard
+        # CANopen SDO spacing and are part of the maintained target map.
+        self.assertEqual(analyzer.SDO_REQUEST_TO_RESPONSE[0x631], 0x5B1)
+        self.assertEqual(analyzer.SDO_REQUEST_TO_RESPONSE[0x639], 0x5B9)
+
     def test_canopen_lss_fastscan_initialize_decode(self):
         frames = analyzer.parse_frames(
             ["TRANE_CAN_LIVE,S,1000,7E5,8,5100000000800000"]
