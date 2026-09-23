@@ -191,7 +191,7 @@ Highest-value remaining work:
 
 1. capture a physical UX360 setpoint/mode change from before the user action;
 2. implement/qualify application SDO TX only after that capture;
-3. reconstruct the wire-to-display conversion for the identified `0x381.float[1]` suction-pressure signal;
+3. confirm the `0x383.float[0..1]` absolute-pressure interpretation against synchronized Technician suction/liquid PSI and confirm `0x381.float[1]` against discharge temperature;
 4. independently qualify `0x430.float[1]`, `0x450.float[0..1]`, and `0x460.float[0]`;
 5. capture defrost/reversing-valve behavior;
 6. identify A2L mitigation telemetry and node/device identity;
