@@ -148,7 +148,6 @@ def install_stop_handlers(stop_event: asyncio.Event) -> list[str]:
 async def collect(args: argparse.Namespace) -> int:
     try:
         from aioesphomeapi import APIClient, LogLevel
-        from aioesphomeapi.log_parser import parse_log_message
         from aioesphomeapi.log_runner import async_run
     except ImportError:
         print(
@@ -168,7 +167,6 @@ async def collect(args: argparse.Namespace) -> int:
             "event": "start",
             "collector_version": COLLECTOR_VERSION,
             "port": args.port,
-            "states": args.states,
             "all_logs": args.all,
         }
     )
@@ -182,15 +180,13 @@ async def collect(args: argparse.Namespace) -> int:
 
     def on_log(message: Any) -> None:
         text = message.message.decode("utf-8", "backslashreplace")
-        # Use ESPHome's parser to split multi-line messages consistently, but
-        # store a clean full line so existing TRANE_CAN_LIVE tools can ingest
-        # this JSONL archive directly.
-        lines = parse_log_message(text, "", strip_ansi_escapes=True)
-        for parsed_line in lines:
-            line = ANSI_RE.sub("", parsed_line).strip()
+        # SubscribeLogsResponse may contain multiple physical log lines. Keep
+        # each line independently timestamped and preserve the original text.
+        for raw_line in text.splitlines() or [text]:
+            line = ANSI_RE.sub("", raw_line).strip()
             record = parse_trane_line(line)
             if record is None:
-                if not (args.all or args.states):
+                if not args.all:
                     continue
                 record = {"type": "esphome_log", "raw": line}
             record["api_log_level"] = int(message.level)
@@ -204,7 +200,7 @@ async def collect(args: argparse.Namespace) -> int:
         on_log,
         log_level=LogLevel.LOG_LEVEL_VERY_VERBOSE,
         dump_config=False,
-        subscribe_states=args.states,
+        subscribe_states=False,
         on_connect=on_connect,
     )
 
@@ -239,11 +235,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         help="JSONL file to append to; default creates a timestamped capture file",
-    )
-    parser.add_argument(
-        "--states",
-        action="store_true",
-        help="also subscribe to ESPHome entity state changes",
     )
     parser.add_argument(
         "--all",
