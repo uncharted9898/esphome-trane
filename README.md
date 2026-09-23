@@ -155,3 +155,31 @@ For a new bridge:
 5. move to `waveshare-trane-homeassistant.yaml` after the bus/hardware baseline is clean.
 
 For current architecture and outstanding engineering work, see [docs/CONTEXT.md](docs/CONTEXT.md).
+
+## Long-term capture
+
+A tiny foreground collector can subscribe directly to the ESPHome native API and
+append Trane records to JSONL without involving Home Assistant Recorder:
+
+```bash
+python -m pip install aioesphomeapi
+python tools/trane_log_collector.py trane-link-bridge.local -o trane-longterm.jsonl
+```
+
+It records `TRANE_CAN_LIVE`, `TRANE_JSON`, and other `TRANE_*` lines with a
+host timestamp while preserving the original log text. The client automatically
+reconnects if the ESP32 drops off the network.
+
+Stop the capture with **Ctrl-C**. On POSIX terminals **Ctrl-Z** is intentionally
+treated as a clean stop as well, rather than suspending the recorder.
+
+If ESPHome API encryption is enabled, provide the Noise PSK without placing it
+on the command line:
+
+```bash
+export ESPHOME_NOISE_PSK='your-api-encryption-key'
+python tools/trane_log_collector.py 192.0.2.10 -o /data/trane/trane-longterm.jsonl
+```
+
+Omit `-o` to create a timestamped `trane-capture-YYYYMMDD-HHMMSS.jsonl` file.
+Use `--all` only when ordinary non-Trane ESPHome log lines are also wanted.
