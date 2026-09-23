@@ -27,7 +27,7 @@ LIVE_RE = re.compile(
     r"(?P<dlc>\d+),(?P<data>[0-9A-Fa-f]*)"
 )
 
-SEGMENTED_JSON_IDS = (0x601, 0x621, 0x641, 0x649)
+SEGMENTED_JSON_IDS = (0x601, 0x611, 0x619, 0x621, 0x631, 0x639, 0x641, 0x649)
 
 # Target-observed CANopen SDO COB-ID pairs. The JSON channels use the
 # standard client->server / server->client pairing pattern (0x600+n / 0x580+n)
