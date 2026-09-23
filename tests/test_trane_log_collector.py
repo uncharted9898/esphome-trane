@@ -1,6 +1,8 @@
 import json
+from datetime import datetime
 from pathlib import Path
 import sys
+import tarfile
 import tempfile
 import unittest
 
@@ -109,6 +111,7 @@ class TraneLogCollectorTests(unittest.TestCase):
         self.assertEqual(args.port, 6053)
         self.assertFalse(args.all)
         self.assertIsNone(args.output)
+        self.assertEqual(collector.default_output_base(), Path("trane-capture.jsonl"))
 
 
 if __name__ == "__main__":
