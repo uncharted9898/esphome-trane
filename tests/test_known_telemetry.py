@@ -377,12 +377,13 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertIn(f'name: "{label}"', combined)
 
-        idx = EXTRA_BASE.index('name: "0x383 Suction Pressure Absolute Candidate"')
-        start = EXTRA_BASE.rfind("  - platform: template", 0, idx)
-        end = EXTRA_BASE.find("  - platform:", idx + 5)
-        block = EXTRA_BASE[start:end if end >= 0 else len(EXTRA_BASE)]
-        self.assertNotIn('unit_of_measurement: "psi"', block)
-        self.assertNotIn("device_class: pressure", block)
+        idx = TELEMETRY.index('name: "0x383 Suction Pressure Absolute Candidate"')
+        start = TELEMETRY.rfind("  - platform: template", 0, idx)
+        end = TELEMETRY.find("  - platform:", idx + 5)
+        block = TELEMETRY[start:end if end >= 0 else len(TELEMETRY)]
+        self.assertIn('unit_of_measurement: "psi"', block)
+        self.assertIn("device_class: pressure", block)
+        self.assertIn("disabled_by_default: true", block)
 
         idx = EXTRA_BASE.index('name: "Suction Line Temperature"')
         start = EXTRA_BASE.rfind("  - platform: template", 0, idx)
@@ -391,6 +392,22 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertNotIn("entity_category: diagnostic", block)
         self.assertNotIn("disabled_by_default: true", block)
         self.assertIn("device_id: dev_heat_pump", block)
+
+    def test_stator_heat_and_phase_current_family(self):
+        combined = TARGET_DISCOVERY + EXTRA_BASE
+        for label in (
+            "0x282 Stator Heat Active Candidate",
+            "0x388 Compressor Phase Current 1 Candidate",
+            "0x388 Compressor Phase Current 2 Candidate",
+            "0x389 Compressor Phase Current 3 Candidate",
+        ):
+            self.assertIn(f'name: "{label}"', combined)
+
+        self.assertIn(
+            "get_last_byte_or_nan(0x282, 1)",
+            TARGET_DISCOVERY,
+        )
+        self.assertIn('unit_of_measurement: "A"', EXTRA_BASE)
 
     def test_0x450_raw_value_is_not_temperature_clamped(self):
         self.assertIn("if (std::isfinite(v)) id(trane_450_temp).publish_state(v);", HA)
