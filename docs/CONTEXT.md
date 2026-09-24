@@ -153,8 +153,11 @@ Maintained details live in [TELEMETRY.md](TELEMETRY.md). High-value qualified/ca
 - input power: `0x38C.float[1]`;
 - suction line temperature: `0x382.float[0]`;
 - liquid line temperature: `0x382.float[1]`;
-- suction-pressure signal: `0x381.float[1]` (semantic identified, conversion unresolved);
-- liquid-line pressure candidate: `0x383.float[1]`;
+- compressor discharge-temperature candidate: `0x381.float[1]`;
+- suction-pressure absolute candidate: `0x383.float[0]`;
+- liquid-pressure absolute candidate: `0x383.float[1]`;
+- stator-heat active candidate: `0x282.byte1`;
+- compressor phase-current candidates: `0x388.float[0..1]` + `0x389.float[0]`;
 - drive IPM/PFC temperature candidates: `0x410.float[0..1]`;
 - outdoor-fan IPM temperature candidate: `0x430.float[0]`;
 - fan speed: `0x384.u16@6`;
