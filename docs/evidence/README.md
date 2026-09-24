@@ -43,3 +43,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [outdoor-sensor-chain-long-pass.md](2026-09-22/outdoor-sensor-chain-long-pass.md) | Logs 16-21 outdoor sensor-chain decode, suction-pressure scaling boundary, drive/fan thermal candidates, 0x450 stale-value fix, and 0x2D0 airflow-limit clue |
+
+
+## 2026-09-23
+
+| File | What it captured |
+|---|---|
+| [full-day-idle-stator-heat.md](2026-09-23/full-day-idle-stator-heat.md) | Long idle/equalization baseline, 0x383 pressure-pair requalification, repeatable stator-heat cycles, 0x282 flag, and compressor phase-current family |
