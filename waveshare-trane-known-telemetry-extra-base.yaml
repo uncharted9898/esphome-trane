@@ -452,7 +452,7 @@ sensor:
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x387, 4);'
     device_id: dev_heat_pump
-  # The 2026-09-23 idle archive captured two stator-heat cycles with the
+  # The 2026-09-23/24 idle archives captured 21 stator-heat cycles with the
   # compressor fixed at 0 RPS. These three adjacent channels switch from zero
   # to a three-phase current pattern during stator heat and were previously
   # balanced together during active compressor operation. Keep phase numbering
