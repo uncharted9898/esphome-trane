@@ -397,6 +397,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         combined = TARGET_DISCOVERY + EXTRA_BASE
         for label in (
             "0x282 Stator Heat Active Candidate",
+            "0x390 Stator Heat Power Level Candidate",
             "0x388 Compressor Phase Current 1 Candidate",
             "0x388 Compressor Phase Current 2 Candidate",
             "0x389 Compressor Phase Current 3 Candidate",
@@ -407,6 +408,16 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "get_last_byte_or_nan(0x282, 1)",
             TARGET_DISCOVERY,
         )
+        self.assertIn(
+            "get_last_byte_or_nan(0x390, 0)",
+            TARGET_DISCOVERY,
+        )
+        idx = TARGET_DISCOVERY.index('name: "0x390 Stator Heat Power Level Candidate"')
+        start = TARGET_DISCOVERY.rfind("  - platform: template", 0, idx)
+        end = TARGET_DISCOVERY.find("  - platform:", idx + 5)
+        block = TARGET_DISCOVERY[start:end if end >= 0 else len(TARGET_DISCOVERY)]
+        self.assertNotIn("unit_of_measurement:", block)
+        self.assertIn("disabled_by_default: true", block)
         self.assertIn('unit_of_measurement: "A"', EXTRA_BASE)
 
     def test_0x450_raw_value_is_not_temperature_clamped(self):
