@@ -156,7 +156,7 @@ Maintained details live in [TELEMETRY.md](TELEMETRY.md). High-value qualified/ca
 - compressor discharge-temperature candidate: `0x381.float[1]`;
 - suction-pressure absolute candidate: `0x383.float[0]`;
 - liquid-pressure absolute candidate: `0x383.float[1]`;
-- stator-heat active candidate: `0x282.byte1`;
+- stator-heat active candidate: `0x282.byte1`;\n- stator-heat power/level candidate: `0x390.byte0`;
 - compressor phase-current candidates: `0x388.float[0..1]` + `0x389.float[0]`;
 - drive IPM/PFC temperature candidates: `0x410.float[0..1]`;
 - outdoor-fan IPM temperature candidate: `0x430.float[0]`;
