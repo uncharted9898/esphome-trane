@@ -57,3 +57,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-stator-heat-cadence.md](2026-09-24/full-day-stator-heat-cadence.md) | Complete 24-hour idle archive, 19 stator-heat cycles, cadence/timing, 0x390 power-level requalification, and strengthened phase-current evidence |
+
+
+## 2026-09-25
+
+| File | What it captured |
+|---|---|
+| [full-day-idle-stator-room-mirror.md](2026-09-25/full-day-idle-stator-room-mirror.md) | Complete 24-hour idle capture, 16 more stator-heat cycles, stator-enable promotion, 0x390 timing, direct ZoneStatus.H/0x490 room-temperature mirror, and quantitative pressure equalization |
