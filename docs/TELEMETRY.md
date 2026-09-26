@@ -24,7 +24,7 @@ Dated reverse-engineering notes live under [evidence/](evidence/). Those notes i
 
 | Signal | Source | Confidence | Notes |
 |---|---|---|---|
-| Room Temperature | `0x490.float[0]` | Confirmed | Repeated 79°F target value; invalid/sentinel values filtered. |
+| Room Temperature | `0x490.float[0]` | Confirmed | Directly matched six `ZoneStatus.Update.1.H` updates at 72, 73, 74, 75 and 76°F within ~1 second in the 2026-09-25 archive; invalid/sentinel values filtered. |
 | Indoor Humidity | `0x490.byte4` | Strong candidate | Normal operation repeatedly 50s/60s; user-facing entity accepts only 0..100. Startup value 157 is rejected as invalid. |
 | Outdoor Air Temperature | `0x380.float[1]` | Confirmed | Tracks outdoor ambient independently of SC360 JSON. |
 | Return Air Temperature | `0x308.float[0]` | Confirmed | Matches air-handler return-air behavior. |
@@ -45,7 +45,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Blower Active Flag Candidate | Strong candidate | Remains 1 during blower coast-down, reaches 0 when stopped. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
-| `0x282.byte1` | Stator Heat Active Candidate | Strong candidate | 2026-09-23/24 idle captures show 21 asserted intervals total. In the 24-hour archive, 19 cycles averaged ~7.9 min and started ~76 min apart; each flag leads the ~85-95 W / 0.7 A stator-heating load by ~9-10 s while compressor and outdoor fan remain stopped. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 37 isolated cycles on 2026-09-23/24/25, this bit asserted about 9.25 s before stator-heating current/power appeared, remained asserted through each heat interval, and cleared as the load returned to standby. Compressor and outdoor fan stayed stopped throughout. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
 | `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
 | `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
@@ -95,9 +95,9 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x386.float[1]` | Raw | Raw | Often fixed 50.0; old saturation-temperature label disproved. |
 | `0x387.float[0]` | Compressor Speed Reference/Limit Candidate | Strong candidate | Fixed ~55 RPS across idle and varying load; not actual speed. |
 | `0x387.float[1]` | Fan Phase Current Candidate | Candidate | ~0.3-0.4 A active, 0 stopped. |
-| `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 21 independent stator-heat cycles with compressor speed still 0 RPS. |
-| `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 21 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
-| `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |\n| `0x390.byte0` | Stator Heat Power Level Candidate | Strong candidate / unit unresolved | In the 24-hour idle archive this channel is almost stator-heat-exclusive: 200 nonzero observations during heat, values 44-46, with first nonzero at the same ~9-10 s lag as the outdoor input-power rise. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 37 isolated stator-heat cycles with compressor speed still 0 RPS. |
+| `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 37 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
+| `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |\n| `0x390.byte0` | Stator Heat Power Level Candidate | Strong candidate / unit unresolved | Across the 2026-09-24/25 full-day captures this channel is almost stator-heat-exclusive, sits at 44-46, and appears about 9.25 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
