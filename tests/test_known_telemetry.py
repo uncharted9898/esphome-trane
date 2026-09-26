@@ -166,6 +166,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
     def test_friendly_room_temp_uses_live_0x490_source(self):
         self.assertIn('name: "Room Temperature"', TELEMETRY)
         self.assertIn("get_last_float_le_or_nan(0x490, 0)", TELEMETRY)
+        self.assertIn("ZoneStatus.Update.1.H", TELEMETRY)
         self.assertIn("value <= -90.0f", TELEMETRY)
         self.assertNotIn("id(trane_room_temp).publish_state(f);", HA)
 
@@ -396,7 +397,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
     def test_stator_heat_and_phase_current_family(self):
         combined = TARGET_DISCOVERY + EXTRA_BASE
         for label in (
-            "0x282 Stator Heat Active Candidate",
+            "0x282 Stator Heat Enable",
             "0x390 Stator Heat Power Level Candidate",
             "0x388 Compressor Phase Current 1 Candidate",
             "0x388 Compressor Phase Current 2 Candidate",
