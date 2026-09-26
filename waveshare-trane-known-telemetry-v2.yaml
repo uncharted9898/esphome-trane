@@ -17,6 +17,8 @@ globals:
 
 sensor:
   - platform: template
+    # 2026-09-25 full-day capture directly matched six sparse
+    # ZoneStatus.Update.1.H values (72-76 F) to 0x490.f0 within ~1 second.
     id: trane_room_temp
     name: "Room Temperature"
     unit_of_measurement: "°F"
