@@ -1,0 +1,1203 @@
+# Supplemental read-only telemetry declarations for the Home Assistant profile.
+#
+# These are fields that were already observed/decoded in the upstream capture
+# set plus target-system discovery channels backed by the trane_bus observation
+# cache. Candidate names deliberately preserve uncertainty until correlations
+# satisfy the promotion criteria in docs/TECHNICIAN-3.4.0-MONITOR-SCHEMA.md.
+#
+# This package intentionally owns no esphome:, canbus:, trane_bus:, or TX
+# actions. waveshare-trane-homeassistant.yaml remains the hardware/parser owner.
+
+sensor:
+  # SystemOpStatus.D now has repeatable demand-family behavior across idle,
+  # moderate and near-full-load captures: 0 at idle, 70 during the 70-percent
+  # modulation point, and 96 shortly before the system reaches 99-percent
+  # compressor/blower demand. It updates more slowly than OdStatus, so keep
+  # Candidate wording rather than treating it as the primary demand channel.
+  - platform: template
+    id: trane_system_status_d_numeric
+    name: "System Demand Percent Candidate"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_sc360
+
+  # Zones 2-6 setpoints were present in the mature upstream decoder. Keep them
+  # disabled by default so single-zone installs stay clean.
+  - platform: template
+    id: trane_heat_setpoint_z2
+    name: "Heat Setpoint Zone 2"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_cool_setpoint_z2
+    name: "Cool Setpoint Zone 2"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_heat_setpoint_z3
+    name: "Heat Setpoint Zone 3"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_cool_setpoint_z3
+    name: "Cool Setpoint Zone 3"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_heat_setpoint_z4
+    name: "Heat Setpoint Zone 4"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_cool_setpoint_z4
+    name: "Cool Setpoint Zone 4"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_heat_setpoint_z5
+    name: "Heat Setpoint Zone 5"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_cool_setpoint_z5
+    name: "Cool Setpoint Zone 5"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_heat_setpoint_z6
+    name: "Heat Setpoint Zone 6"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_cool_setpoint_z6
+    name: "Cool Setpoint Zone 6"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    disabled_by_default: true
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_od_temp_user_offset
+    name: "Outdoor Temperature User Offset"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_sc360
+
+  # Generic census ----------------------------------------------------------
+  - platform: template
+    id: trane_unique_standard_can_ids
+    name: "Unique Standard CAN IDs Seen"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_unique_standard_ids_seen();'
+    device_id: dev_discovery
+  - platform: template
+    id: trane_json_snapshot_count
+    name: "Structured Profile Snapshots Retained"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_json_snapshot_count();'
+    device_id: dev_discovery
+
+  # 5TAMX target telemetry --------------------------------------------------
+  # Cross-operating-point correlation against a Technician monitor capture is
+  # documented in docs/evidence/2026-09-17/technician-correlation.md.
+  - platform: template
+    id: trane_200_u16_0
+    name: "0x200 Indoor EEV Position Candidate"
+    unit_of_measurement: "steps"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x200, 0);'
+    device_id: dev_air_handler
+  # This word leads the 0x318 airflow-family feedback. At high load it is
+  # roughly 660 while 0x318.u16@4 is ~651; during moderate modulation it is
+  # ~490-570 while feedback trails by roughly 5-15; and on satisfaction it
+  # drops immediately to 320 while the feedback remains ~644 before ramping
+  # down. That is strong request/target-versus-feedback behavior.
+  - platform: template
+    id: trane_200_u16_1
+    name: "0x200 Blower Airflow Request Candidate"
+    unit_of_measurement: "cfm"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x200, 2);'
+    device_id: dev_air_handler
+
+  # Cross-capture modulation identifies this as the commanded compressor
+  # speed: ~29.15 RPS at low load, ~40-43 RPS at moderate load, ~57.5-58 RPS
+  # at high load, and it drops ahead of measured speed during satisfaction.
+  - platform: template
+    id: trane_280_float1
+    name: "Compressor Speed Request"
+    unit_of_measurement: "RPS"
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x280, 0);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_280_float2
+    name: "0x280 Float 2 Candidate"
+    state_class: measurement
+    accuracy_decimals: 3
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x280, 4);'
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_281_u16_0
+    name: "Actual Airflow"
+    unit_of_measurement: "cfm"
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x281, 0);'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_281_u16_1
+    name: "0x281 U16 1 Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x281, 2);'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_281_u16_2
+    name: "0x281 U16 2 Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x281, 4);'
+    device_id: dev_air_handler
+  # Bytes 6 and 7 are separate target-observed fields. The LE u16 view at
+  # offset 6 is retained only as a raw compatibility surface; it is literally
+  # byte6 + (byte7 << 8) and must not be treated as an independent telemetry
+  # channel.
+  - platform: template
+    id: trane_281_u16_3
+    name: "0x281 Bytes 6-7 Composite Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x281, 6);'
+    device_id: dev_air_handler
+
+  # Structured OdStatus.CompDemandPercent matched this byte exactly across
+  # four independent update points (72, 82, 84, 82). Keep the raw mirror as a
+  # diagnostic compatibility surface; the normal Compressor Demand entity uses
+  # this same binary source directly.
+  - platform: template
+    id: trane_281_byte6
+    name: "0x281 Compressor Demand Mirror"
+    unit_of_measurement: "%"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x281, 6);'
+    device_id: dev_heat_pump
+
+  # Byte7 remains 1 through the blower coast-down after byte6 reaches zero,
+  # then becomes 0 once the indoor blower is stopped.
+  - platform: template
+    id: trane_281_byte7
+    name: "0x281 Blower Active Flag Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x281, 7);'
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_300_float1
+    name: "Indoor Gas Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x300, 0);'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_300_float2
+    name: "Indoor Evaporator Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x300, 4);'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_300_superheat
+    name: "Indoor Superheat"
+    unit_of_measurement: "°F"
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: 2s
+    lambda: |-
+      const float gas = id(trane_link).get_last_float_le_or_nan(0x300, 0);
+      const float liquid = id(trane_link).get_last_float_le_or_nan(0x300, 4);
+      if (!std::isfinite(gas) || !std::isfinite(liquid)) return NAN;
+      return gas - liquid;
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_310_float1
+    name: "Total Static Pressure"
+    unit_of_measurement: "inWC"
+    state_class: measurement
+    accuracy_decimals: 4
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x310, 0);'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_318_float1
+    name: "0x318 Float 1 Candidate"
+    state_class: measurement
+    accuracy_decimals: 4
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x318, 0);'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_320_float1
+    name: "Blower Power"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x320, 0);'
+    device_id: dev_air_handler
+
+  # 5TWV0X outdoor telemetry ------------------------------------------------
+  - platform: template
+    id: trane_381_float2
+    # 2026-09-23 long-idle evidence disproved the old suction-pressure label.
+    # This field falls into the 75-81 F range while 0x383.f0/f1 equalize as a
+    # pressure pair, and previously rose into the 155-194 F range under load.
+    name: "Compressor Discharge Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x381, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_382_float1
+    name: "Suction Line Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x382, 0);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_382_float2
+    name: "Liquid Line Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x382, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_383_float2
+    # Paired with 0x383.f0. Both converge near the same absolute pressure when
+    # the system is idle; do not silently subtract atmospheric pressure here.
+    name: "0x383 Liquid Pressure Absolute Candidate"
+    unit_of_measurement: "psi"
+    device_class: pressure
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x383, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_384_float1
+    name: "Actual Compressor Speed"
+    unit_of_measurement: "RPS"
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x384, 0);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_384_u16_2
+    name: "Drive DC Voltage"
+    unit_of_measurement: "V"
+    device_class: voltage
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x384, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_384_u16_3
+    name: "Outdoor Fan Speed"
+    unit_of_measurement: "rpm"
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x384, 6);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_385_float1
+    name: "Compressor Power"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 1
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x385, 0);'
+    device_id: dev_heat_pump
+  # This stays above the commanded 0x280 speed at low/moderate/high load
+  # (~40 vs 29, ~63 vs 56, ~66-68 vs ~58 RPS) and falls to zero when idle.
+  # That behavior is a ceiling/limit, not the immediate speed request.
+  - platform: template
+    id: trane_385_float2
+    name: "0x385 Compressor Speed Ceiling Candidate"
+    unit_of_measurement: "RPS"
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x385, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_387_float2
+    name: "0x387 Fan Phase Current Candidate"
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x387, 4);'
+    device_id: dev_heat_pump
+  # The 2026-09-23/24 idle archives captured 21 stator-heat cycles with the
+  # compressor fixed at 0 RPS. These three adjacent channels switch from zero
+  # to a three-phase current pattern during stator heat and were previously
+  # balanced together during active compressor operation. Keep phase numbering
+  # generic until OEM U/V/W ordering is independently established.
+  - platform: template
+    id: trane_388_float1
+    name: "0x388 Compressor Phase Current 1 Candidate"
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x388, 0);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_388_float2
+    name: "0x388 Compressor Phase Current 2 Candidate"
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x388, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_389_float1
+    name: "0x389 Compressor Phase Current 3 Candidate"
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x389, 0);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_389_float2
+    name: "Input Current"
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 2
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x389, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_38c_float2
+    name: "Input Power"
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 1
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x38C, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_38f_float2
+    name: "0x38F Float 2 Candidate"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x38F, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_3d0_float2
+    name: "0x3D0 Float 2 Candidate"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x3D0, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_3e0_float1
+    name: "0x3E0 Float 1 Candidate"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x3E0, 0);'
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_410_float2
+    name: "0x410 Drive Rectifier/PFC Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x410, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_430_float2
+    name: "0x430 Float 2 Raw"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x430, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_450_float2
+    name: "0x450 Float 2 Raw"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x450, 4);'
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_460_float1
+    name: "0x460 Temperature Candidate"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x460, 0);'
+    device_id: dev_heat_pump
+
+  # UX360/zone sensor family ------------------------------------------------
+  - platform: template
+    id: trane_490_float1
+    name: "0x490 Zone 1 Room Temperature"
+    unit_of_measurement: "°F"
+    device_class: temperature
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: |-
+      const float value = id(trane_link).get_last_float_le_or_nan(0x490, 0);
+      if (!std::isfinite(value) || value <= -90.0f || value > 130.0f) return NAN;
+      return value;
+    device_id: dev_thermostat
+
+  # Raw byte behind the user-facing Indoor Humidity entity. Normal target
+  # operation repeatedly produces plausible RH values in the 50s/60s; node-3
+  # startup can temporarily publish 0x9D (157), so keep the unfiltered byte as
+  # a disabled diagnostic while the friendly entity rejects values >100.
+  - platform: template
+    id: trane_490_byte4
+    name: "0x490 Zone 1 Humidity Byte Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x490, 4);'
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_491_float1
+    name: "0x491 Zone 2 Temperature Candidate"
+    unit_of_measurement: "°F"
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x491, 0);'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_491_byte4
+    name: "0x491 Zone 2 Byte 4 Candidate"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x491, 4);'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_492_float1
+    name: "0x492 Zone 3 Temperature Candidate"
+    unit_of_measurement: "°F"
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x492, 0);'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_492_byte4
+    name: "0x492 Zone 3 Byte 4 Candidate"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x492, 4);'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_493_float1
+    name: "0x493 Zone 4 Temperature Candidate"
+    unit_of_measurement: "°F"
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x493, 0);'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_493_byte4
+    name: "0x493 Zone 4 Byte 4 Candidate"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x493, 4);'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_494_float1
+    name: "0x494 Zone 5 Temperature Candidate"
+    unit_of_measurement: "°F"
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x494, 0);'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_494_byte4
+    name: "0x494 Zone 5 Byte 4 Candidate"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x494, 4);'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_495_float1
+    name: "0x495 Zone 6 Temperature Candidate"
+    unit_of_measurement: "°F"
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x495, 0);'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_495_byte4
+    name: "0x495 Zone 6 Byte 4 Candidate"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x495, 4);'
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_4b2_float1
+    name: "0x4B2 Float 1 Raw"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x4B2, 0);'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_4b2_float2
+    name: "0x4B2 Float 2 Raw"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x4B2, 4);'
+    device_id: dev_thermostat
+
+text_sensor:
+  - platform: template
+    id: trane_system_state
+    name: "System State Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_alarm_level_2
+    name: "Active Alarm 2 Level"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_thermostat_display_name
+    name: "Thermostat Display Name"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_timezone_local_offset
+    name: "Local Timezone Offset"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_timezone_standard_offset
+    name: "Standard Timezone Offset"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_country
+    name: "Weather Country Code"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_weather_region
+    name: "Weather Region Code"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_last_5c1_raw
+    name: "Last 0x5C1 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_discovery
+  - platform: template
+    id: trane_last_5c9_raw
+    name: "Last 0x5C9 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_last_json_root
+    name: "Last Structured JSON Root"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return {id(trane_link).get_last_json_root()};'
+    device_id: dev_discovery
+  - platform: template
+    id: trane_last_profile_request
+    name: "Last OEM GetProfile Request"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return {id(trane_link).get_last_profile_request()};'
+    device_id: dev_discovery
+  - platform: template
+    id: trane_4b1_epoch
+    name: "0x4B1 Epoch Seconds"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: |-
+      const uint32_t value = id(trane_link).get_last_u32_le_or_zero(0x4B1, 0);
+      if (value == 0) return {std::string{}};
+      char out[16];
+      snprintf(out, sizeof(out), "%lu", static_cast<unsigned long>(value));
+      return {std::string(out)};
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_281_raw
+    name: "Last 0x281 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x281)};'
+    device_id: dev_discovery
+  - platform: template
+    id: trane_385_raw
+    name: "Last 0x385 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x385)};'
+    device_id: dev_discovery
+  - platform: template
+    id: trane_38c_raw
+    name: "Last 0x38C Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x38C)};'
+    device_id: dev_discovery
+
+  # Raw compact-profile fields ----------------------------------------------
+  - platform: template
+    id: trane_indoor_settings_a
+    name: "IndoorSettings 1 A Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "A")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_b
+    name: "IndoorSettings 1 B Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "B")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_c
+    name: "IndoorSettings 1 C Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "C")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_d
+    name: "IndoorSettings 1 D Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "D")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_e
+    name: "IndoorSettings 1 E Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "E")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_f
+    name: "IndoorSettings 1 F Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "F")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_g
+    name: "IndoorSettings 1 G Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "G")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_h
+    name: "IndoorSettings 1 H Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "H")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_i
+    name: "IndoorSettings 1 I Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "I")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_j
+    name: "IndoorSettings 1 J Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "J")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_k
+    name: "IndoorSettings 1 K Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "K")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_l
+    name: "IndoorSettings 1 L Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "L")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_m
+    name: "IndoorSettings 1 M Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "M")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_n
+    name: "IndoorSettings 1 N Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "N")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_o
+    name: "IndoorSettings 1 O Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "O")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_p
+    name: "IndoorSettings 1 P Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "P")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_q
+    name: "IndoorSettings 1 Q Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "Q")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_r
+    name: "IndoorSettings 1 R Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "R")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_s
+    name: "IndoorSettings 1 S Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "S")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_t
+    name: "IndoorSettings 1 T Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "T")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_indoor_settings_u
+    name: "IndoorSettings 1 U Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("IndoorSettings", "1", "U")};'
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_zone_settings_1_mode
+    name: "ZoneSettings 1 ZoneMode Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("ZoneSettings", "1", "ZoneMode")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_b
+    name: "SystemSettings B Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "B")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_c
+    name: "SystemSettings C Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "C")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_d
+    name: "SystemSettings D Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "D")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_e
+    name: "SystemSettings E Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "E")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_f
+    name: "SystemSettings F Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "F")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_g
+    name: "SystemSettings G Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "G")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_h
+    name: "SystemSettings H Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "H")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_i
+    name: "SystemSettings I Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "I")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_j
+    name: "SystemSettings J Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "J")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_k
+    name: "SystemSettings K Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "K")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_l
+    name: "SystemSettings L Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "L")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_m
+    name: "SystemSettings M Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "M")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_system_settings_n
+    name: "SystemSettings N Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("SystemSettings", "", "N")};'
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_version_raw_configpropertiesversion
+    name: "VersionDetails ConfigPropertiesVersion Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("VersionDetails", "", "ConfigPropertiesVersion")};'
+    device_id: dev_sc360
+  - platform: template
+    id: trane_version_raw_alarmdetailsversion
+    name: "VersionDetails AlarmDetailsVersion Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("VersionDetails", "", "AlarmDetailsVersion")};'
+    device_id: dev_sc360
+  - platform: template
+    id: trane_version_raw_a
+    name: "VersionDetails A Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("VersionDetails", "", "A")};'
+    device_id: dev_sc360
+  - platform: template
+    id: trane_version_raw_b
+    name: "VersionDetails B Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("VersionDetails", "", "B")};'
+    device_id: dev_sc360
+  - platform: template
+    id: trane_version_raw_d
+    name: "VersionDetails D Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_json_value("VersionDetails", "", "D")};'
+    device_id: dev_sc360
+
+button:
+  - platform: template
+    name: "Dump Structured Profile Snapshots"
+    entity_category: diagnostic
+    disabled_by_default: true
+    on_press:
+      - lambda: 'id(trane_link).dump_json_snapshots();'
+
+  - platform: template
+    name: "Dump CAN ID Census"
+    entity_category: diagnostic
+    disabled_by_default: true
+    on_press:
+      - lambda: 'id(trane_link).dump_id_census();'
+
+  - platform: template
+    name: "Clear CAN ID Census"
+    entity_category: diagnostic
+    disabled_by_default: true
+    on_press:
+      - lambda: 'id(trane_link).clear_id_census();'
+
+  - platform: template
+    name: "Dump CAN Capture Snapshot"
+    entity_category: diagnostic
+    disabled_by_default: true
+    on_press:
+      - lambda: 'id(trane_link).dump_capture();'

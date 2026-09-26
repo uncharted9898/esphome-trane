@@ -1,0 +1,167 @@
+substitutions:
+  version: "dev-control"
+
+esphome:
+  name: trane-link-bridge
+  friendly_name: Trane Link Bridge
+  project:
+    name: "uncharted9898.trane-link-bridge"
+    version: ${version}
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [trane_bus]
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+logger:
+  level: DEBUG
+  logs:
+    trane_bus: DEBUG
+    canbus: WARN
+
+api:
+  services:
+    - service: trane_set_mode
+      variables:
+        mode: string
+      then:
+        - trane_bus.set_mode:
+            id: trane_link
+            mode: !lambda 'return mode;'
+
+    - service: trane_set_setpoints
+      variables:
+        heat_f: float
+        cool_f: float
+      then:
+        - trane_bus.set_setpoints:
+            id: trane_link
+            heat_f: !lambda 'return heat_f;'
+            cool_f: !lambda 'return cool_f;'
+            zone: 1
+            hold_type: 2
+            source: 1
+
+    - service: trane_get_profile
+      variables:
+        profile: string
+      then:
+        - trane_bus.get_profile:
+            id: trane_link
+            profile: !lambda 'return profile;'
+
+ota:
+  - platform: esphome
+
+wifi:
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  ap:
+    ssid: "Trane Link Bridge Setup"
+
+captive_portal:
+improv_serial:
+
+canbus:
+  - platform: esp32_can
+    id: hvac_can
+    tx_pin: GPIO15
+    rx_pin: GPIO16
+    bit_rate: 50kbps
+    can_id: 1
+    mode: NORMAL
+    rx_queue_len: 64
+    tx_queue_len: 8
+
+trane_bus:
+  id: trane_link
+  canbus_id: hvac_can
+  command_can_id: 0x641
+  # Deliberately false in the repository. Set true only after the listen-only
+  # commissioning image has verified the installed system and CAN wiring.
+  tx_enabled: false
+  raw_json_enabled: false
+  require_sc360_before_tx: true
+  bus_activity_timeout: 5min
+  ack_timeout: 3s
+  setpoint_min_f: 50
+  setpoint_max_f: 90
+  min_deadband_f: 2
+
+binary_sensor:
+  - platform: template
+    name: "SC360 Seen"
+    lambda: |-
+      return id(trane_link).has_seen_sc360();
+
+  - platform: template
+    name: "SC360 Recently Active"
+    lambda: |-
+      return id(trane_link).has_recent_trane_activity();
+
+  - platform: template
+    name: "Command Awaiting ACK"
+    lambda: |-
+      return id(trane_link).has_pending_ack();
+
+sensor:
+  - platform: template
+    name: "Trane RX Frames"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_trane_frames();'
+
+  - platform: template
+    name: "SC360 RX Frames"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_sc360_frames();'
+
+  - platform: template
+    name: "TX Messages"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_tx_messages();'
+
+  - platform: template
+    name: "TX Blocked"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_tx_blocked();'
+
+  - platform: template
+    name: "TX Busy Blocked"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_tx_busy_blocked();'
+
+  - platform: template
+    name: "ACK OK"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_ack_ok();'
+
+  - platform: template
+    name: "ACK Errors"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_ack_error();'
+
+  - platform: template
+    name: "ACK Timeouts"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_ack_timeouts();'
+
+  - platform: template
+    name: "RX Transport Errors"
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: 'return id(trane_link).get_rx_transport_errors();'

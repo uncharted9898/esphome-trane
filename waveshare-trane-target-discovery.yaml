@@ -1,0 +1,437 @@
+# Target-system discovery/qualification telemetry.
+#
+# This package owns only passive template entities backed by the trane_bus
+# observation cache. It never transmits CAN frames. Mature/legacy entities stay
+# in waveshare-trane-known-telemetry-extra-base.yaml; this file adds mappings
+# learned from the installed 5TAMX/5TWV0X/UX360/SC360 target captures.
+
+sensor:
+  # Indoor blower electrical block -----------------------------------------
+  # 0x318.float[0] follows blower operation and remains the leading input-
+  # current candidate. The former V*I*PF derived-power entity is intentionally
+  # gone. A later active-blower capture also held 0x280.float[1] at 2.5, proving
+  # that field is not a literal power factor or an inactive-only sentinel.
+  # Preserve 0x280.float[1] only through its generic raw entity in extra-base.
+  - platform: template
+    id: trane_318_blower_input_current
+    name: "Blower Motor Current"
+    unit_of_measurement: "A"
+    device_class: current
+    state_class: measurement
+    accuracy_decimals: 4
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x318, 0);'
+    device_id: dev_air_handler
+
+  # 0x318 is compound. Cross-capture lead/lag against 0x200.u16@2 now makes
+  # word2 the strongest blower-airflow feedback candidate: the 0x200 request
+  # moves first on shutdown while this value decays afterward. Word3 remains
+  # the strongest blower-speed/RPM candidate and follows blower power/static.
+  # Keep Candidate wording until a synchronized Technician sweep.
+  - platform: template
+    id: trane_318_u16_2
+    name: "0x318 Blower Airflow Feedback Candidate"
+    unit_of_measurement: "cfm"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x318, 4);'
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_318_u16_3
+    name: "Blower Motor Speed"
+    unit_of_measurement: "rpm"
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x318, 6);'
+    device_id: dev_air_handler
+
+  # Populated unresolved numeric families ---------------------------------
+  # These are intentionally word-level diagnostics only. They move across
+  # operating states, but no OEM semantic has been proven yet.
+  - platform: template
+    id: trane_2d0_u16_1_raw
+    name: "0x2D0 Word 1 Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x2D0, 2);'
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_2d0_u16_2_raw
+    name: "0x2D0 Airflow Limit Candidate"
+    unit_of_measurement: "cfm"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x2D0, 4);'
+    device_id: dev_air_handler
+
+  # Full-day idle captures on 2026-09-23/24/25 exposed 37 independent
+  # stator-heating cycles (2 + 19 + 16). byte1 consistently asserts about
+  # 9.25 s before the outdoor drive phase currents/input power rise, remains
+  # asserted through the heat interval, and clears as the electrical load
+  # returns to standby. That lead makes this an enable/request state rather
+  # than the instantaneous power-active indication. Compressor and outdoor fan
+  # speed remained exactly zero throughout every isolated cycle.
+  - platform: template
+    id: trane_282_byte1_stator_heat
+    name: "0x282 Stator Heat Enable"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x282, 1);'
+    device_id: dev_heat_pump
+
+  # 0x390 is almost stator-heat-exclusive across the 2026-09-24/25 24-hour
+  # captures: 360 nonzero observations across 35 isolated cycles. byte0 sits
+  # at 44-46 and its first nonzero sample appears about 9.25 s after the
+  # 0x282 enable, coincident with the ~85-95 W outdoor input-power rise.
+  # Technician exposes a MocStatorHeatPower monitor, but exact wire units are
+  # not yet synchronized, so keep this unitless rather than claiming watts.
+  - platform: template
+    id: trane_390_stator_heat_power_level
+    name: "0x390 Stator Heat Power Level Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x390, 0);'
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_3c0_u16_0_raw
+    name: "0x3C0 Word 0 Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x3C0, 0);'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_3c0_u16_1_raw
+    name: "0x3C0 Word 1 Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x3C0, 2);'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_420_u16_2_raw
+    name: "0x420 Word 2 Raw"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x420, 4);'
+    device_id: dev_discovery
+
+  # Compressor minimum-target family. Technician previously displayed a
+  # target minimum speed near 20 RPS; both target frames sit at ~20.1 RPS.
+  - platform: template
+    id: trane_3d0_target_min_speed_candidate
+    name: "0x3D0 Compressor Target Minimum Speed Candidate"
+    unit_of_measurement: "RPS"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x3D0, 4);'
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_3e0_target_min_speed_candidate
+    name: "0x3E0 Compressor Target Minimum Speed Mirror Candidate"
+    unit_of_measurement: "RPS"
+    state_class: measurement
+    accuracy_decimals: 2
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x3E0, 0);'
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_3e0_status_candidate
+    name: "0x3E0 Status Byte Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x3E0, 4);'
+    device_id: dev_heat_pump
+
+  # Structured JSON freshness ---------------------------------------------
+  # Retained profile/status values are intentionally cached across sparse SDO
+  # updates. Expose their age so a stale retained value cannot be mistaken for
+  # current wire state during a binary-only steady-state capture.
+  - platform: template
+    id: trane_last_structured_json_age
+    name: "Last Structured JSON Age"
+    unit_of_measurement: "s"
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_json_age_seconds();'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_systemopstatus_snapshot_age
+    name: "SystemOpStatus Snapshot Age"
+    unit_of_measurement: "s"
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_json_snapshot_age_seconds("SystemOpStatus");'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_indoorstatus_snapshot_age
+    name: "IndoorStatus Snapshot Age"
+    unit_of_measurement: "s"
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_json_snapshot_age_seconds("IndoorStatus");'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_spoverride_snapshot_age
+    name: "SpOverride Snapshot Age"
+    unit_of_measurement: "s"
+    state_class: measurement
+    accuracy_decimals: 1
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_json_snapshot_age_seconds("SpOverride");'
+    device_id: dev_discovery
+
+  # CANopen/network-management observations --------------------------------
+  # 0x53E.byte5 fell 5 -> 4 while node 3 rebooted and returned to 5 after the
+  # node reached NMT operational. Treat this as an active/available-node count
+  # candidate until a topology test proves the exact contract.
+  - platform: template
+    id: trane_53e_active_nodes_candidate
+    name: "0x53E Active Link Nodes Candidate"
+    state_class: measurement
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x53E, 5);'
+    device_id: dev_discovery
+
+  # Indoor digital/status adjacency. The target has both external switches
+  # closed in the Technician reference, and 0x201 bytes 1/2 remain 1/1. Keep
+  # this disabled and explicitly candidate until a switch transition is seen.
+  - platform: template
+    id: trane_201_ext_switch_1_candidate
+    name: "0x201 External Switch 1 Candidate"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x201, 1);'
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_201_ext_switch_2_candidate
+    name: "0x201 External Switch 2 Candidate"
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return id(trane_link).get_last_byte_or_nan(0x201, 2);'
+    device_id: dev_air_handler
+
+text_sensor:
+  # 0x601/0x621 are CANopen SDO downloads to the same Trane JSON mailbox.
+  # Both use the Debug root, so retain IDBLE and ODBLE independently instead of
+  # relying on the generic root snapshot (where one partial Debug update would
+  # overwrite the other).
+  - platform: template
+    id: trane_debug_idble
+    name: "Debug IDBLE State"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_debug_idble()};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_debug_odble
+    name: "Debug ODBLE State"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_debug_odble()};'
+    device_id: dev_discovery
+
+  # Standard CANopen heartbeat state bytes. Do not attach physical Trane device
+  # identities to node 1..5 until a topology-qualified capture proves them.
+  - platform: template
+    id: trane_canopen_node_1_state
+    name: "CANopen Node 1 State"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: |-
+      const float raw = id(trane_link).get_last_byte_or_nan(0x701, 0);
+      if (!std::isfinite(raw)) return {std::string{}};
+      const uint8_t v = static_cast<uint8_t>(raw);
+      if (v == 0x00) return {"boot-up"};
+      if (v == 0x04) return {"stopped"};
+      if (v == 0x05) return {"operational"};
+      if (v == 0x7F) return {"pre-operational"};
+      char out[12]; snprintf(out, sizeof(out), "0x%02X", v); return {std::string(out)};
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_node_2_state
+    name: "CANopen Node 2 State"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: |-
+      const float raw = id(trane_link).get_last_byte_or_nan(0x702, 0);
+      if (!std::isfinite(raw)) return {std::string{}};
+      const uint8_t v = static_cast<uint8_t>(raw);
+      if (v == 0x00) return {"boot-up"}; if (v == 0x04) return {"stopped"};
+      if (v == 0x05) return {"operational"}; if (v == 0x7F) return {"pre-operational"};
+      char out[12]; snprintf(out, sizeof(out), "0x%02X", v); return {std::string(out)};
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_node_3_state
+    name: "CANopen Node 3 State"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: |-
+      const float raw = id(trane_link).get_last_byte_or_nan(0x703, 0);
+      if (!std::isfinite(raw)) return {std::string{}};
+      const uint8_t v = static_cast<uint8_t>(raw);
+      if (v == 0x00) return {"boot-up"}; if (v == 0x04) return {"stopped"};
+      if (v == 0x05) return {"operational"}; if (v == 0x7F) return {"pre-operational"};
+      char out[12]; snprintf(out, sizeof(out), "0x%02X", v); return {std::string(out)};
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_node_4_state
+    name: "CANopen Node 4 State"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: |-
+      const float raw = id(trane_link).get_last_byte_or_nan(0x704, 0);
+      if (!std::isfinite(raw)) return {std::string{}};
+      const uint8_t v = static_cast<uint8_t>(raw);
+      if (v == 0x00) return {"boot-up"}; if (v == 0x04) return {"stopped"};
+      if (v == 0x05) return {"operational"}; if (v == 0x7F) return {"pre-operational"};
+      char out[12]; snprintf(out, sizeof(out), "0x%02X", v); return {std::string(out)};
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_node_5_state
+    name: "CANopen Node 5 State"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: |-
+      const float raw = id(trane_link).get_last_byte_or_nan(0x705, 0);
+      if (!std::isfinite(raw)) return {std::string{}};
+      const uint8_t v = static_cast<uint8_t>(raw);
+      if (v == 0x00) return {"boot-up"}; if (v == 0x04) return {"stopped"};
+      if (v == 0x05) return {"operational"}; if (v == 0x7F) return {"pre-operational"};
+      char out[12]; snprintf(out, sizeof(out), "0x%02X", v); return {std::string(out)};
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_nmt_raw
+    name: "Last CANopen NMT 0x000 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x000)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_emcy_1_raw
+    name: "Last CANopen EMCY Node 1 0x081 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x081)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_emcy_3_raw
+    name: "Last CANopen EMCY Node 3 0x083 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x083)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_lss_server_raw
+    name: "Last CANopen LSS Server 0x7E4 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x7E4)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_canopen_lss_manager_raw
+    name: "Last CANopen LSS Manager 0x7E5 Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x7E5)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_53d_raw
+    name: "Last 0x53D Network Status Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x53D)};'
+    device_id: dev_discovery
+
+  - platform: template
+    id: trane_53e_raw
+    name: "Last 0x53E Network Status Raw"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 5s
+    lambda: 'return {id(trane_link).get_last_frame_hex(0x53E)};'
+    device_id: dev_discovery

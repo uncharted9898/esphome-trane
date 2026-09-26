@@ -1,0 +1,64 @@
+esphome:
+  name: trane-bus-smoke
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [trane_bus]
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+logger:
+
+canbus:
+  - platform: esp32_can
+    id: smoke_can
+    tx_pin: GPIO15
+    rx_pin: GPIO16
+    bit_rate: 50kbps
+    can_id: 1
+    mode: NORMAL
+
+trane_bus:
+  id: smoke_trane_bus
+  canbus_id: smoke_can
+  command_can_id: 0x641
+  tx_enabled: false
+  raw_json_enabled: false
+  require_sc360_before_tx: true
+  on_json:
+    - lambda: |-
+        ESP_LOGD("trane_smoke", "JSON 0x%03X: %s", can_id, json.c_str());
+
+script:
+  - id: smoke_get_profile
+    then:
+      - trane_bus.get_profile:
+          id: smoke_trane_bus
+          profile: SYSOP
+
+  - id: smoke_set_heat
+    then:
+      - trane_bus.set_mode:
+          id: smoke_trane_bus
+          mode: heat
+
+  - id: smoke_setpoints
+    then:
+      - trane_bus.set_setpoints:
+          id: smoke_trane_bus
+          heat_f: 68
+          cool_f: 74
+          zone: 1
+          hold_type: 2
+          source: 1
+
+  - id: smoke_enable_tx
+    then:
+      - trane_bus.set_tx_enabled:
+          id: smoke_trane_bus
+          enabled: true
