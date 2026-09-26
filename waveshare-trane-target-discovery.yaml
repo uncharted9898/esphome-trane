@@ -76,14 +76,16 @@ sensor:
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x2D0, 4);'
     device_id: dev_air_handler
 
-  # Full-day idle captures on 2026-09-23/24 exposed 21 independent
-  # stator-heating cycles (2 + 19). byte1 asserted ~9-10 s before the outdoor
-  # drive phase currents/input power rose, remained asserted for the complete
-  # ~7.5-8.2 minute heat interval, and cleared as the electrical load returned
-  # to standby. Compressor and outdoor fan speed remained exactly zero.
+  # Full-day idle captures on 2026-09-23/24/25 exposed 37 independent
+  # stator-heating cycles (2 + 19 + 16). byte1 consistently asserts about
+  # 9.25 s before the outdoor drive phase currents/input power rise, remains
+  # asserted through the heat interval, and clears as the electrical load
+  # returns to standby. That lead makes this an enable/request state rather
+  # than the instantaneous power-active indication. Compressor and outdoor fan
+  # speed remained exactly zero throughout every isolated cycle.
   - platform: template
     id: trane_282_byte1_stator_heat
-    name: "0x282 Stator Heat Active Candidate"
+    name: "0x282 Stator Heat Enable"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
@@ -92,12 +94,12 @@ sensor:
     lambda: 'return id(trane_link).get_last_byte_or_nan(0x282, 1);'
     device_id: dev_heat_pump
 
-  # 0x390 is almost stator-heat-exclusive in the 2026-09-24 24-hour capture:
-  # 200 nonzero observations during heat versus one zero frame at each cycle
-  # end. Its first byte sits at 44-46 and appears at the same ~9-10 s lag as
-  # the ~85-95 W outdoor input-power rise. Technician exposes a
-  # MocStatorHeatPower monitor, but exact wire units are not yet synchronized,
-  # so keep this unitless rather than claiming literal watts.
+  # 0x390 is almost stator-heat-exclusive across the 2026-09-24/25 24-hour
+  # captures: 360 nonzero observations across 35 isolated cycles. byte0 sits
+  # at 44-46 and its first nonzero sample appears about 9.25 s after the
+  # 0x282 enable, coincident with the ~85-95 W outdoor input-power rise.
+  # Technician exposes a MocStatorHeatPower monitor, but exact wire units are
+  # not yet synchronized, so keep this unitless rather than claiming watts.
   - platform: template
     id: trane_390_stator_heat_power_level
     name: "0x390 Stator Heat Power Level Candidate"
