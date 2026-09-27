@@ -97,7 +97,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x387.float[1]` | Fan Phase Current Candidate | Candidate | ~0.3-0.4 A active, 0 stopped. |
 | `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 37 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 37 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
-| `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |\n| `0x390.byte0` | Stator Heat Power Level Candidate | Strong candidate / unit unresolved | Across the 2026-09-24/25 full-day captures this channel is almost stator-heat-exclusive, sits at 44-46, and appears about 9.25 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |\n| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across the 2026-09-24/25 full-day captures this channel is almost stator-heat-exclusive, sits at 44-46, and appears about 9.25 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -171,7 +171,7 @@ Superseded: the old parser interpreted `SystemOpStatus.E` as outdoor temperature
 | Key | Meaning |
 |---|---|
 | `D` | indoor/blower operating-state family |
-| `E` | numeric blower/status percentage in normal operation; historical captures also show nonnumeric content, so raw value is retained |
+| `E` | numeric blower/status percentage in normal operation; healthy cooling starts also emit the nonnumeric `TA_INV_HI` token, so raw value is retained and nonnumeric E values must not be treated as faults |
 | `F` | raw/unknown |
 | `HumControl` | humidity-control state |
 | `HumidifierStatus` | humidifier status |
@@ -289,3 +289,27 @@ The most current multi-capture active-cooling/requalification note is:
 - [evidence/2026-09-22/outdoor-sensor-chain-long-pass.md](evidence/2026-09-22/outdoor-sensor-chain-long-pass.md)
 
 Earlier 2026-09-17 notes are intentionally preserved because they document how current mappings were falsified and requalified.
+
+
+### 2026-09-26 cooling-cycle qualification
+
+Five independent AC Stage 1 cycles were captured with coherent startup,
+modulation, shutdown, and blower coast-down. Across all five:
+
+- `SystemOpStatus.C` changed to `AC Stage 1` at call start and back to `--`
+  at shutdown;
+- `OdStatus.C` was `A` during active cooling and `D` after shutdown;
+- `IndoorStatus.D` was `B` while active and `A` after shutdown;
+- `ZoneStatus.HcStatus` was `2` during cooling, briefly `4` during
+  shutdown/coast, and `1` once idle;
+- `IndoorStatus.E` emitted `TA_INV_HI` at healthy startup, then numeric
+  values around 35-40 during operation, and 0 once stopped.
+
+The pressure pair also behaves exactly as expected for low/high sides: before
+startup `0x383.f0/f1` are nearly equal, then within 30 seconds the pair splits
+by roughly 56-71 psi and by ~2 minutes the split is ~113-148 psi. After
+shutdown the split collapses back toward equalization.
+
+These transitions strongly reinforce the existing `0x383` suction/high-side
+absolute-pressure mapping and show that `TA_INV_HI` is an operating-status
+token, not a fault string.
