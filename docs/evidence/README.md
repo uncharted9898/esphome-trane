@@ -64,3 +64,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-idle-stator-room-mirror.md](2026-09-25/full-day-idle-stator-room-mirror.md) | Complete 24-hour idle capture, 16 more stator-heat cycles, stator-enable promotion, 0x390 timing, direct ZoneStatus.H/0x490 room-temperature mirror, and quantitative pressure equalization |
+
+
+## 2026-09-26
+
+| File | What it captured |
+|---|---|
+| [full-day-cooling-cycle-qualification.md](2026-09-26/full-day-cooling-cycle-qualification.md) | Five real AC Stage 1 cycles, startup/modulation/shutdown state codes, pressure split/re-equalization, TA_INV_HI false-fault correction, and 13 additional stator-heat cycles |
