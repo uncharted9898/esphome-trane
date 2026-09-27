@@ -427,8 +427,11 @@ trane_bus:
           if (get_value("D", p, e, v)) id(trane_indoor_state).publish_state(v);
           if (get_value("E", p, e, v)) {
             id(trane_indoor_status_e_raw).publish_state(v);
+            // Healthy cooling starts repeatedly emit the nonnumeric
+            // TA_INV_HI token before E returns to its numeric 35-40 range.
+            // Preserve all E content on the raw entity, but never reinterpret
+            // an arbitrary nonnumeric status token as a fault.
             if (as_float(v, f) && f >= 0 && f <= 100) id(trane_blower_speed).publish_state(f);
-            else if (!v.empty()) id(trane_indoor_fault).publish_state(v);
           }
           if (get_value("F", p, e, v)) id(trane_indoor_status_f_raw).publish_state(v);
           if (get_value("HumControl", p, e, v)) id(trane_hum_control).publish_state(v);
