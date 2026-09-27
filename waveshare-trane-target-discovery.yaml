@@ -102,7 +102,7 @@ sensor:
   # not yet synchronized, so keep this unitless rather than claiming watts.
   - platform: template
     id: trane_390_stator_heat_power_level
-    name: "0x390 Stator Heat Power Level Candidate"
+    name: "0x390 Stator Heat Power Level"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
