@@ -459,12 +459,6 @@ text_sensor:
     disabled_by_default: true
     device_id: dev_air_handler
   - platform: template
-    id: trane_indoor_fault
-    name: "Indoor Fault String"
-    entity_category: diagnostic
-    disabled_by_default: true
-    device_id: dev_air_handler
-  - platform: template
     id: trane_hum_control
     name: "Humidity Control"
     device_id: dev_air_handler
