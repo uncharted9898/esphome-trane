@@ -162,15 +162,16 @@ sensor:
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x200, 0);'
     device_id: dev_air_handler
-  # This word leads the 0x318 airflow-family feedback. At high load it is
-  # roughly 660 while 0x318.u16@4 is ~651; during moderate modulation it is
-  # ~490-570 while feedback trails by roughly 5-15; and on satisfaction it
-  # drops immediately to 320 while the feedback remains ~644 before ramping
-  # down. That is strong request/target-versus-feedback behavior.
+  # 2026-09-27 long-run evidence identifies this as the blower motor speed
+  # request, not airflow. Numeric IndoorStatus.E (blower-speed percent) tracks
+  # this word at roughly 7.9 request units per percentage point (correlation
+  # ~0.99), and this command leads 0x318.u16@4 through starts, modulation and
+  # coast-down. Keep Candidate wording until a synchronized Technician RPM
+  # screen proves the literal unit scale.
   - platform: template
     id: trane_200_u16_1
-    name: "0x200 Blower Airflow Request Candidate"
-    unit_of_measurement: "cfm"
+    name: "0x200 Blower Speed Request Candidate"
+    unit_of_measurement: "rpm"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
@@ -202,12 +203,19 @@ sensor:
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x280, 4);'
     device_id: dev_air_handler
 
+  # This field is airflow-shaped, but it is not delivered/actual airflow.
+  # On 2026-09-27 it jumped to ~720 before blower current/power and 0x318 speed
+  # feedback left zero, and it remained nonzero briefly after the blower
+  # stopped. Treat it as a target/command family until Technician ActualAirflow
+  # is synchronized against the bus.
   - platform: template
     id: trane_281_u16_0
-    name: "Actual Airflow"
+    name: "0x281 Airflow Target Candidate"
     unit_of_measurement: "cfm"
     state_class: measurement
     accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x281, 0);'
     device_id: dev_air_handler
