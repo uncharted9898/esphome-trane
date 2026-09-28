@@ -37,10 +37,10 @@ The friendly environmental entities intentionally use the live binary sources ab
 | CAN field | Current meaning | Confidence | Notes |
 |---|---|---|---|
 | `0x200.u16@0` | Indoor EEV Position Candidate | Candidate | Tracks a step-like control value; exact OEM label not independently confirmed. |
-| `0x200.u16@2` | Blower Airflow Request Candidate | Strong candidate | Leads `0x318.u16@4` during modulation/shutdown. |
+| `0x200.u16@2` | Blower Speed Request Candidate | Strong candidate | 2026-09-27 long-run data shows numeric `IndoorStatus.E` tracks this word at ~7.9 request units per percent (correlation ~0.99); it leads the `0x318.u16@4` motor-speed feedback through starts, modulation, and coast-down. |
 | `0x280.float[0]` | Compressor Speed Request | Strong/confirmed | Commanded/requested compressor RPS. Tracks ~29 RPS low load, ~40-43 moderate load, ~57.5-58 high load, and changes ahead of achieved speed on shutdown. |
 | `0x280.float[1]` | Raw/Candidate | Candidate | Do not call literal power factor. |
-| `0x281.u16@0` | Actual Airflow | Confirmed | 774 CFM at high load; ramps 774→550→200→0 during shutdown. |
+| `0x281.u16@0` | Airflow Target Candidate | Strong candidate | Airflow-shaped, but 2026-09-27 startup/shutdown timing disproves delivered/actual airflow: it jumps to ~720 before blower current/power and `0x318` feedback leave zero, and remains nonzero briefly after the blower stops. |
 | `0x281.u16@2` | Raw fixed/configuration field | Raw | Often 500; remains 500 with blower stopped, so not actual airflow. |
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Blower Active Flag Candidate | Strong candidate | Remains 1 during blower coast-down, reaches 0 when stopped. |
@@ -54,8 +54,8 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x308.float[1]` | Supply Air Temperature | Confirmed | See environmental map. |
 | `0x310.float[0]` | Total Static Pressure | Strong candidate | ~0.09-0.12 inWC across active captures. |
 | `0x318.float[0]` | Blower Input Current Candidate | Strong candidate | Follows blower load. |
-| `0x318.u16@4` | Blower Airflow Feedback Candidate | Strong candidate | Lags `0x200.u16@2` request on transitions. |
-| `0x318.u16@6` | Blower Speed Candidate | Strong candidate | Tracks blower modulation; ~500 RPM at high load. |
+| `0x318.u16@4` | Blower Motor Speed | Strong/confirmed family | Follows the `0x200.u16@2` speed request only after the blower actually starts, tracks modulation and power, and returns to zero with motor stop. Literal RPM scaling is retained as the best working unit pending synchronized Technician speed. |
+| `0x318.u16@6` | Raw/Candidate | Candidate | Moves with blower operation but no longer carries the primary speed label; exact physical meaning remains unresolved. |
 | `0x320.float[0]` | Blower Power | Confirmed/strong | ~45-73 W under observed active states and 0 W stopped. |
 | `0x2D0.u16@2` | Airflow Limit Candidate | Candidate | ~775 CFM at high load and ~771 while delivered airflow was only ~658 CFM; behaves more like an airflow ceiling/configuration value than actual airflow. |
 
@@ -64,11 +64,11 @@ The friendly environmental entities intentionally use the live binary sources ab
 Current best interpretation:
 
 ```text
-0x200.u16@2   -> requested blower airflow
-0x318.u16@4   -> airflow-family feedback
-0x281.u16@0   -> delivered/actual airflow
+0x200.u16@2   -> blower speed request
+0x318.u16@4   -> blower motor speed feedback
+0x281.u16@0   -> airflow target/command candidate
 0x281.byte7   -> blower active flag
-0x318.u16@6   -> blower speed/RPM family
+0x318.u16@6   -> unresolved motor-adjacent raw field
 0x320.float0  -> blower power
 ```
 
@@ -313,3 +313,23 @@ shutdown the split collapses back toward equalization.
 These transitions strongly reinforce the existing `0x383` suction/high-side
 absolute-pressure mapping and show that `TA_INV_HI` is an operating-status
 token, not a fault string.
+
+
+### 2026-09-27 long-run blower requalification
+
+The day contains nine compressor-running intervals, including one continuous
+~83-minute cooling run and one `AC Stage 2` transition. The low-load startup
+timing separates command from physical motor feedback:
+
+- `0x281.u16@0` jumps to about 720 before blower current/power and `0x318`
+  feedback leave zero, so it is not actual/delivered airflow;
+- `0x200.u16@2` tracks numeric `IndoorStatus.E` at roughly 7.9 request
+  units per percentage point (correlation about 0.99);
+- `0x318.u16@4` remains zero until the blower actually starts, then follows
+  request/modulation/coast-down and returns to zero with the motor;
+- `0x318.u16@6` moves with blower operation but no longer has enough evidence
+  to carry the primary speed/RPM label.
+
+The maintained map therefore treats `0x200.u16@2` as the blower-speed request,
+`0x318.u16@4` as the motor-speed feedback, and `0x281.u16@0` as an airflow
+target/command candidate.
