@@ -23,29 +23,29 @@ sensor:
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x318, 0);'
     device_id: dev_air_handler
 
-  # 0x318 is compound. Cross-capture lead/lag against 0x200.u16@2 now makes
-  # word2 the strongest blower-airflow feedback candidate: the 0x200 request
-  # moves first on shutdown while this value decays afterward. Word3 remains
-  # the strongest blower-speed/RPM candidate and follows blower power/static.
-  # Keep Candidate wording until a synchronized Technician sweep.
+  # 0x318 is compound. The 2026-09-27 low-load/long-run capture resolves
+  # the two trailing words more conservatively: word2 is the feedback paired
+  # with the 0x200 speed request. IndoorStatus.E percent tracks the request at
+  # ~7.9 units/percent, while word2 follows after the motor actually starts and
+  # through coast-down. Word3 moves with the motor too, but its physical
+  # meaning is still unresolved and must not be labeled RPM.
   - platform: template
     id: trane_318_u16_2
-    name: "0x318 Blower Airflow Feedback Candidate"
-    unit_of_measurement: "cfm"
+    name: "Blower Motor Speed"
+    unit_of_measurement: "rpm"
     state_class: measurement
     accuracy_decimals: 0
-    entity_category: diagnostic
-    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x318, 4);'
     device_id: dev_air_handler
 
   - platform: template
     id: trane_318_u16_3
-    name: "Blower Motor Speed"
-    unit_of_measurement: "rpm"
+    name: "0x318 Word 3 Candidate"
     state_class: measurement
     accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x318, 6);'
     device_id: dev_air_handler
