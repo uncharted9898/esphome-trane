@@ -136,7 +136,7 @@ Maintained details live in [TELEMETRY.md](TELEMETRY.md). High-value qualified/ca
 
 - airflow request candidate: `0x200.u16@2`;
 - airflow feedback candidate: `0x318.u16@4`;
-- actual airflow: `0x281.u16@0`;
+- airflow target/command candidate: `0x281.u16@0`;
 - compressor demand: `0x281.byte6` (binary mirror of structured `OdStatus.CompDemandPercent`);
 - active flag candidate: `0x281.byte7`;
 - speed candidate: `0x318.u16@6`;
