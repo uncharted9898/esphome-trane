@@ -134,7 +134,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         for name in (
             "Return Air Temperature",
             "Supply Air Temperature",
-            "Actual Airflow",
+            "0x281 Airflow Target Candidate",
             "Total Static Pressure",
             "Blower Motor Current",
             "Blower Motor Speed",
@@ -282,7 +282,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
     def test_target_correlated_indoor_channels_are_exposed(self):
         combined = TELEMETRY + EXTRA
         for label in (
-            "Actual Airflow",
+            "0x281 Airflow Target Candidate",
             "0x281 Bytes 6-7 Composite Raw",
             "0x281 Compressor Demand Mirror",
             "0x281 Blower Active Flag Candidate",
@@ -297,7 +297,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x490 Zone 1 Room Temperature",
             "0x490 Zone 1 Humidity Byte Raw",
             "Blower Motor Current",
-            "0x318 Blower Airflow Feedback Candidate",
+            "Blower Motor Speed",
             "Blower Motor Speed",
         ):
             self.assertIn(f'name: "{label}"', combined)
@@ -446,10 +446,12 @@ class KnownTelemetryContractTests(unittest.TestCase):
 
     def test_blower_airflow_request_feedback_pair_is_exposed(self):
         combined = TELEMETRY + EXTRA
-        self.assertIn('name: "0x200 Blower Airflow Request Candidate"', combined)
-        self.assertIn('name: "0x318 Blower Airflow Feedback Candidate"', combined)
+        self.assertIn('name: "0x200 Blower Speed Request Candidate"', combined)
+        self.assertIn('name: "Blower Motor Speed"', combined)
         self.assertNotIn('name: "0x200 U16 1 Candidate"', combined)
         self.assertNotIn('name: "0x318 Airflow Candidate"', combined)
+        self.assertNotIn('name: "Actual Airflow"', combined)
+        self.assertNotIn('name: "0x318 Blower Airflow Feedback Candidate"', combined)
 
     def test_0x280_is_live_compressor_speed_request(self):
         self.assertIn('name: "Compressor Speed Request"', EXTRA_BASE)
