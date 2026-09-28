@@ -71,3 +71,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-cooling-cycle-qualification.md](2026-09-26/full-day-cooling-cycle-qualification.md) | Five real AC Stage 1 cycles, startup/modulation/shutdown state codes, pressure split/re-equalization, TA_INV_HI false-fault correction, and 13 additional stator-heat cycles |
+
+
+## 2026-09-27
+
+| File | What it captured |
+|---|---|
+| [full-day-long-run-blower-requalification.md](2026-09-27/full-day-long-run-blower-requalification.md) | Nine cooling intervals including an ~83-minute run, one AC Stage 2 transition, blower command/feedback requalification, long-run pressure confirmation, and eight more stator-heat cycles |
