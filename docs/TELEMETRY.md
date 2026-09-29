@@ -84,8 +84,8 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x381.float[1]` | Compressor Discharge Temperature Candidate | Strong candidate | Long-idle capture on 2026-09-23 disproved the old suction-pressure interpretation: this field cooled through ~81→75°F while `0x383.f0/f1` equalized as a pressure pair, and earlier active captures put it in the ~155-194°F range. |
 | `0x382.float[0]` | Suction Line Temperature | Strong/confirmed | Fits the outdoor-board suction-temperature position between coil and liquid-temperature channels and behaves coherently across the active-cooling captures. |
 | `0x382.float[1]` | Liquid Temperature Candidate | Strong candidate | Tracks liquid-line temperature family. |
-| `0x383.float[0]` | Suction Pressure Absolute Candidate | Strong candidate | Long-idle capture held this near ~193-197 while compressor/fan/airflow were all zero, converging with `0x383.float[1]`. Active captures were much lower, consistent with the low side. Values appear to be absolute pressure rather than gauge pressure; do not silently subtract atmosphere in firmware. |
-| `0x383.float[1]` | Liquid Pressure Absolute Candidate | Strong candidate | ~278-380 under active cooling, then ~193-197 during long idle equalization with `0x383.float[0]`. Behavior strongly supports high-side absolute pressure; synchronized Technician PSI is still needed before asserting exact display conversion. |
+| `0x383.float[0]` | Suction Pressure Raw | Confirmed semantic / representation unresolved | Long-idle captures show equalization with `0x383.float[1]`; active cooling drives this field down while the paired high-side field rises. On 2026-09-28 OEM Err 185.10/185.11 low-suction protection occurred with this field around ~69-74 while the high-side field remained ~266-274, directly confirming the suction-pressure role. Gauge-vs-absolute display conversion remains unresolved. |
+| `0x383.float[1]` | Liquid/High-Side Pressure Raw | Strong candidate / representation unresolved | Rises as the suction field falls under cooling and converges with it during idle equalization. The 2026-09-28 low-suction protection sequence leaves this field high while `0x383.float[0]` collapses, strongly supporting the paired high-side interpretation. Gauge-vs-absolute conversion remains unresolved. |
 | `0x384.float[0]` | Actual Compressor Speed Candidate | Strong candidate | 0 when satisfied; ~58 RPS at high load; coherent ramp-down. |
 | `0x384.u16@4` | Drive DC Voltage | Strong candidate | ~340-352 Vdc. |
 | `0x384.u16@6` | Outdoor Fan Speed | Strong candidate | ~750-775 RPM under high load, 0 stopped. |
@@ -95,9 +95,10 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x386.float[1]` | Raw | Raw | Often fixed 50.0; old saturation-temperature label disproved. |
 | `0x387.float[0]` | Compressor Speed Reference/Limit Candidate | Strong candidate | Fixed ~55 RPS across idle and varying load; not actual speed. |
 | `0x387.float[1]` | Fan Phase Current Candidate | Candidate | ~0.3-0.4 A active, 0 stopped. |
-| `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 37 isolated stator-heat cycles with compressor speed still 0 RPS. |
-| `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 37 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
-| `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |\n| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across the 2026-09-24/25 full-day captures this channel is almost stator-heat-exclusive, sits at 44-46, and appears about 9.25 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 64 isolated stator-heat cycles with compressor speed still 0 RPS. |
+| `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
+| `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across the 2026-09-24/25 full-day captures this channel is almost stator-heat-exclusive, sits at 44-46, and appears about 9.25 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -171,7 +172,7 @@ Superseded: the old parser interpreted `SystemOpStatus.E` as outdoor temperature
 | Key | Meaning |
 |---|---|
 | `D` | indoor/blower operating-state family |
-| `E` | numeric blower/status percentage in normal operation; healthy cooling starts also emit the nonnumeric `TA_INV_HI` token, so raw value is retained and nonnumeric E values must not be treated as faults |
+| `E` | numeric blower-speed percentage in normal operation; 2026-09-28 long-run data correlates it 0.999 with the `0x200.u16@2` speed request at ~7.98 request units per percent. Healthy cooling starts also emit nonnumeric `TA_INV_HI`, so raw value is retained and nonnumeric E values must not be treated as faults. |
 | `F` | raw/unknown |
 | `HumControl` | humidity-control state |
 | `HumidifierStatus` | humidifier status |
@@ -311,7 +312,7 @@ by roughly 56-71 psi and by ~2 minutes the split is ~113-148 psi. After
 shutdown the split collapses back toward equalization.
 
 These transitions strongly reinforce the existing `0x383` suction/high-side
-absolute-pressure mapping and show that `TA_INV_HI` is an operating-status
+pressure mapping and show that `TA_INV_HI` is an operating-status
 token, not a fault string.
 
 
@@ -333,3 +334,31 @@ timing separates command from physical motor feedback:
 The maintained map therefore treats `0x200.u16@2` as the blower-speed request,
 `0x318.u16@4` as the motor-speed feedback, and `0x281.u16@0` as an airflow
 target/command candidate.
+
+
+### 2026-09-28 low-suction protection cross-check
+
+The first afternoon cooling cycle produced two short-lived OEM alarms:
+
+- `Err 185.10`
+- `Err 185.11`
+
+Public Trane alert documentation identifies this 185.10/185.11 pair as
+cooling low-suction-pressure protection states. In the capture, the sequence is
+coherent with the bus telemetry:
+
+- suction-pressure field `0x383.f0` falls to roughly 69-74;
+- paired high-side `0x383.f1` remains roughly 266-274;
+- compressor request is reduced from 45 RPS toward 20 RPS;
+- the alarms clear within seconds while suction pressure recovers.
+
+This independently confirms the **suction-pressure semantic** of
+`0x383.f0`. It does **not** by itself prove whether the raw wire value is
+gauge or absolute pressure, so the maintained names now deliberately avoid the
+old `Absolute` wording.
+
+The same day also contains a sustained `AC Stage 2` interval lasting about
+66 minutes inside a ~93-minute cooling run. Compressor speed remains
+continuously variable through the stage transition, reinforcing that the stage
+text is supervisory demand/staging state rather than a discrete fixed-speed
+compressor step.
