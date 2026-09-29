@@ -154,8 +154,8 @@ Maintained details live in [TELEMETRY.md](TELEMETRY.md). High-value qualified/ca
 - suction line temperature: `0x382.float[0]`;
 - liquid line temperature: `0x382.float[1]`;
 - compressor discharge-temperature candidate: `0x381.float[1]`;
-- suction-pressure absolute candidate: `0x383.float[0]`;
-- liquid-pressure absolute candidate: `0x383.float[1]`;
+- suction-pressure raw/confirmed semantic: `0x383.float[0]`;
+- liquid/high-side pressure raw candidate: `0x383.float[1]`;
 - stator-heat enable: `0x282.byte1`;\n- stator-heat power/level candidate: `0x390.byte0`;
 - compressor phase-current candidates: `0x388.float[0..1]` + `0x389.float[0]`;
 - drive IPM/PFC temperature candidates: `0x410.float[0..1]`;
@@ -194,7 +194,7 @@ Highest-value remaining work:
 
 1. capture a physical UX360 setpoint/mode change from before the user action;
 2. implement/qualify application SDO TX only after that capture;
-3. confirm the `0x383.float[0..1]` absolute-pressure interpretation against synchronized Technician suction/liquid PSI and confirm `0x381.float[1]` against discharge temperature;
+3. confirm the `0x383.float[0..1]` gauge-vs-absolute display conversion against synchronized Technician suction/liquid PSI and confirm `0x381.float[1]` against discharge temperature;
 4. independently qualify `0x430.float[1]`, `0x450.float[0..1]`, and `0x460.float[0]`;
 5. capture defrost/reversing-valve behavior;
 6. identify A2L mitigation telemetry and node/device identity;
