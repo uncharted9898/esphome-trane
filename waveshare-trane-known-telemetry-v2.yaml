@@ -99,6 +99,9 @@ sensor:
     device_id: dev_sc360
 
   - platform: template
+    # Numeric IndoorStatus.E is blower-speed percent. Across the 2026-09-28
+    # long-run capture it correlates 0.999 with the 0x200 speed request at
+    # ~7.98 request units per percent. TA_INV_HI remains a startup token.
     id: trane_blower_speed
     name: "Indoor Blower Speed"
     unit_of_measurement: "%"
@@ -187,9 +190,13 @@ sensor:
   - platform: template
     id: trane_discharge_temp
     # Legacy id retained for package/API compatibility. Long idle equalization
-    # on 2026-09-23 disproved the old discharge-temperature interpretation:
-    # 0x383.f0 converges with 0x383.f1 near 193-197 while the compressor is off.
-    name: "0x383 Suction Pressure Absolute Candidate"
+    # disproved the old discharge-temperature interpretation, and the
+    # 2026-09-28 OEM Err 185.10/185.11 low-suction protection sequence directly
+    # correlates with this field collapsing to ~69-74 psi while the high-side
+    # field remains ~266-274. The suction-pressure semantic is confirmed; keep
+    # this as the raw wire PSI until Technician display conversion proves
+    # gauge-vs-absolute representation.
+    name: "0x383 Suction Pressure Raw"
     unit_of_measurement: "psi"
     device_class: pressure
     state_class: measurement
