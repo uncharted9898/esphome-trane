@@ -78,3 +78,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-long-run-blower-requalification.md](2026-09-27/full-day-long-run-blower-requalification.md) | Nine cooling intervals including an ~83-minute run, one AC Stage 2 transition, blower command/feedback requalification, long-run pressure confirmation, and eight more stator-heat cycles |
+
+
+## 2026-09-28
+
+| File | What it captured |
+|---|---|
+| [full-day-stage2-low-suction-protection.md](2026-09-28/full-day-stage2-low-suction-protection.md) | Twelve cooling intervals, a ~93-minute run with ~66 minutes of AC Stage 2, blower-percent confirmation, OEM 185.10/185.11 low-suction protection correlation, six more stator-heat cycles, and 0x460 thermal-family correlation |
