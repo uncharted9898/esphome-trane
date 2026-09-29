@@ -351,8 +351,8 @@ class KnownTelemetryContractTests(unittest.TestCase):
         for label in (
             "Drive DC Voltage",
             "Outdoor Fan Speed",
-            "0x383 Liquid Pressure Absolute Candidate",
-            "0x383 Suction Pressure Absolute Candidate",
+            "0x383 Liquid Pressure Raw",
+            "0x383 Suction Pressure Raw",
             "Liquid Line Temperature",
             "Compressor Power",
             "Compressor Speed Request",
@@ -362,12 +362,19 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertIn(f'name: "{label}"', EXTRA)
 
+    def test_pressure_names_do_not_claim_absolute_representation(self):
+        combined = TELEMETRY + EXTRA
+        self.assertIn('name: "0x383 Suction Pressure Raw"', combined)
+        self.assertIn('name: "0x383 Liquid Pressure Raw"', combined)
+        self.assertNotIn("Suction Pressure Absolute Candidate", combined)
+        self.assertNotIn("Liquid Pressure Absolute Candidate", combined)
+
     def test_outdoor_sensor_chain_long_pass(self):
         combined = TELEMETRY + EXTRA
         for label in (
             "Suction Line Temperature",
-            "0x383 Suction Pressure Absolute Candidate",
-            "0x383 Liquid Pressure Absolute Candidate",
+            "0x383 Suction Pressure Raw",
+            "0x383 Liquid Pressure Raw",
             "0x410 Drive Inverter/IPM Temperature Candidate",
             "0x410 Drive Rectifier/PFC Temperature Candidate",
             "0x430 Outdoor Fan IPM Temperature Candidate",
@@ -378,7 +385,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertIn(f'name: "{label}"', combined)
 
-        idx = TELEMETRY.index('name: "0x383 Suction Pressure Absolute Candidate"')
+        idx = TELEMETRY.index('name: "0x383 Suction Pressure Raw"')
         start = TELEMETRY.rfind("  - platform: template", 0, idx)
         end = TELEMETRY.find("  - platform:", idx + 5)
         block = TELEMETRY[start:end if end >= 0 else len(TELEMETRY)]
@@ -420,6 +427,15 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertNotIn("unit_of_measurement:", block)
         self.assertIn("disabled_by_default: true", block)
         self.assertIn('unit_of_measurement: "A"', EXTRA_BASE)
+
+    def test_indoor_status_e_is_blower_speed_percent(self):
+        self.assertIn('name: "Indoor Blower Speed"', TELEMETRY)
+        self.assertIn("0.999", TELEMETRY)
+        self.assertIn("7.98 request units per percent", TELEMETRY)
+        self.assertIn(
+            "id(trane_blower_speed).publish_state(f);",
+            HA,
+        )
 
     def test_ta_inv_hi_is_not_published_as_fault(self):
         self.assertIn("TA_INV_HI", HA)
