@@ -85,3 +85,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-stage2-low-suction-protection.md](2026-09-28/full-day-stage2-low-suction-protection.md) | Twelve cooling intervals, a ~93-minute run with ~66 minutes of AC Stage 2, blower-percent confirmation, OEM 185.10/185.11 low-suction protection correlation, six more stator-heat cycles, and 0x460 thermal-family correlation |
+
+
+## 2026-09-29
+
+| File | What it captured |
+|---|---|
+| [full-day-control-request-path.md](2026-09-29/full-day-control-request-path.md) | Sixteen cooling runs, clean control day after 185.10/185.11, blower request-percent confirmation, 0x385 startup-sentinel filtering, structured setpoint override path, and two more stator-heat cycles |
