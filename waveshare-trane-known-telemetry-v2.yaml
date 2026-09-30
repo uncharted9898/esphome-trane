@@ -99,11 +99,13 @@ sensor:
     device_id: dev_sc360
 
   - platform: template
-    # Numeric IndoorStatus.E is blower-speed percent. Across the 2026-09-28
-    # long-run capture it correlates 0.999 with the 0x200 speed request at
-    # ~7.98 request units per percent. TA_INV_HI remains a startup token.
+    # Numeric IndoorStatus.E is a blower-speed request/target percentage, not
+    # measured speed. Across 2026-09-28/29 it correlates ~0.998-0.999 with the
+    # 0x200 speed request at ~7.95-7.98 request units per percent. On clean
+    # starts E can already be 36-38% while 0x318 motor feedback and blower
+    # power are still zero. TA_INV_HI remains a healthy startup token.
     id: trane_blower_speed
-    name: "Indoor Blower Speed"
+    name: "Indoor Blower Speed Request Percent"
     unit_of_measurement: "%"
     state_class: measurement
     accuracy_decimals: 0
