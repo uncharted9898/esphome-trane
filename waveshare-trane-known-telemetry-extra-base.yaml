@@ -438,7 +438,9 @@ sensor:
     device_id: dev_heat_pump
   # This stays above the commanded 0x280 speed at low/moderate/high load
   # (~40 vs 29, ~63 vs 56, ~66-68 vs ~58 RPS) and falls to zero when idle.
-  # That behavior is a ceiling/limit, not the immediate speed request.
+  # 2026-09-29 also exposed a literal 65535 startup sentinel on multiple clean
+  # compressor starts; filter that invalid value instead of publishing a fake
+  # 65,535 RPS spike.
   - platform: template
     id: trane_385_float2
     name: "0x385 Compressor Speed Ceiling Candidate"
@@ -448,7 +450,10 @@ sensor:
     entity_category: diagnostic
     disabled_by_default: true
     update_interval: 2s
-    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x385, 4);'
+    lambda: |-
+      const float value = id(trane_link).get_last_float_le_or_nan(0x385, 4);
+      if (!std::isfinite(value) || value < 0.0f || value > 200.0f) return NAN;
+      return value;
     device_id: dev_heat_pump
   - platform: template
     id: trane_387_float2
@@ -462,7 +467,7 @@ sensor:
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x387, 4);'
     device_id: dev_heat_pump
-  # The 2026-09-23 through 2026-09-28 archives now contain 64 isolated
+  # The 2026-09-23 through 2026-09-29 archives now contain 66 isolated
   # stator-heat cycles with the compressor fixed at 0 RPS. These three adjacent channels switch from zero
   # to a three-phase current pattern during stator heat and were previously
   # balanced together during active compressor operation. Keep phase numbering
