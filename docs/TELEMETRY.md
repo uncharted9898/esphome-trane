@@ -90,12 +90,12 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x384.u16@4` | Drive DC Voltage | Strong candidate | ~340-352 Vdc. |
 | `0x384.u16@6` | Outdoor Fan Speed | Strong candidate | ~750-775 RPM under high load, 0 stopped. |
 | `0x385.float[0]` | Compressor Power Candidate | Strong candidate | ~1.3-1.5 kW high load; 0 stopped. |
-| `0x385.float[1]` | Compressor Speed Ceiling Candidate | Strong candidate | Sits above the immediate `0x280` request across low/moderate/high load (~40 vs 29, ~63 vs 56, ~66-68 vs ~58 RPS) and becomes 0 idle. |
+| `0x385.float[1]` | Compressor Speed Ceiling Candidate | Strong candidate | Sits above the immediate `0x280` request across low/moderate/high load (~40 vs 29, ~63 vs 56, ~66-68 vs ~58 RPS) and becomes 0 idle. Multiple 2026-09-29 clean starts emit a literal 65535 startup sentinel, which is now filtered rather than published as a fake RPS spike. |
 | `0x386.float[0]` | Raw | Raw | Often 2.0 in target captures. |
 | `0x386.float[1]` | Raw | Raw | Often fixed 50.0; old saturation-temperature label disproved. |
 | `0x387.float[0]` | Compressor Speed Reference/Limit Candidate | Strong candidate | Fixed ~55 RPS across idle and varying load; not actual speed. |
 | `0x387.float[1]` | Fan Phase Current Candidate | Candidate | ~0.3-0.4 A active, 0 stopped. |
-| `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 64 isolated stator-heat cycles with compressor speed still 0 RPS. |
+| `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
 | `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
 | `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across the 2026-09-24/25 full-day captures this channel is almost stator-heat-exclusive, sits at 44-46, and appears about 9.25 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
@@ -172,7 +172,7 @@ Superseded: the old parser interpreted `SystemOpStatus.E` as outdoor temperature
 | Key | Meaning |
 |---|---|
 | `D` | indoor/blower operating-state family |
-| `E` | numeric blower-speed percentage in normal operation; 2026-09-28 long-run data correlates it 0.999 with the `0x200.u16@2` speed request at ~7.98 request units per percent. Healthy cooling starts also emit nonnumeric `TA_INV_HI`, so raw value is retained and nonnumeric E values must not be treated as faults. |
+| `E` | blower-speed request/target percentage in normal operation; 2026-09-28/29 long-run data correlates it ~0.998-0.999 with the `0x200.u16@2` speed request at ~7.95-7.98 request units per percent. On clean starts E can already be 36-38% while blower feedback/power are still zero. Healthy starts also emit nonnumeric `TA_INV_HI`, so raw value is retained and nonnumeric E values must not be treated as faults. |
 | `F` | raw/unknown |
 | `HumControl` | humidity-control state |
 | `HumidifierStatus` | humidifier status |
@@ -362,3 +362,35 @@ The same day also contains a sustained `AC Stage 2` interval lasting about
 continuously variable through the stage transition, reinforcing that the stage
 text is supervisory demand/staging state rather than a discrete fixed-speed
 compressor step.
+
+
+### 2026-09-29 control-day confirmation
+
+The full-day archive contains 16 compressor-running intervals, including long
+runs of roughly 100 and 88 minutes, with no A2L/leak/defrost/heating JSON and
+no repeat of the 2026-09-28 Err 185.10/185.11 low-suction protection event.
+That makes 09/29 a useful clean control day for the prior mappings.
+
+The structured blower field is better described as a request/target percent,
+not actual speed:
+
+- `IndoorStatus.E` correlates ~0.998 with `0x200.u16@2`;
+- median scale is ~7.95 request units per percent;
+- on clean starts E is already 36-38% while `0x318.u16@4` motor feedback and
+  `0x320.f0` blower power are still zero.
+
+The `0x385.f1` compressor speed-ceiling field also shows a repeatable literal
+`65535` startup sentinel on multiple clean compressor starts. The entity now
+filters values outside a sane 0-200 RPS range.
+
+Two structured setpoint overrides were captured:
+
+- 03:32:31 UTC: zone 1 cooling setpoint -> 77 F
+- 13:17:41 UTC: zone 1 cooling setpoint -> 78 F
+
+At 03:32:31, the override is followed about 3 seconds later by
+`AC Stage 1`, and actual compressor speed leaves zero about 13 seconds after
+the override. This is a useful end-to-end confirmation of the structured
+setpoint/override decode path.
+
+Two additional isolated stator-heat cycles bring the cumulative total to 66.
