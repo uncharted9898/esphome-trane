@@ -116,7 +116,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "System State Raw",
             "System Demand Stage",
             "System Demand Percent Candidate",
-            "Indoor Blower Speed",
+            "Indoor Blower Speed Request Percent",
             "Compressor Speed Percent",
             "Compressor Demand",
             "Outdoor Air Temperature",
@@ -429,9 +429,9 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn('unit_of_measurement: "A"', EXTRA_BASE)
 
     def test_indoor_status_e_is_blower_speed_percent(self):
-        self.assertIn('name: "Indoor Blower Speed"', TELEMETRY)
-        self.assertIn("0.999", TELEMETRY)
-        self.assertIn("7.98 request units per percent", TELEMETRY)
+        self.assertIn('name: "Indoor Blower Speed Request Percent"', TELEMETRY)
+        self.assertIn("0.998", TELEMETRY)
+        self.assertIn("7.95-7.98 request units per percent", TELEMETRY)
         self.assertIn(
             "id(trane_blower_speed).publish_state(f);",
             HA,
@@ -479,6 +479,18 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn("get_last_byte_or_nan(0x281, 6)", TELEMETRY)
         self.assertIn('name: "0x281 Compressor Demand Mirror"', EXTRA_BASE)
         self.assertNotIn('name: "0x281 Blower Demand Candidate"', EXTRA_BASE)
+
+    def test_0x385_startup_sentinel_is_filtered(self):
+        idx = EXTRA_BASE.index('name: "0x385 Compressor Speed Ceiling Candidate"')
+        start = EXTRA_BASE.rfind("  - platform: template", 0, idx)
+        end = EXTRA_BASE.find("  - platform:", idx + 5)
+        block = EXTRA_BASE[start:end if end >= 0 else len(EXTRA_BASE)]
+        self.assertIn("value > 200.0f", block)
+        self.assertIn("return NAN;", block)
+        self.assertNotIn(
+            "lambda: 'return id(trane_link).get_last_float_le_or_nan(0x385, 4);'",
+            block,
+        )
 
     def test_0x385_is_hidden_speed_ceiling_candidate(self):
         self.assertIn('name: "0x385 Compressor Speed Ceiling Candidate"', EXTRA_BASE)
