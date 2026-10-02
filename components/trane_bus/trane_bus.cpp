@@ -442,9 +442,17 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
                               (static_cast<uint32_t>(data[5]) << 8) |
                               (static_cast<uint32_t>(data[6]) << 16) |
                               (static_cast<uint32_t>(data[7]) << 24);
-    // Object 0x300A:00 carries a NUL-terminated JSON string. CANopen's
-    // indicated size includes that NUL; the application string does not.
-    return wire_len > 0 ? static_cast<size_t>(wire_len - 1U) : 0;
+    // Most observed 0x300A:00 transfers include a trailing NUL in the
+    // indicated CANopen size, but at least DebugUI.HiHeapRemaining uses the
+    // exact JSON byte length with no NUL. Keep the wire length intact and
+    // validate either representation only after the final segment arrives.
+    return static_cast<size_t>(wire_len);
+  };
+
+  auto json_length_complete = [&](const SegmentedRxState &rx) -> bool {
+    if (rx.buffer.size() == rx.expected_len)
+      return true;
+    return rx.saw_trailing_nul && rx.buffer.size() + 1U == rx.expected_len;
   };
 
   if (state.expected_len != 0) {
@@ -477,13 +485,15 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
 
       for (size_t i = 0; i < data_bytes && state.buffer.size() < state.expected_len; i++) {
         const uint8_t byte = data[i + 1];
-        if (byte == 0)
+        if (byte == 0) {
+          state.saw_trailing_nul = true;
           break;
+        }
         state.buffer.push_back(static_cast<char>(byte));
       }
 
       if (last) {
-        if (state.buffer.size() == state.expected_len) {
+        if (json_length_complete(state)) {
           complete = state.buffer;
           state.reset();
           return true;
@@ -515,14 +525,16 @@ bool TraneBus::feed_segmented_json_(SegmentedRxState &state, const std::vector<u
       }
 
       for (size_t i = 1; i < data.size() && state.buffer.size() < state.expected_len; i++) {
-        if (data[i] == 0)
+        if (data[i] == 0) {
+          state.saw_trailing_nul = true;
           break;
+        }
         state.buffer.push_back(static_cast<char>(data[i]));
       }
 
       state.block_last_seq = sequence;
       if (last) {
-        if (state.buffer.size() == state.expected_len) {
+        if (json_length_complete(state)) {
           complete = state.buffer;
           state.reset();
           return true;
