@@ -126,6 +126,26 @@ class CaptureAnalyzerTests(unittest.TestCase):
         messages = analyzer.reassemble_json(frames)
         self.assertEqual([row["json"] for row in messages], [{"Long": "abcdefghijklmnop"}])
 
+    def test_block_download_exact_length_without_trailing_nul(self):
+        lines = [
+            "TRANE_CAN_LIVE,S,1000,641,8,C20A30002A000000",
+            "TRANE_CAN_LIVE,S,1001,5C1,8,A00A300006000000",
+            "TRANE_CAN_LIVE,S,1002,641,8,017B224465627567",
+            "TRANE_CAN_LIVE,S,1003,641,8,025549223A7B2248",
+            "TRANE_CAN_LIVE,S,1004,641,8,0369486561705265",
+            "TRANE_CAN_LIVE,S,1005,641,8,046D61696E696E67",
+            "TRANE_CAN_LIVE,S,1006,641,8,05223A2233333035",
+            "TRANE_CAN_LIVE,S,1007,641,8,8634373230227D7D",
+            "TRANE_CAN_LIVE,S,1008,5C1,8,A206000000000000",
+            "TRANE_CAN_LIVE,S,1009,641,8,C100000000000000",
+            "TRANE_CAN_LIVE,S,1010,5C1,8,A100000000000000",
+        ]
+        messages = analyzer.reassemble_json(analyzer.parse_frames(lines))
+        self.assertEqual(
+            [row["json"] for row in messages],
+            [{"DebugUI": {"HiHeapRemaining": "33054720"}}],
+        )
+
     def test_segmented_reassembly_honors_unused_final_bytes(self):
         lines = [
             "TRANE_CAN_LIVE,S,1000,641,8,210A30000A000000",
