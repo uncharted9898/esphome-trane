@@ -214,6 +214,7 @@ def _feed_sdo_request(state: SegmentedState, data: bytes) -> str | None:
                 if len(state.buffer) >= state.expected_len:
                     break
                 if byte == 0:
+                    state.saw_trailing_nul = True
                     break
                 state.buffer.append(byte)
 
