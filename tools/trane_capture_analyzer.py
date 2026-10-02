@@ -71,6 +71,7 @@ class SegmentedState:
     block_size: int = 0
     block_last_seq: int = 0
     awaiting_block_ack: bool = False
+    saw_trailing_nul: bool = False
     buffer: bytearray = dataclasses.field(default_factory=bytearray)
 
     def reset(self) -> None:
@@ -81,6 +82,7 @@ class SegmentedState:
         self.block_size = 0
         self.block_last_seq = 0
         self.awaiting_block_ack = False
+        self.saw_trailing_nul = False
         self.buffer.clear()
 
 
@@ -135,8 +137,11 @@ def _target_payload_length(data: bytes) -> int:
     wire_len = u32_le(data, 4) or 0
     if wire_len <= 0:
         return 0
-    # Target captures include the trailing NUL in this length.
-    return wire_len - 1
+    # Most captures include a trailing NUL in this size, but some target
+    # messages (for example DebugUI.HiHeapRemaining on 2026-09-30) use the
+    # exact JSON byte length with no NUL. Preserve the wire size and resolve
+    # the representation when the final segment arrives.
+    return wire_len
 
 
 def _is_trane_json_object(data: bytes) -> bool:
@@ -176,11 +181,15 @@ def _feed_sdo_request(state: SegmentedState, data: bytes) -> str | None:
                 if len(state.buffer) >= state.expected_len:
                     break
                 if byte == 0:
+                    state.saw_trailing_nul = True
                     break
                 state.buffer.append(byte)
 
             if final:
-                if len(state.buffer) == state.expected_len:
+                if len(state.buffer) == state.expected_len or (
+                    state.saw_trailing_nul
+                    and len(state.buffer) + 1 == state.expected_len
+                ):
                     result = state.buffer.decode("utf-8", errors="strict")
                     state.reset()
                     return result
@@ -210,7 +219,10 @@ def _feed_sdo_request(state: SegmentedState, data: bytes) -> str | None:
 
             state.block_last_seq = sequence
             if final:
-                if len(state.buffer) == state.expected_len:
+                if len(state.buffer) == state.expected_len or (
+                    state.saw_trailing_nul
+                    and len(state.buffer) + 1 == state.expected_len
+                ):
                     result = state.buffer.decode("utf-8", errors="strict")
                     state.reset()
                     return result
