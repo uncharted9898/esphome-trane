@@ -92,3 +92,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-control-request-path.md](2026-09-29/full-day-control-request-path.md) | Sixteen cooling runs, clean control day after 185.10/185.11, blower request-percent confirmation, 0x385 startup-sentinel filtering, structured setpoint override path, and two more stator-heat cycles |
+
+
+## 2026-09-30
+
+| File | What it captured |
+|---|---|
+| [full-day-stage2-exact-length-json.md](2026-09-30/full-day-stage2-exact-length-json.md) | Fourteen cooling intervals, two long Stage-2-heavy runs, blower-request confirmation, four more 0x385 sentinels, three stator-heat cycles, and the exact-length/no-NUL 0x300A JSON transport bug/fix |
