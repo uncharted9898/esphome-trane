@@ -304,3 +304,30 @@ A genuinely new ID should therefore remain a useful discovery signal.
 3. Synchronized Technician Monitor + CAN while blower airflow changes to resolve the remaining `0x281`/`0x318` command-vs-feedback words.
 4. A natural/documented A2L self-test or state transition to identify mitigation frames without inducing a refrigerant leak.
 5. Heat/defrost captures to separate outdoor temperature/valve/current channels that are degenerate in steady cooling.
+
+
+## Optional trailing NUL in 0x300A payloads
+
+The indicated CANopen transfer size for Trane object `0x300A:00` is not
+uniformly a C-string size.
+
+Most captured JSON transfers include a trailing NUL in the indicated size.
+However, the 2026-09-30 capture contains a valid block download for:
+
+```json
+{"DebugUI":{"HiHeapRemaining":"33054720"}}
+```
+
+whose initiate request reports **42 bytes**, exactly the UTF-8 JSON length,
+with no trailing NUL. The final payload segment supplies the second closing
+brace as byte 42.
+
+The receiver must therefore accept both forms:
+
+1. `wire_size == JSON_bytes + 1` with an observed trailing NUL; and
+2. `wire_size == JSON_bytes` with no trailing NUL.
+
+Subtracting one from every indicated size is incorrect and caused the bridge to
+emit this message one segment early as malformed JSON. Firmware and the offline
+capture analyzer now preserve the indicated wire size and decide completion
+only after the final segment.
