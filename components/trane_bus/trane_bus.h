@@ -135,6 +135,7 @@ class TraneBus : public Component {
     uint8_t block_size{0};
     uint8_t block_last_seq{0};
     bool awaiting_block_ack{false};
+    bool saw_trailing_nul{false};
 
     void reset() {
       buffer.clear();
@@ -145,6 +146,7 @@ class TraneBus : public Component {
       block_size = 0;
       block_last_seq = 0;
       awaiting_block_ack = false;
+      saw_trailing_nul = false;
     }
   };
 
