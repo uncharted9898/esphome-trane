@@ -261,6 +261,13 @@ class KnownTelemetryContractTests(unittest.TestCase):
         ):
             self.assertIn(token, BUS_H)
 
+    def test_trane_json_wire_length_allows_optional_trailing_nul(self):
+        self.assertIn("bool saw_trailing_nul{false};", BUS_H)
+        self.assertIn("state.saw_trailing_nul = true;", BUS_CPP)
+        self.assertIn("json_length_complete", BUS_CPP)
+        self.assertIn("return static_cast<size_t>(wire_len);", BUS_CPP)
+        self.assertNotIn("wire_len - 1U", BUS_CPP)
+
     def test_601_segmented_json_is_receive_only_and_reassembled(self):
         self.assertIn("SegmentedRxState rx_601_{};", BUS_H)
         for token in (
