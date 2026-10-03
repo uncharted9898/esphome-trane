@@ -1,0 +1,21 @@
+# Copy this file into the local ESPHome / Home Assistant Device Builder config
+# while tracking the moving `dev` branch.
+#
+# IMPORTANT: refresh: always must live in this LOCAL/root loader. A refresh
+# setting inside waveshare-trane-homeassistant.yaml cannot refresh the cached
+# Git checkout that ESPHome must load before it can read that setting.
+#
+# Once a release/tag is used instead of dev, pin the tag/commit and a longer
+# refresh interval can be used safely.
+
+substitutions:
+  device_name: trane-5tv0x-2ton-upstairs
+  friendly_name: "Trane 5TV0X 2 Ton Upstairs"
+
+packages:
+  trane_link_bridge:
+    url: https://github.com/uncharted9898/esphome-trane
+    ref: dev
+    refresh: always
+    files:
+      - waveshare-trane-homeassistant.yaml
