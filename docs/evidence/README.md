@@ -106,3 +106,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-repeated-exact-length-json.md](2026-10-01/full-day-repeated-exact-length-json.md) | Six cooling intervals including two ~167-minute runs, sustained Stage 2, blower-request confirmation, two more 0x385 sentinels, four stator-heat cycles, and a second independent exact-length/no-NUL 0x300A JSON transfer |
+
+
+## 2026-10-02
+
+| File | What it captured |
+|---|---|
+| [full-day-sustained-stage2.md](2026-10-02/full-day-sustained-stage2.md) | Nine cooling intervals including a ~5.75-hour run with ~5.3 hours of Stage 2, blower-request confirmation, six more 0x385 sentinels, two stator-heat cycles, pressure/thermal long-run confirmation, and clean structured JSON transport |
