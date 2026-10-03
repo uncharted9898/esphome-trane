@@ -45,7 +45,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Blower Active Flag Candidate | Strong candidate | Remains 1 during blower coast-down, reaches 0 when stopped. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
-| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 37 isolated cycles on 2026-09-23/24/25, this bit asserted about 9.25 s before stator-heating current/power appeared, remained asserted through each heat interval, and cleared as the load returned to standby. Compressor and outdoor fan stayed stopped throughout. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 75 isolated cycles from 2026-09-23 through 2026-10-02, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. Compressor and outdoor fan stay stopped throughout isolated cycles. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
 | `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
 | `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
@@ -90,7 +90,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x384.u16@4` | Drive DC Voltage | Strong candidate | ~340-352 Vdc. |
 | `0x384.u16@6` | Outdoor Fan Speed | Strong candidate | ~750-775 RPM under high load, 0 stopped. |
 | `0x385.float[0]` | Compressor Power Candidate | Strong candidate | ~1.3-1.5 kW high load; 0 stopped. |
-| `0x385.float[1]` | Compressor Speed Ceiling Candidate | Strong candidate | Sits above the immediate `0x280` request across low/moderate/high load (~40 vs 29, ~63 vs 56, ~66-68 vs ~58 RPS) and becomes 0 idle. Multiple 2026-09-29 clean starts emit a literal 65535 startup sentinel, which is now filtered rather than published as a fake RPS spike. |
+| `0x385.float[1]` | Compressor Speed Ceiling Candidate | Strong candidate | Sits above the immediate `0x280` request across low/moderate/high load (~40 vs 29, ~63 vs 56, ~66-68 vs ~58 RPS) and becomes 0 idle. The 65535 startup sentinel recurs across later clean starts (six more on 2026-10-02) and is filtered rather than published as a fake RPS spike. |
 | `0x386.float[0]` | Raw | Raw | Often 2.0 in target captures. |
 | `0x386.float[1]` | Raw | Raw | Often fixed 50.0; old saturation-temperature label disproved. |
 | `0x387.float[0]` | Compressor Speed Reference/Limit Candidate | Strong candidate | Fixed ~55 RPS across idle and varying load; not actual speed. |
@@ -98,7 +98,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
 | `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
-| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across the 2026-09-24/25 full-day captures this channel is almost stator-heat-exclusive, sits at 44-46, and appears about 9.25 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 75 isolated stator-heat cycles through 2026-10-02, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -495,3 +495,46 @@ contains the sixth/final segment immediately afterward with the missing brace.
 The regression fixture now covers both independently captured heap values,
 demonstrating that exact-length/no-NUL is a repeatable Trane wire form rather
 than a one-off malformed sender.
+
+
+### 2026-10-02 five-hour Stage 2 confirmation
+
+The full-day archive contains nine compressor-running intervals. The standout
+run is:
+
+- compressor motion: ~17:06:20-22:51:38 UTC (~345.3 min / 5.75 h);
+- structured Stage 2: ~17:21:14-22:39:30 UTC (~318.3 min / 5.30 h).
+
+Actual compressor speed remains continuously variable throughout the sustained
+Stage 2 interval and peaks around 58 RPS. This is the longest sustained
+Stage-2-heavy run in the evidence set so far and strongly reinforces the
+supervisory-demand/staging interpretation.
+
+A second long run spans ~04:10:33-06:22:15 UTC (~131.7 min), with Stage 2
+lasting ~119.4 minutes.
+
+Blower request scaling remains stable across 232 numeric
+`IndoorStatus.E` observations:
+
+- correlation with `0x200.u16@2`: ~0.998;
+- median scale: ~7.97 request units per percent.
+
+Six additional clean compressor starts emit `0x385.f1 = 65535`, further
+validating the existing 0-200 RPS sanity filter.
+
+Two isolated stator-heat cycles raise the cumulative project total to **75**.
+
+No A2L/leak, heating, defrost, reversing-valve, or 185.x low-suction-protection
+event appears in the structured stream.
+
+The pressure and unresolved outdoor families remain consistent:
+
+- `0x383.f0/f1` continue to behave as suction/high-side pressure;
+- `0x460.f0` remains strongly correlated with the outdoor power-electronics
+  thermal family (~0.94 with `0x410` / `0x430.f0`);
+- `0x430.f1` and both `0x450` fields remain unqualified.
+
+The day contains many 42-byte `0x300A` transfers, but the observed examples
+are NUL-terminated and parse cleanly. No exact-length/no-NUL DebugUI transfer
+occurred on this day, so the 2026-09-30/10-01 regression evidence remains the
+basis for that transport fix.
