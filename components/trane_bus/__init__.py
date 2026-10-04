@@ -134,7 +134,7 @@ async def set_mode_action_to_code(config, action_id, template_arg, args):
             cv.Required(CONF_HEAT_F): cv.templatable(cv.float_),
             cv.Required(CONF_COOL_F): cv.templatable(cv.float_),
             cv.Optional(CONF_ZONE, default=1): cv.templatable(cv.int_range(min=1, max=6)),
-            cv.Optional(CONF_HOLD_TYPE, default=2): cv.templatable(cv.int_range(min=0, max=2)),
+            cv.Optional(CONF_HOLD_TYPE, default=1): cv.templatable(cv.int_range(min=0, max=2)),
             cv.Optional(CONF_SOURCE, default=1): cv.templatable(cv.int_range(min=0, max=2)),
         }
     ),

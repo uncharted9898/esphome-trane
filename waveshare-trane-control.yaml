@@ -45,7 +45,9 @@ api:
             heat_f: !lambda 'return heat_f;'
             cool_f: !lambda 'return cool_f;'
             zone: 1
-            hold_type: 2
+            # Both stock October 3 SpOverride.Put captures use HoldType=1
+            # and Source=1. The qualified writer rejects other values.
+            hold_type: 1
             source: 1
 
     - service: trane_get_profile

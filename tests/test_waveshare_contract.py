@@ -166,14 +166,39 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertGreaterEqual(BUS_H.count("void play(const Ts &...x) override"), 5)
         self.assertNotIn("void play(Ts... x) override", BUS_H)
 
-    def test_transport_requires_recent_sc360_and_legacy_writer_fails_closed(self):
+    def test_transport_requires_recent_sc360_and_unqualified_writers_fail_closed(self):
         self.assertIn("require_sc360_before_tx_ && !has_recent_trane_activity()", BUS_CPP)
-        self.assertIn("if (pending_ack_)", BUS_CPP)
-        self.assertIn("CANopen SDO writer for Trane object 0x300A:00 is not yet qualified", BUS_CPP)
+        self.assertIn("pending_ack_ || sdo_tx_.active()", BUS_CPP)
+        self.assertIn("application writer is not qualified for %s", BUS_CPP)
         tx = BUS_CPP.split("bool TraneBus::send_json_internal_", 1)[1].split(
             "bool TraneBus::send_json(const std::string &payload)", 1
         )[0]
         self.assertNotIn("send_frame_(", tx)
+
+    def test_stock_qualified_setpoint_writer_is_response_driven(self):
+        self.assertIn("BlockSdoTxState", BUS_H)
+        self.assertIn("WAIT_INIT_RESPONSE", BUS_H)
+        self.assertIn("WAIT_BLOCK_ACK", BUS_H)
+        self.assertIn("WAIT_END_RESPONSE", BUS_H)
+        self.assertIn("start_setpoint_sdo_write_", BUS_CPP)
+        self.assertIn("0xC2, 0x0A, 0x30, 0x00", BUS_CPP)
+        self.assertIn("data[0] != 0xA0", BUS_CPP)
+        self.assertIn("data[0] != 0xA2", BUS_CPP)
+        self.assertIn("data[0] != 0xA1", BUS_CPP)
+        self.assertIn("0xC1U | (unused << 2)", BUS_CPP)
+        self.assertIn("wire_payload.push_back(0)", BUS_CPP)
+        self.assertIn("pending_ack_ = true", BUS_CPP)
+        self.assertIn("command_can_id_ != 0x641", BUS_CPP)
+
+    def test_setpoint_writer_uses_stock_oct3_shape_only(self):
+        block = BUS_CPP.split("bool TraneBus::set_setpoints", 1)[1].split(
+            "bool TraneBus::request_profile", 1
+        )[0]
+        self.assertIn("zone != 1 || hold_type != 1 || source != 1", block)
+        self.assertIn('\\\"Csp\\\":\\\"%.0f\\\",\\\"Hsp\\\":\\\"%.0f', repr(block))
+        self.assertIn("start_setpoint_sdo_write_(payload)", block)
+        self.assertIn("default=1", BUS_PY)
+        self.assertIn("hold_type: 1", (ROOT / "waveshare-trane-control.yaml").read_text())
 
     def test_canopen_sdo_json_is_reassembled_in_source(self):
         self.assertIn("feed_segmented_json_", BUS_CPP)
