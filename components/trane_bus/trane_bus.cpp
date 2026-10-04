@@ -35,6 +35,7 @@ void TraneBus::setup() {
 }
 
 void TraneBus::loop() {
+  this->service_sdo_tx_();
   if (pending_ack_ && (millis() - pending_ack_since_ms_) > ack_timeout_ms_) {
     ESP_LOGW(TAG, "Timed out waiting for SC360 ACK for %s", pending_kind_.c_str());
     ack_timeouts_++;
@@ -412,6 +413,9 @@ void TraneBus::on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const 
       break;
   }
 
+  if (can_id == 0x5C1 && sdo_tx_.active())
+    this->handle_sdo_tx_response_(data);
+
   if (sdo_state != nullptr) {
     if (sdo_response) {
       feed_sdo_json_response_(*sdo_state, data);
@@ -771,6 +775,190 @@ bool TraneBus::send_frame_(const std::vector<uint8_t> &frame) {
   return true;
 }
 
+void TraneBus::abort_sdo_tx_(const char *reason) {
+  if (!sdo_tx_.active())
+    return;
+  ESP_LOGW(TAG, "Aborting qualified setpoint SDO transfer (%s): %s",
+           sdo_tx_.kind.c_str(), reason);
+  tx_errors_++;
+  sdo_tx_.reset();
+}
+
+bool TraneBus::start_setpoint_sdo_write_(const std::string &payload) {
+  tx_attempts_++;
+  if (!tx_enabled_) {
+    tx_blocked_++;
+    ESP_LOGW(TAG, "TX blocked (monitor-only mode): setpoints");
+    return false;
+  }
+  if (command_can_id_ != 0x641) {
+    tx_blocked_++;
+    ESP_LOGE(TAG, "TX blocked: qualified setpoint writer requires request COB-ID 0x641");
+    return false;
+  }
+  if (require_sc360_before_tx_ && !has_recent_trane_activity()) {
+    tx_blocked_++;
+    ESP_LOGW(TAG, "TX blocked: no recent SC360 activity observed");
+    return false;
+  }
+  if (pending_ack_ || sdo_tx_.active()) {
+    tx_busy_blocked_++;
+    ESP_LOGW(TAG, "TX blocked: another Trane command is still active");
+    return false;
+  }
+  if (!validate_payload_shape_(payload) || payload.size() > MAX_TX_JSON_PAYLOAD) {
+    tx_errors_++;
+    ESP_LOGE(TAG, "Refusing malformed or oversized setpoint JSON");
+    return false;
+  }
+
+  sdo_tx_.reset();
+  sdo_tx_.kind = "setpoints";
+  sdo_tx_.wire_payload.assign(payload.begin(), payload.end());
+  sdo_tx_.wire_payload.push_back(0);  // Stock UX360 transfer includes trailing NUL.
+  const uint32_t wire_len = static_cast<uint32_t>(sdo_tx_.wire_payload.size());
+
+  std::vector<uint8_t> initiate{
+      0xC2, 0x0A, 0x30, 0x00,
+      static_cast<uint8_t>(wire_len & 0xFF),
+      static_cast<uint8_t>((wire_len >> 8) & 0xFF),
+      static_cast<uint8_t>((wire_len >> 16) & 0xFF),
+      static_cast<uint8_t>((wire_len >> 24) & 0xFF),
+  };
+  if (!send_frame_(initiate)) {
+    sdo_tx_.reset();
+    return false;
+  }
+
+  sdo_tx_.phase = BlockSdoTxState::Phase::WAIT_INIT_RESPONSE;
+  sdo_tx_.phase_started_ms = millis();
+  ESP_LOGI(TAG, "Started qualified setpoint block-SDO write (%u wire bytes)",
+           static_cast<unsigned>(wire_len));
+  return true;
+}
+
+void TraneBus::service_sdo_tx_() {
+  if (!sdo_tx_.active())
+    return;
+
+  const uint32_t now = millis();
+  if (static_cast<uint32_t>(now - sdo_tx_.phase_started_ms) > ack_timeout_ms_) {
+    this->abort_sdo_tx_("transport phase timeout");
+    return;
+  }
+  if (sdo_tx_.phase != BlockSdoTxState::Phase::SEND_BLOCK ||
+      static_cast<int32_t>(now - sdo_tx_.next_segment_ms) < 0)
+    return;
+
+  if (sdo_tx_.offset >= sdo_tx_.wire_payload.size()) {
+    sdo_tx_.phase = BlockSdoTxState::Phase::WAIT_BLOCK_ACK;
+    sdo_tx_.phase_started_ms = now;
+    return;
+  }
+
+  const size_t remaining = sdo_tx_.wire_payload.size() - sdo_tx_.offset;
+  const size_t count = std::min<size_t>(7, remaining);
+  const bool final_payload_segment = count == remaining;
+  const uint8_t sequence = sdo_tx_.next_sequence;
+
+  std::vector<uint8_t> frame(8, 0);
+  frame[0] = sequence | (final_payload_segment ? 0x80 : 0x00);
+  for (size_t i = 0; i < count; i++)
+    frame[i + 1] = sdo_tx_.wire_payload[sdo_tx_.offset + i];
+
+  if (!send_frame_(frame)) {
+    this->abort_sdo_tx_("CAN send failed");
+    return;
+  }
+
+  sdo_tx_.offset += count;
+  sdo_tx_.last_sequence = sequence;
+  const bool block_full = sequence >= sdo_tx_.block_size;
+  if (final_payload_segment || block_full) {
+    sdo_tx_.phase = BlockSdoTxState::Phase::WAIT_BLOCK_ACK;
+    sdo_tx_.phase_started_ms = now;
+  } else {
+    sdo_tx_.next_sequence++;
+    sdo_tx_.next_segment_ms = now + INTER_FRAME_DELAY_MS;
+  }
+}
+
+bool TraneBus::send_sdo_end_request_() {
+  if (sdo_tx_.wire_payload.empty())
+    return false;
+  const uint8_t unused =
+      static_cast<uint8_t>((7U - (sdo_tx_.wire_payload.size() % 7U)) % 7U);
+  std::vector<uint8_t> frame(8, 0);
+  frame[0] = static_cast<uint8_t>(0xC1U | (unused << 2));
+  if (!send_frame_(frame))
+    return false;
+  sdo_tx_.phase = BlockSdoTxState::Phase::WAIT_END_RESPONSE;
+  sdo_tx_.phase_started_ms = millis();
+  return true;
+}
+
+void TraneBus::handle_sdo_tx_response_(const std::vector<uint8_t> &data) {
+  if (!sdo_tx_.active() || data.empty())
+    return;
+
+  if (data[0] == 0x80) {
+    this->abort_sdo_tx_("server SDO abort");
+    return;
+  }
+
+  if (sdo_tx_.phase == BlockSdoTxState::Phase::WAIT_INIT_RESPONSE) {
+    if (data.size() < 5 || data[0] != 0xA0 || data[1] != 0x0A ||
+        data[2] != 0x30 || data[3] != 0x00 || data[4] == 0 ||
+        data[4] > 0x7F) {
+      this->abort_sdo_tx_("unexpected block-init response");
+      return;
+    }
+    sdo_tx_.block_size = data[4];
+    sdo_tx_.next_sequence = 1;
+    sdo_tx_.phase = BlockSdoTxState::Phase::SEND_BLOCK;
+    sdo_tx_.phase_started_ms = millis();
+    sdo_tx_.next_segment_ms = millis();
+    return;
+  }
+
+  if (sdo_tx_.phase == BlockSdoTxState::Phase::WAIT_BLOCK_ACK) {
+    if (data.size() < 3 || data[0] != 0xA2 ||
+        data[1] != sdo_tx_.last_sequence || data[2] == 0 ||
+        data[2] > 0x7F) {
+      this->abort_sdo_tx_("unexpected block acknowledgement");
+      return;
+    }
+
+    sdo_tx_.block_size = data[2];
+    if (sdo_tx_.offset >= sdo_tx_.wire_payload.size()) {
+      if (!this->send_sdo_end_request_())
+        this->abort_sdo_tx_("failed to send block-end request");
+      return;
+    }
+
+    sdo_tx_.next_sequence = 1;
+    sdo_tx_.phase = BlockSdoTxState::Phase::SEND_BLOCK;
+    sdo_tx_.phase_started_ms = millis();
+    sdo_tx_.next_segment_ms = millis() + INTER_FRAME_DELAY_MS;
+    return;
+  }
+
+  if (sdo_tx_.phase == BlockSdoTxState::Phase::WAIT_END_RESPONSE) {
+    if (data[0] != 0xA1) {
+      this->abort_sdo_tx_("unexpected block-end response");
+      return;
+    }
+
+    const std::string kind = sdo_tx_.kind;
+    sdo_tx_.reset();
+    pending_ack_ = true;
+    pending_ack_since_ms_ = millis();
+    pending_kind_ = kind;
+    tx_messages_++;
+    ESP_LOGI(TAG, "Qualified setpoint SDO transport complete; waiting for application ACK");
+  }
+}
+
 bool TraneBus::validate_payload_shape_(const std::string &payload) const {
   return payload.size() >= 2 && payload.front() == '{' && payload.back() == '}';
 }
@@ -803,9 +991,9 @@ bool TraneBus::send_json_internal_(const std::string &payload, bool expect_ack, 
     ESP_LOGW(TAG, "TX blocked: no recent SC360 activity observed");
     return false;
   }
-  if (pending_ack_) {
+  if (pending_ack_ || sdo_tx_.active()) {
     tx_busy_blocked_++;
-    ESP_LOGW(TAG, "TX blocked: waiting for ACK for %s", pending_kind_.c_str());
+    ESP_LOGW(TAG, "TX blocked: another Trane command is still active");
     return false;
   }
   if (!validate_payload_shape_(payload) || payload.size() > MAX_TX_JSON_PAYLOAD) {
@@ -814,16 +1002,12 @@ bool TraneBus::send_json_internal_(const std::string &payload, bool expect_ack, 
     return false;
   }
 
-  // Passive target captures now prove that Trane JSON is transported as a
-  // CANopen SDO download to object 0x300A:00. The legacy writer previously
-  // emitted guessed C2/sequence frames without an object index and without
-  // waiting for the mandatory SDO server responses (A0/A2/A1 or 60/20/30).
-  // Sending that sequence would be an invalid SDO transaction. Fail closed
-  // until a non-blocking SDO client state machine is implemented and command
-  // direction is qualified against a captured UX360 command transaction.
+  // October 3 qualifies this transport only for stock SpOverride.Put setpoint
+  // writes. Raw JSON, mode writes and profile requests remain intentionally
+  // fail-closed until their own stock request transactions are captured.
   (void) expect_ack;
   tx_blocked_++;
-  ESP_LOGE(TAG, "TX blocked: CANopen SDO writer for Trane object 0x300A:00 is not yet qualified (%s)", kind);
+  ESP_LOGE(TAG, "TX blocked: application writer is not qualified for %s", kind);
   return false;
 }
 
@@ -863,11 +1047,19 @@ bool TraneBus::set_setpoints(float heat_f, float cool_f, int zone, int hold_type
     tx_errors_++;
     return false;
   }
+  if (zone != 1 || hold_type != 1 || source != 1) {
+    ESP_LOGW(TAG,
+             "TX blocked: qualified stock setpoint path requires zone=1 hold_type=1 source=1");
+    tx_blocked_++;
+    return false;
+  }
+
   char payload[180];
+  // Preserve the exact field order observed in both stock October 3 writes.
   snprintf(payload, sizeof(payload),
-           "{\"SpOverride\":{\"Put\":{\"%d\":{\"Hsp\":\"%.0f\",\"Csp\":\"%.0f\",\"HoldType\":\"%d\",\"Source\":\"%d\"}}}}",
-           zone, heat_f, cool_f, hold_type, source);
-  return send_json_internal_(payload, true, "setpoints");
+           "{\"SpOverride\":{\"Put\":{\"%d\":{\"Csp\":\"%.0f\",\"Hsp\":\"%.0f\",\"HoldType\":\"%d\",\"Source\":\"%d\"}}}}",
+           zone, cool_f, heat_f, hold_type, source);
+  return start_setpoint_sdo_write_(payload);
 }
 
 bool TraneBus::request_profile(const std::string &profile) {

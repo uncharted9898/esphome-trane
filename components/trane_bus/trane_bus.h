@@ -56,7 +56,7 @@ class TraneBus : public Component {
 
   bool send_json(const std::string &payload);
   bool set_system_mode(const std::string &mode);
-  bool set_setpoints(float heat_f, float cool_f, int zone = 1, int hold_type = 2, int source = 1);
+  bool set_setpoints(float heat_f, float cool_f, int zone = 1, int hold_type = 1, int source = 1);
   bool request_profile(const std::string &profile);
 
   void start_capture(bool clear_first = false);
@@ -150,6 +150,40 @@ class TraneBus : public Component {
     }
   };
 
+  struct BlockSdoTxState {
+    enum class Phase : uint8_t {
+      IDLE = 0,
+      WAIT_INIT_RESPONSE,
+      SEND_BLOCK,
+      WAIT_BLOCK_ACK,
+      WAIT_END_RESPONSE,
+    };
+
+    Phase phase{Phase::IDLE};
+    std::vector<uint8_t> wire_payload{};
+    size_t offset{0};
+    uint8_t block_size{0};
+    uint8_t next_sequence{1};
+    uint8_t last_sequence{0};
+    uint32_t phase_started_ms{0};
+    uint32_t next_segment_ms{0};
+    std::string kind{};
+
+    void reset() {
+      phase = Phase::IDLE;
+      wire_payload.clear();
+      offset = 0;
+      block_size = 0;
+      next_sequence = 1;
+      last_sequence = 0;
+      phase_started_ms = 0;
+      next_segment_ms = 0;
+      kind.clear();
+    }
+
+    bool active() const { return phase != Phase::IDLE; }
+  };
+
   struct CapturedFrame {
     uint32_t timestamp_ms{0};
     uint32_t can_id{0};
@@ -166,6 +200,11 @@ class TraneBus : public Component {
 
   bool send_frame_(const std::vector<uint8_t> &frame);
   bool send_json_internal_(const std::string &payload, bool expect_ack, const char *kind);
+  bool start_setpoint_sdo_write_(const std::string &payload);
+  void service_sdo_tx_();
+  void handle_sdo_tx_response_(const std::vector<uint8_t> &data);
+  void abort_sdo_tx_(const char *reason);
+  bool send_sdo_end_request_();
   bool validate_payload_shape_(const std::string &payload) const;
   bool validate_profile_name_(const std::string &profile) const;
   bool is_known_trane_id_(uint32_t can_id) const;
@@ -209,6 +248,7 @@ class TraneBus : public Component {
   SegmentedRxState rx_621_{};
   SegmentedRxState rx_641_{};
   SegmentedRxState rx_649_{};
+  BlockSdoTxState sdo_tx_{};
   Trigger<std::string, uint32_t> json_trigger_;
 
   size_t capture_capacity_{0};
