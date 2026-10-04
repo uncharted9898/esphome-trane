@@ -922,20 +922,26 @@ void TraneBus::handle_sdo_tx_response_(const std::vector<uint8_t> &data) {
   }
 
   if (sdo_tx_.phase == BlockSdoTxState::Phase::WAIT_BLOCK_ACK) {
-    if (data.size() < 3 || data[0] != 0xA2 ||
-        data[1] != sdo_tx_.last_sequence || data[2] == 0 ||
-        data[2] > 0x7F) {
+    if (data.size() < 2 || data[0] != 0xA2 ||
+        data[1] != sdo_tx_.last_sequence) {
       this->abort_sdo_tx_("unexpected block acknowledgement");
       return;
     }
 
-    sdo_tx_.block_size = data[2];
+    // Both October 3 stock writes finish in one 12-segment block and the
+    // server responds A2 0C 00..., i.e. no next-block size is needed. Accept
+    // that exact final-ACK form before validating a continuation block size.
     if (sdo_tx_.offset >= sdo_tx_.wire_payload.size()) {
       if (!this->send_sdo_end_request_())
         this->abort_sdo_tx_("failed to send block-end request");
       return;
     }
 
+    if (data.size() < 3 || data[2] == 0 || data[2] > 0x7F) {
+      this->abort_sdo_tx_("invalid continuation block size");
+      return;
+    }
+    sdo_tx_.block_size = data[2];
     sdo_tx_.next_sequence = 1;
     sdo_tx_.phase = BlockSdoTxState::Phase::SEND_BLOCK;
     sdo_tx_.phase_started_ms = millis();
