@@ -18,6 +18,7 @@ static const char *const TAG = "trane_bus";
 static constexpr size_t MAX_RX_JSON_PAYLOAD = 4096;
 static constexpr size_t MAX_TX_JSON_PAYLOAD = 512;
 static constexpr uint32_t INTER_FRAME_DELAY_MS = 2;
+static constexpr uint32_t COMMAND_SDO_QUIET_MS = 100;
 
 void TraneBus::setup() {
   if (canbus_ == nullptr) {
@@ -376,6 +377,9 @@ void TraneBus::on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const 
     trane_frames_++;
     last_trane_frame_ms_ = millis();
   }
+
+  if (can_id == 0x641 || can_id == 0x5C1)
+    last_command_sdo_activity_ms_ = millis();
 
   if (can_id == 0x649 || can_id == 0x5C9 || can_id == 0x641) {
     seen_sc360_ = true;
@@ -808,6 +812,15 @@ bool TraneBus::start_setpoint_sdo_write_(const std::string &payload) {
   if (require_sc360_before_tx_ && !has_recent_trane_activity()) {
     tx_blocked_++;
     ESP_LOGW(TAG, "TX blocked: no recent SC360 activity observed");
+    return false;
+  }
+  const uint32_t now = millis();
+  if (last_command_sdo_activity_ms_ != 0 &&
+      static_cast<uint32_t>(now - last_command_sdo_activity_ms_) <
+          COMMAND_SDO_QUIET_MS) {
+    tx_busy_blocked_++;
+    ESP_LOGW(TAG,
+             "TX blocked: stock 0x641/0x5C1 SDO channel is currently active");
     return false;
   }
   if (pending_ack_ || sdo_tx_.active()) {

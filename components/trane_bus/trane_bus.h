@@ -234,6 +234,7 @@ class TraneBus : public Component {
   uint32_t pending_ack_since_ms_{0};
   uint32_t last_trane_frame_ms_{0};
   uint32_t last_sc360_frame_ms_{0};
+  uint32_t last_command_sdo_activity_ms_{0};
   uint32_t last_json_ms_{0};
 
   float setpoint_min_f_{50.0f};

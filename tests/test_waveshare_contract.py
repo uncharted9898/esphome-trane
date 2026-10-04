@@ -192,6 +192,10 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("wire_payload.push_back(0)", BUS_CPP)
         self.assertIn("pending_ack_ = true", BUS_CPP)
         self.assertIn("command_can_id_ != 0x641", BUS_CPP)
+        self.assertIn("qualified_setpoint_tx_enabled_", BUS_CPP)
+        self.assertIn("COMMAND_SDO_QUIET_MS = 100", BUS_CPP)
+        self.assertIn("last_command_sdo_activity_ms_", BUS_H)
+        self.assertIn("stock 0x641/0x5C1 SDO channel is currently active", BUS_CPP)
 
     def test_setpoint_writer_uses_stock_oct3_shape_only(self):
         block = BUS_CPP.split("bool TraneBus::set_setpoints", 1)[1].split(
