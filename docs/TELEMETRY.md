@@ -538,3 +538,14 @@ The day contains many 42-byte `0x300A` transfers, but the observed examples
 are NUL-terminated and parse cleanly. No exact-length/no-NUL DebugUI transfer
 occurred on this day, so the 2026-09-30/10-01 regression evidence remains the
 basis for that transport fix.
+
+
+### 2026-10-03 stock setpoint transport
+
+The full-day archive contains two stock `SpOverride.Put` writes on
+`0x641/0x5C1`, both using CANopen block SDO download to `0x300A:00`,
+followed by accepted-state broadcasts and application `{"Ack":"200"}`.
+Both stock requests use `HoldType:"1"` and `Source:"1"`.
+
+No stock mode-write transaction was observed. A qualified local writer may use
+this evidence for setpoints only; mode and arbitrary JSON TX remain unqualified.

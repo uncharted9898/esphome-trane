@@ -113,3 +113,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-sustained-stage2.md](2026-10-02/full-day-sustained-stage2.md) | Nine cooling intervals including a ~5.75-hour run with ~5.3 hours of Stage 2, blower-request confirmation, six more 0x385 sentinels, two stator-heat cycles, pressure/thermal long-run confirmation, and clean structured JSON transport |
+
+
+## 2026-10-03
+
+| File | What it captured |
+|---|---|
+| [full-day-stock-setpoint-transport.md](2026-10-03/full-day-stock-setpoint-transport.md) | Full-day archive, exact stock SpOverride.Put CANopen block-SDO handshake, application Ack path, SystemOpStatus.E humidity requalification, and third exact-length/no-NUL JSON observation |
