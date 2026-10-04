@@ -198,7 +198,7 @@ class WaveshareSafetyContractTests(unittest.TestCase):
             "bool TraneBus::request_profile", 1
         )[0]
         self.assertIn("zone != 1 || hold_type != 1 || source != 1", block)
-        self.assertIn('\\\"Csp\\\":\\\"%.0f\\\",\\\"Hsp\\\":\\\"%.0f', repr(block))
+        self.assertIn('\\\"Csp\\\":\\\"%.0f\\\",\\\"Hsp\\\":\\\"%.0f', block)
         self.assertIn("start_setpoint_sdo_write_(payload)", block)
         self.assertIn("default=1", BUS_PY)
         self.assertIn("hold_type: 1", (ROOT / "waveshare-trane-control.yaml").read_text())

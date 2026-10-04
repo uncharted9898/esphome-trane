@@ -163,14 +163,21 @@ class TransportSourceContractTests(unittest.TestCase):
         self.assertIn("data[1] == 0x0A && data[2] == 0x30 && data[3] == 0x00", CPP)
         self.assertNotIn("if ((marker & 0xF0) == 0xC0)", CPP)
 
-    def test_legacy_guessed_tx_framing_is_fail_closed(self):
+    def test_unqualified_generic_tx_remains_fail_closed(self):
         tx = CPP.split("bool TraneBus::send_json_internal_", 1)[1].split(
             "bool TraneBus::send_json(const std::string &payload)", 1
         )[0]
-        self.assertIn("CANopen SDO writer for Trane object 0x300A:00 is not yet qualified", tx)
+        self.assertIn("application writer is not qualified for %s", tx)
         self.assertNotIn("std::vector<uint8_t> header", tx)
-        self.assertNotIn("send_frame_(header)", tx)
-        self.assertNotIn("frame[0] = seq", tx)
+        self.assertNotIn("send_frame_(", tx)
+
+    def test_qualified_setpoint_transport_uses_real_sdo_state_machine(self):
+        self.assertIn("start_setpoint_sdo_write_", CPP)
+        self.assertIn("handle_sdo_tx_response_", CPP)
+        self.assertIn("0xC2, 0x0A, 0x30, 0x00", CPP)
+        self.assertIn("WAIT_INIT_RESPONSE", BUS_H)
+        self.assertIn("WAIT_BLOCK_ACK", BUS_H)
+        self.assertIn("WAIT_END_RESPONSE", BUS_H)
 
     def test_active_state_is_processed_before_idle_headers(self):
         state_pos = CPP.index("if (state.expected_len != 0)")

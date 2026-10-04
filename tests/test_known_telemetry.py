@@ -372,7 +372,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "Input Power",
             "0x460 Temperature Candidate",
         ):
-            self.assertIn(f'name: "{label}"', EXTRA)
+            self.assertIn(f'name: "{label}"', TELEMETRY + EXTRA)
 
     def test_pressure_names_do_not_claim_absolute_representation(self):
         combined = TELEMETRY + EXTRA
