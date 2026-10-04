@@ -127,7 +127,7 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertEqual([row["json"] for row in messages], [{"Long": "abcdefghijklmnop"}])
 
     def test_block_download_exact_length_without_trailing_nul(self):
-        for heap_remaining in ("33054720", "32538624"):
+        for heap_remaining in ("33054720", "32538624", "32022528"):
             payload = (
                 f'{{"DebugUI":{{"HiHeapRemaining":"{heap_remaining}"}}}}'
             ).encode()
@@ -152,7 +152,7 @@ class CaptureAnalyzerTests(unittest.TestCase):
                 marker = seq | (0x80 if last else 0)
                 lines.append(
                     f"TRANE_CAN_LIVE,S,{tick},641,8,"
-                    + (bytes([marker]) + chunk.ljust(7, b"\\x00")).hex()
+                    + (bytes([marker]) + chunk.ljust(7, b"\x00")).hex()
                 )
                 tick += 1
                 seq += 1

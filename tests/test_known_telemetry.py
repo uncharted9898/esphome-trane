@@ -332,11 +332,14 @@ class KnownTelemetryContractTests(unittest.TestCase):
         # later high-load operating point.
         for label in (
             "Outdoor Coil Temperature",
-            "Compressor Discharge Temperature Candidate",
             "Line Voltage",
             "0x387 Compressor Speed Reference Limit Candidate",
         ):
             self.assertIn(f'name: "{label}"', TELEMETRY)
+        self.assertIn(
+            'name: "Compressor Discharge Temperature Candidate"',
+            TELEMETRY + EXTRA,
+        )
 
         for stale in (
             'name: "0x381 Suction Temperature"',

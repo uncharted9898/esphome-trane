@@ -97,6 +97,39 @@ def parse_trane_line(line: str) -> dict[str, Any] | None:
     return None
 
 
+class JsonlWriter:
+    """Legacy single-file JSONL writer retained for API compatibility."""
+
+    def __init__(
+        self,
+        path: Path,
+        source: str,
+        *,
+        now_fn: Callable[[], datetime] = local_now,
+    ) -> None:
+        self.path = path
+        self.source = source
+        self._now = now_fn
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._file = path.open("a", encoding="utf-8", buffering=1)
+
+    def write(self, record: dict[str, Any]) -> None:
+        when = self._now()
+        envelope = {
+            "host_ts": when.isoformat(timespec="milliseconds"),
+            "source": self.source,
+            **record,
+        }
+        self._file.write(
+            json.dumps(envelope, separators=(",", ":"), ensure_ascii=False)
+        )
+        self._file.write("\n")
+
+    def close(self) -> None:
+        self._file.flush()
+        self._file.close()
+
+
 class HourlyArchiveWriter:
     """Append JSONL into hourly chunks and archive completed days safely."""
 
