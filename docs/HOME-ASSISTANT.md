@@ -145,8 +145,10 @@ Those values come from sparse structured profile exchanges. If the bridge boots
 after the OEM profile sweep, or the relevant profile has not been repeated,
 only the roots observed since bridge boot can be retained.
 
-The bridge intentionally does not force a profile refresh while application TX
-is fail-closed. Check:
+The bridge intentionally does not force a profile refresh. Only the
+stock-qualified zone-1 setpoint writer has an active TX implementation, and it
+is disabled unless `tx_enabled` is explicitly armed. Profile and mode writes
+remain fail-closed. Check:
 
 - Structured Data Status
 - Structured Profile Snapshots Retained

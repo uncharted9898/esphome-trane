@@ -34,11 +34,11 @@ The bridge is a **parallel CAN tap**, not a replacement thermostat or inline gat
 
 ### Deliberately not enabled
 
-**Application/control TX remains fail-closed.**
+**Application/control TX remains opt-in and fail-closed by default.**
 
-Passive captures proved the historical writer was not a valid CANopen SDO transaction. The maintained component refuses application writes until a stock UX360 setpoint/mode command is captured and a qualified nonblocking SDO writer is implemented.
+Passive captures proved the historical writer was not a valid CANopen SDO transaction. The October 3 full-day capture then supplied two complete stock UX360 `SpOverride.Put` transactions, including the `0x641/0x5C1` CANopen block-SDO handshake and application `{"Ack":"200"}`. The maintained component now has a nonblocking writer for that narrowly qualified **zone-1 setpoint path only**.
 
-The intended local-control API is preserved, but passive monitoring is the production-safe path today.
+`tx_enabled` still defaults to `false`. Mode writes, profile requests and arbitrary JSON TX remain blocked because their stock request transactions have not been qualified. Passive monitoring remains the production-safe default.
 
 ## Hardware
 
@@ -71,7 +71,7 @@ For wiring details, power guidance, and tap topology see [docs/WIRING.md](docs/W
 | `waveshare-trane-commissioning.yaml` | Commissioning/census workflow |
 | `waveshare-trane-homeassistant.yaml` | Curated Home Assistant monitoring profile |
 | `waveshare-trane-homeassistant-debug.yaml` | Opt-in raw/debug HA profile for protocol work |
-| `waveshare-trane-control.yaml` | Guarded control-development profile; TX still fail-closed |
+| `waveshare-trane-control.yaml` | Guarded control-development profile; stock-qualified setpoint writer available only when TX is explicitly armed |
 | `waveshare-trane-full.yaml` | Full decoder/integration profile |
 | `esphome-trane.yaml` | Legacy full decoder retained for compatibility/testing |
 

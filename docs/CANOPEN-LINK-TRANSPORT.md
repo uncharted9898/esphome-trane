@@ -218,22 +218,38 @@ Trane-specific:
   `SpOverride`, etc.);
 - application-level request/response meaning carried inside that JSON.
 
-This distinction is important: the transport no longer needs a bespoke framing
-implementation. Future active control should use a real non-blocking CANopen
-SDO client targeting `0x300A:00`, with the observed application JSON layered
-above it.
+This distinction is important: the transport no longer needs bespoke framing.
+Active control must use a real non-blocking CANopen SDO client targeting
+`0x300A:00`, with captured application JSON layered above it.
 
 ### Active-write safety status
 
 The repository's historical transmitter pre-dated this SDO decode and emitted a
 guessed `C2`/sequence stream without object index `0x300A` or the mandatory
-SDO server handshakes. That sequence is not a valid target SDO transaction.
+SDO server handshakes. That sequence remains removed.
 
-The maintained `trane_bus` component therefore now **fails closed** for
-application writes even if TX is manually armed. Passive receive/decode remains
-fully active. Re-enable writes only after a proper asynchronous SDO client state
-machine is implemented and command direction is qualified against a captured
-UX360 command transaction.
+The October 3 capture qualifies one narrow active path: stock UX360 zone-1
+`SpOverride.Put` setpoint writes use request COB-ID `0x641`, response
+COB-ID `0x5C1`, object `0x300A:00`, CANopen block download, and an
+application `{"Ack":"200"}`.
+
+The maintained `trane_bus` now implements that setpoint path as a
+nonblocking, response-driven SDO client. It waits for `A0`, honors the
+negotiated block size, waits for matching `A2`, sends the encoded block-end
+request, waits for `A1`, and only then starts the application-ACK timer.
+`tx_enabled` remains false by default and recent SC360 activity is still
+required. Mode, profile and arbitrary JSON writes remain fail-closed because no
+equivalent stock request capture has qualified them.
+
+Both stock writes used this exact application field order and policy:
+
+```json
+{"SpOverride":{"Put":{"1":{"Csp":"77","Hsp":"62","HoldType":"1","Source":"1"}}}}
+```
+
+The second changes only `Csp` to `78`. The qualified writer therefore
+rejects zones other than 1 and hold/source values other than 1 rather than
+extrapolating uncaptured semantics.
 
 
 ## Emergency-like identifiers
