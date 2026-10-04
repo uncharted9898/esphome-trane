@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CPP = (ROOT / "components/trane_bus/trane_bus.cpp").read_text()
+BUS_H = (ROOT / "components/trane_bus/trane_bus.h").read_text()
 
 
 class ReferenceTargetDecoder:
