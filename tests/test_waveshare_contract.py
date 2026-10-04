@@ -193,6 +193,17 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("pending_ack_ = true", BUS_CPP)
         self.assertIn("command_can_id_ != 0x641", BUS_CPP)
         self.assertIn("qualified_setpoint_tx_enabled_", BUS_CPP)
+        self.assertIn('CONF_QUALIFIED_SETPOINT_TX_ENABLED = "qualified_setpoint_tx_enabled"', BUS_PY)
+        self.assertIn("default=False", BUS_PY)
+        for profile in (
+            "waveshare-trane-control.yaml",
+            "waveshare-trane-full.yaml",
+            "waveshare-trane-homeassistant.yaml",
+        ):
+            self.assertIn(
+                "qualified_setpoint_tx_enabled: false",
+                (ROOT / profile).read_text(),
+            )
         self.assertIn("COMMAND_SDO_QUIET_MS = 100", BUS_CPP)
         self.assertIn("last_command_sdo_activity_ms_", BUS_H)
         self.assertIn("stock 0x641/0x5C1 SDO channel is currently active", BUS_CPP)

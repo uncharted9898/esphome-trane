@@ -237,9 +237,13 @@ The maintained `trane_bus` now implements that setpoint path as a
 nonblocking, response-driven SDO client. It waits for `A0`, honors the
 negotiated block size, waits for matching `A2`, sends the encoded block-end
 request, waits for `A1`, and only then starts the application-ACK timer.
-`tx_enabled` remains false by default and recent SC360 activity is still
-required. Mode, profile and arbitrary JSON writes remain fail-closed because no
-equivalent stock request capture has qualified them.
+`tx_enabled` remains false by default. The setpoint writer also requires the
+static `qualified_setpoint_tx_enabled: true` acknowledgement, which defaults
+false, plus recent SC360 activity. Before starting a local transfer it requires
+100 ms of quiet on the stock `0x641/0x5C1` SDO pair so the bridge cannot
+interleave its block download with an in-progress stock transaction. Mode,
+profile and arbitrary JSON writes remain fail-closed because no equivalent
+stock request capture has qualified them.
 
 Both stock writes used this exact application field order and policy:
 

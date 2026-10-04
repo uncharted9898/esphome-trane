@@ -89,6 +89,10 @@ trane_bus:
   # Deliberately false in the repository. Set true only after the listen-only
   # commissioning image has verified the installed system and CAN wiring.
   tx_enabled: false
+  # Static second gate for the October 3 stock-qualified setpoint writer.
+  # Field testing requires deliberately changing this to true as well as
+  # enabling runtime TX; existing configs cannot acquire writes by accident.
+  qualified_setpoint_tx_enabled: false
   raw_json_enabled: false
   require_sc360_before_tx: true
   bus_activity_timeout: 5min

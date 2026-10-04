@@ -38,7 +38,7 @@ The bridge is a **parallel CAN tap**, not a replacement thermostat or inline gat
 
 Passive captures proved the historical writer was not a valid CANopen SDO transaction. The October 3 full-day capture then supplied two complete stock UX360 `SpOverride.Put` transactions, including the `0x641/0x5C1` CANopen block-SDO handshake and application `{"Ack":"200"}`. The maintained component now has a nonblocking writer for that narrowly qualified **zone-1 setpoint path only**.
 
-`tx_enabled` still defaults to `false`. Mode writes, profile requests and arbitrary JSON TX remain blocked because their stock request transactions have not been qualified. Passive monitoring remains the production-safe default.
+`tx_enabled` still defaults to `false`. The qualified setpoint writer has a second static acknowledgement gate, `qualified_setpoint_tx_enabled`, which also defaults to `false`; both must be deliberately armed before a setpoint write can reach CAN. This prevents an older development config containing `tx_enabled: true` from silently gaining write capability after an update. Mode writes, profile requests and arbitrary JSON TX remain blocked because their stock request transactions have not been qualified. Passive monitoring remains the production-safe default.
 
 ## Hardware
 
