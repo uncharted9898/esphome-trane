@@ -86,12 +86,16 @@ sensor:
 
   # SC360 -------------------------------------------------------------------
   - platform: template
+    # Legacy id retained for compatibility; target captures prove this is the
+    # structured indoor-humidity mirror, not outdoor temperature.
     id: trane_sc360_outdoor_temp
-    name: "SC360 Outdoor Temperature"
-    unit_of_measurement: "°F"
-    device_class: temperature
+    name: "System Indoor Humidity Mirror"
+    unit_of_measurement: "%"
+    device_class: humidity
     state_class: measurement
-    accuracy_decimals: 1
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    disabled_by_default: true
     device_id: dev_sc360
 
   - platform: template
@@ -755,15 +759,9 @@ trane_bus:
             id(trane_system_status_e_raw).publish_state(value);
             char *tail = nullptr;
             float v = strtof(value.c_str(), &tail);
-            if (tail != value.c_str() && *tail == '\0') {
-              // Historical SC360 captures use decimal-form E for outdoor temp
-              // and integer-form E for indoor humidity. Keep E Raw visible so
-              // the target 9.4.x system can prove/refute this heuristic.
-              if (value.find('.') != std::string::npos) {
-                if (v > -60 && v < 160) id(trane_sc360_outdoor_temp).publish_state(v);
-              } else if (v >= 0 && v <= 100) {
-                id(trane_indoor_humidity).publish_state(v);
-              }
+            if (tail != value.c_str() && *tail == '\0' && v >= 0 && v <= 100) {
+              id(trane_sc360_outdoor_temp).publish_state(v);
+              id(trane_indoor_humidity).publish_state(v);
             }
           }
         }

@@ -170,14 +170,16 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn("value <= -90.0f", TELEMETRY)
         self.assertNotIn("id(trane_room_temp).publish_state(f);", HA)
 
-    def test_system_status_e_no_longer_fakes_outdoor_temp_or_humidity(self):
-        self.assertIn('name: "System Compressor Speed Ceiling Candidate"', TELEMETRY)
+    def test_system_status_e_is_humidity_mirror_not_speed_ceiling(self):
+        self.assertIn('name: "System Indoor Humidity Mirror"', TELEMETRY)
+        self.assertNotIn('name: "System Compressor Speed Ceiling Candidate"', TELEMETRY)
         self.assertNotIn('name: "SC360 Outdoor Temperature"', TELEMETRY)
         self.assertIn('name: "Indoor Humidity"', TELEMETRY)
         self.assertIn("get_last_byte_or_nan(0x490, 4)", TELEMETRY)
         self.assertIn("value > 100.0f", TELEMETRY)
         self.assertNotIn("id(trane_indoor_humidity).publish_state(f);", HA)
         self.assertIn("id(trane_sc360_outdoor_temp).publish_state(f);", HA)
+        self.assertIn("f <= 100.0f", HA)
 
     def test_restored_profiles_are_actually_published(self):
         for token in (

@@ -76,16 +76,16 @@ sensor:
     device_id: dev_thermostat
 
   - platform: template
-    # Legacy internal id retained for entity/API compatibility. SystemOpStatus.E
-    # does not track outdoor ambient temperature: it stayed near 57-58 while
-    # the binary outdoor sensor moved from the upper-70s into the mid-80s F.
-    # Instead E behaves like the full-scale compressor-speed ceiling used by
-    # OdStatus.B: 58 RPS * 99% ~= 57.42 RPS, matching 0x280 ~=57.45 RPS.
+    # Legacy internal id retained for entity/API compatibility. The 2026-10-03
+    # full-day capture requalified SystemOpStatus.E as an indoor-humidity
+    # mirror: 22/23 nearest updates exactly matched 0x490.byte4, including
+    # repeated changes while compressor demand was zero.
     id: trane_sc360_outdoor_temp
-    name: "System Compressor Speed Ceiling Candidate"
-    unit_of_measurement: "RPS"
+    name: "System Indoor Humidity Mirror"
+    unit_of_measurement: "%"
+    device_class: humidity
     state_class: measurement
-    accuracy_decimals: 1
+    accuracy_decimals: 0
     entity_category: diagnostic
     disabled_by_default: true
     device_id: dev_sc360

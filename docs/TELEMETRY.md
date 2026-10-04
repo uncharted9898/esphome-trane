@@ -151,7 +151,7 @@ Trane structured JSON is transported through CANopen SDO writes to object `0x300
 | `B` | system mode code | Strong/observed |
 | `C` | demand/stage text | Observed |
 | `D` | System Demand Percent Candidate | Strong candidate; slower cadence than dedicated OdStatus demand |
-| `E` | System Compressor Speed Ceiling Candidate | Strong candidate; around 57-58 RPS, not outdoor temp/humidity |
+| `E` | Indoor Humidity Mirror | Confirmed on target; 2026-10-03 matched `0x490.byte4` on 22/23 nearest updates (R² ~0.991, |r| ~0.996), including changes while compressor demand was zero |
 
 Superseded: the old parser interpreted `SystemOpStatus.E` as outdoor temperature when decimal-formatted and humidity otherwise. Target captures disproved both meanings.
 
@@ -247,8 +247,8 @@ These names should not be reintroduced without new independent evidence:
 | `0x387.float[0] = actual compressor speed` | remains 55 while compressor is stopped |
 | `0x386.float[1] = vapor saturation temperature` | fixed ~50 across changing load |
 | `0x460.float[0] = liquid saturation temperature` | does not track high-side pressure changes |
-| `SystemOpStatus.E = outdoor temperature` | stays ~57-58 while actual ambient changes ~upper-70s to upper-80s |
-| `SystemOpStatus.E = indoor humidity` | same field behaves as compressor-speed ceiling/reference family |
+| `SystemOpStatus.E = outdoor temperature` | 2026-10-03 directly matches the indoor-humidity byte instead |
+| `SystemOpStatus.E = compressor speed ceiling/reference` | 2026-10-03 changes 51-59 while compressor is often stopped and matches `0x490.byte4` on 22/23 nearest updates |
 | `0x281.u16@6 = blower RPM` | it is only byte6/byte7 combined; bytes are separate demand/active fields |
 
 ## Still unresolved / high-value targets
