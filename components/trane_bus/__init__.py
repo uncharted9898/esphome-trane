@@ -10,6 +10,7 @@ DEPENDENCIES = ["canbus"]
 CONF_CANBUS_ID = "canbus_id"
 CONF_COMMAND_CAN_ID = "command_can_id"
 CONF_TX_ENABLED = "tx_enabled"
+CONF_QUALIFIED_SETPOINT_TX_ENABLED = "qualified_setpoint_tx_enabled"
 CONF_RAW_JSON_ENABLED = "raw_json_enabled"
 CONF_REQUIRE_SC360_BEFORE_TX = "require_sc360_before_tx"
 CONF_BUS_ACTIVITY_TIMEOUT = "bus_activity_timeout"
@@ -44,6 +45,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Required(CONF_CANBUS_ID): cv.use_id(canbus.CanbusComponent),
         cv.Optional(CONF_COMMAND_CAN_ID, default=0x641): cv.int_range(min=0, max=0x7FF),
         cv.Optional(CONF_TX_ENABLED, default=False): cv.boolean,
+        cv.Optional(CONF_QUALIFIED_SETPOINT_TX_ENABLED, default=False): cv.boolean,
         cv.Optional(CONF_RAW_JSON_ENABLED, default=False): cv.boolean,
         cv.Optional(CONF_REQUIRE_SC360_BEFORE_TX, default=True): cv.boolean,
         cv.Optional(CONF_BUS_ACTIVITY_TIMEOUT, default="5min"): cv.positive_time_period_milliseconds,
@@ -68,6 +70,7 @@ async def to_code(config):
     cg.add(var.set_canbus(can))
     cg.add(var.set_command_can_id(config[CONF_COMMAND_CAN_ID]))
     cg.add(var.set_tx_enabled(config[CONF_TX_ENABLED]))
+    cg.add(var.set_qualified_setpoint_tx_enabled(config[CONF_QUALIFIED_SETPOINT_TX_ENABLED]))
     cg.add(var.set_raw_json_enabled(config[CONF_RAW_JSON_ENABLED]))
     cg.add(var.set_require_sc360_before_tx(config[CONF_REQUIRE_SC360_BEFORE_TX]))
     cg.add(var.set_bus_activity_timeout_ms(config[CONF_BUS_ACTIVITY_TIMEOUT].total_milliseconds))

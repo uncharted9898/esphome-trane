@@ -20,6 +20,7 @@ class TraneBus : public Component {
 
   void set_canbus(canbus::Canbus *canbus) { canbus_ = canbus; }
   void set_tx_enabled(bool enabled) { tx_enabled_ = enabled; }
+  void set_qualified_setpoint_tx_enabled(bool enabled) { qualified_setpoint_tx_enabled_ = enabled; }
   void set_raw_json_enabled(bool enabled) { raw_json_enabled_ = enabled; }
   void set_require_sc360_before_tx(bool enabled) { require_sc360_before_tx_ = enabled; }
   void set_bus_activity_timeout_ms(uint32_t timeout_ms) { bus_activity_timeout_ms_ = timeout_ms; }
@@ -220,6 +221,7 @@ class TraneBus : public Component {
 
   canbus::Canbus *canbus_{nullptr};
   bool tx_enabled_{false};
+  bool qualified_setpoint_tx_enabled_{false};
   bool raw_json_enabled_{false};
   bool require_sc360_before_tx_{true};
   bool seen_sc360_{false};

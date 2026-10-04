@@ -47,6 +47,8 @@ void TraneBus::dump_config() {
   ESP_LOGCONFIG(TAG, "Trane Link transport:");
   ESP_LOGCONFIG(TAG, "  Command CAN ID: 0x%03" PRIX32, command_can_id_);
   ESP_LOGCONFIG(TAG, "  TX enabled: %s", YESNO(tx_enabled_));
+  ESP_LOGCONFIG(TAG, "  Qualified setpoint TX acknowledged: %s",
+                YESNO(qualified_setpoint_tx_enabled_));
   ESP_LOGCONFIG(TAG, "  Raw JSON enabled: %s", YESNO(raw_json_enabled_));
   ESP_LOGCONFIG(TAG, "  Require SC360 before TX: %s", YESNO(require_sc360_before_tx_));
   ESP_LOGCONFIG(TAG, "  Bus activity timeout: %u ms", static_cast<unsigned>(bus_activity_timeout_ms_));
@@ -789,6 +791,13 @@ bool TraneBus::start_setpoint_sdo_write_(const std::string &payload) {
   if (!tx_enabled_) {
     tx_blocked_++;
     ESP_LOGW(TAG, "TX blocked (monitor-only mode): setpoints");
+    return false;
+  }
+  if (!qualified_setpoint_tx_enabled_) {
+    tx_blocked_++;
+    ESP_LOGW(TAG,
+             "TX blocked: stock-qualified setpoint writer requires explicit "
+             "qualified_setpoint_tx_enabled acknowledgement");
     return false;
   }
   if (command_can_id_ != 0x641) {
