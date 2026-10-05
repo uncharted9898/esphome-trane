@@ -361,12 +361,13 @@ three days:
 - 2026-09-30: `HiHeapRemaining = 33054720`
 - 2026-10-01: `HiHeapRemaining = 32538624`
 - 2026-10-03: `HiHeapRemaining = 32022528`
+- 2026-10-04: `HiHeapRemaining = 31506432`
 
-All three advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+All four advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
 optional-NUL rule is a normal Trane wire form rather than a one-off malformed
 sender.
 
 The 2026-10-03 archive was still captured with the pre-fix receiver. It emits
 one malformed `TRANE_JSON` line after 41 bytes, while the underlying CAN
 transaction is valid and the next block segment carries the final closing
-brace. The maintained receiver/analyzer fix accepts all three captures.
+brace. The maintained receiver/analyzer fix accepts all four captures.
