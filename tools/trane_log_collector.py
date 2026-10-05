@@ -97,39 +97,6 @@ def parse_trane_line(line: str) -> dict[str, Any] | None:
     return None
 
 
-class JsonlWriter:
-    """Legacy single-file JSONL writer retained for API compatibility."""
-
-    def __init__(
-        self,
-        path: Path,
-        source: str,
-        *,
-        now_fn: Callable[[], datetime] = local_now,
-    ) -> None:
-        self.path = path
-        self.source = source
-        self._now = now_fn
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self._file = path.open("a", encoding="utf-8", buffering=1)
-
-    def write(self, record: dict[str, Any]) -> None:
-        when = self._now()
-        envelope = {
-            "host_ts": when.isoformat(timespec="milliseconds"),
-            "source": self.source,
-            **record,
-        }
-        self._file.write(
-            json.dumps(envelope, separators=(",", ":"), ensure_ascii=False)
-        )
-        self._file.write("\n")
-
-    def close(self) -> None:
-        self._file.flush()
-        self._file.close()
-
-
 class HourlyArchiveWriter:
     """Append JSONL into hourly chunks and archive completed days safely."""
 
@@ -151,14 +118,12 @@ class HourlyArchiveWriter:
         )
         if not self.prefix:
             raise ValueError("output base must include a filename")
-
         self.directory.mkdir(parents=True, exist_ok=True)
+
         self._file: Any | None = None
         self._hour_key: str | None = None
         self.current_path: Path | None = None
 
-        # If the recorder was stopped or the host rebooted, finish any fully
-        # completed day before opening the current hour.
         self.archive_completed_days(self._now().date())
 
     def _hour_path(self, when: datetime) -> Path:
@@ -185,9 +150,6 @@ class HourlyArchiveWriter:
             return
 
         self._close_current()
-
-        # Crossing midnight makes yesterday eligible for archiving. At normal
-        # hour changes this is a no-op.
         self.archive_completed_days(when.date())
 
         self.current_path = self._hour_path(when)
@@ -211,8 +173,8 @@ class HourlyArchiveWriter:
     def archive_completed_days(self, current_day: date) -> list[Path]:
         """Archive hourly chunks older than current_day.
 
-        The raw JSONL chunks are removed only after the temporary tar.gz can be
-        reopened successfully and has been atomically renamed into place.
+        Source chunks are removed only after the temporary archive is reopened
+        successfully and atomically renamed into its final path.
         """
         pattern = self._chunk_pattern()
         grouped: dict[str, list[Path]] = {}
@@ -234,9 +196,6 @@ class HourlyArchiveWriter:
         for day_text, chunks in sorted(grouped.items()):
             archive = self._archive_path(day_text)
 
-            # Recovery path: an archive may already exist if a process stopped
-            # after the atomic rename but before all source chunks were removed.
-            # Only delete leftovers if the existing archive contains them.
             if archive.exists():
                 try:
                     with tarfile.open(archive, "r:gz") as existing:
@@ -259,8 +218,6 @@ class HourlyArchiveWriter:
                     for chunk in chunks:
                         bundle.add(chunk, arcname=chunk.name, recursive=False)
 
-                # Verify the gzip/tar can be reopened and that every source
-                # chunk is represented before deleting any raw evidence.
                 with tarfile.open(temp, "r:gz") as verify:
                     names = {
                         member.name
@@ -300,9 +257,6 @@ def install_stop_handlers(stop_event: asyncio.Event) -> list[str]:
             continue
         installed.append(sig.name)
 
-    # Ctrl-Z normally suspends a POSIX foreground process. For this foreground
-    # recorder, treat it as "finish this capture" so the current hourly file is
-    # flushed and closed rather than leaving a suspended recorder around.
     sigtstp = getattr(signal, "SIGTSTP", None)
     if sigtstp is not None:
         try:
@@ -350,8 +304,6 @@ async def collect(args: argparse.Namespace) -> int:
 
     def on_log(message: Any) -> None:
         text = message.message.decode("utf-8", "backslashreplace")
-        # SubscribeLogsResponse may contain multiple physical log lines. Keep
-        # each line independently timestamped and preserve the original text.
         for raw_line in text.splitlines() or [text]:
             line = ANSI_RE.sub("", raw_line).strip()
             record = parse_trane_line(line)
@@ -377,7 +329,6 @@ async def collect(args: argparse.Namespace) -> int:
     signal_hint = "Ctrl-C"
     if "SIGTSTP" in installed_signals:
         signal_hint += " or Ctrl-Z"
-
     print(f"Recording {args.address}:{args.port}")
     print(
         f"Hourly chunks: {writer.directory / (writer.prefix + '-YYYY-MM-DD-HH.jsonl')}"
@@ -412,9 +363,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         help=(
-            "output base (default: trane-capture.jsonl); for example "
-            "/data/trane/trane.jsonl creates trane-YYYY-MM-DD-HH.jsonl hourly "
-            "chunks and trane-YYYY-MM-DD.tar.gz daily archives"
+            "output base (default: trane-capture.jsonl); e.g. "
+            "/data/trane/trane.jsonl creates hourly trane-YYYY-MM-DD-HH.jsonl "
+            "chunks and daily trane-YYYY-MM-DD.tar.gz archives"
         ),
     )
     parser.add_argument(
@@ -430,7 +381,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return asyncio.run(collect(args))
     except KeyboardInterrupt:
-        # Fallback for event loops/platforms where add_signal_handler is absent.
         return 130
 
 
