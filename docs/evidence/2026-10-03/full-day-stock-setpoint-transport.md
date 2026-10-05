@@ -9,6 +9,9 @@ Source archive: `trane-2026-10-03.tar.gz`
 - 2,647,343 raw CAN records
 - 82 distinct CAN IDs
 - 2,463 `TRANE_JSON` records
+- zero malformed JSONL rows
+- one malformed decoded `TRANE_JSON` payload, traced to the known pre-fix
+  optional-NUL receiver bug rather than archive corruption
 - UTC coverage approximately 00:00:00.081 through 23:59:59.932
 
 ## Stock SpOverride.Put transactions
@@ -92,11 +95,14 @@ friendly Home Assistant humidity source.
 
 From `SystemOpStatus.C`:
 
-- 18 cooling intervals
-- about 261.2 minutes total cooling-state time
+- 18 new cooling starts
+- about 261.2 minutes total structured cooling-state time
 - about 100.4 minutes total `AC Stage 2`
-- longest cooling interval about 105.5 minutes
+- longest structured cooling interval about 105.5 minutes
 - that interval contains about 100.4 minutes of Stage 2
+
+From raw `0x384.f0` compressor motion there are 19 operating intervals,
+because the archive begins with a carry-over run already active at midnight.
 
 The maintained compressor speed, compressor-demand, blower request/feedback,
 pressure-pair, line-voltage and power families remain coherent across the day.
@@ -113,3 +119,30 @@ and carries:
 There is no trailing NUL inside the declared length. This is the third
 independent target observation, after September 30 and October 1, proving that
 Trane JSON transport supports both NUL-sized and exact-JSON-sized payloads.
+
+
+## Stator heat
+
+One isolated stator-heat interval occurs at approximately
+12:04:56-12:13:09 UTC (~8.2 minutes).
+
+`0x390.byte0` first becomes nonzero about 8.8 seconds after the
+`0x282.byte1` enable. The cumulative project total is now **76 isolated
+stator-heat cycles**.
+
+## Other maintained telemetry checks
+
+The full-day archive independently confirms the existing mappings:
+
+- numeric `IndoorStatus.E` remains tightly tied to the `0x200.u16@2`
+  blower-speed request (correlation ~0.999; median scale ~8.0 units/%);
+- seven additional `0x385.f1 = 65535` startup sentinels appear and remain
+  correctly excluded by the 0-200 RPS validity filter;
+- active `0x383.f0/f1` continue to split as suction/high-side pressure and
+  re-equalize at idle;
+- `0x460.f0` remains tightly correlated with the outdoor power-electronics
+  thermal family while `0x430.f1` and both `0x450` fields remain
+  unqualified.
+
+No A2L/leak, heating, defrost, reversing-valve, or 185.x
+low-suction-protection event is present in the structured stream.
