@@ -45,7 +45,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Blower Active Flag Candidate | Strong candidate | Remains 1 during blower coast-down, reaches 0 when stopped. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
-| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 76 isolated cycles from 2026-09-23 through 2026-10-03, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. Compressor and outdoor fan stay stopped throughout isolated cycles. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 94 isolated cycles from 2026-09-23 through 2026-10-04, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. Compressor and outdoor fan stay stopped throughout isolated cycles. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
 | `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
 | `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
@@ -98,7 +98,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
 | `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
-| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 76 isolated stator-heat cycles through 2026-10-03, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 94 isolated stator-heat cycles through 2026-10-04, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -569,3 +569,58 @@ contains the final brace in the next block segment.
 
 No stock mode-write transaction was observed. A qualified local writer may use
 this evidence for setpoints only; mode and arbitrary JSON TX remain unqualified.
+
+
+### 2026-10-04 all-day idle stator cadence
+
+The full-day archive is mechanically idle for all 24 hours:
+
+- compressor request `0x280.f0 = 0`;
+- actual compressor speed `0x384.f0 = 0`;
+- compressor power `0x385.f0 = 0`;
+- blower current/speed/power remain zero;
+- no structured cooling/heating/defrost/A2L event is present.
+
+Despite that, `0x282.byte1` identifies **18 isolated stator-heat cycles**.
+Observed cadence:
+
+- duration range: ~7.54-8.32 min;
+- median duration: ~7.96 min;
+- mean duration: ~7.95 min;
+- start-to-start spacing: ~65.4-116.2 min;
+- median spacing: ~76.0 min;
+- mean spacing: ~80.0 min;
+- `0x390.byte0` becomes nonzero ~8.84-9.76 s after enable
+  (median ~9.48 s).
+
+Outdoor ambient `0x380.f1` spans roughly 60.3-68.0 F through the day.
+The `0x383` pressure pair remains tightly equalized:
+
+- low/suction raw range: ~182.4-200.9;
+- high-side raw range: ~182.5-201.2;
+- median absolute separation: ~0.74;
+- maximum observed separation: ~2.85.
+
+This is the cleanest all-day equalization baseline yet and raises the cumulative
+stator-heat evidence to **94 isolated cycles**.
+
+Sparse structured mirrors also match their binary sources exactly:
+
+- `SystemOpStatus.E` values 58, 59, 59, 61 and 62 match
+  `0x490.byte4` humidity;
+- `ZoneStatus.Update.1.H` values 77 and 76 match `0x490.f0` room
+  temperature.
+
+#### Fourth exact-length/no-NUL JSON observation
+
+At ~11:18:54 UTC, object `0x300A:00` again advertises exactly 42 bytes and
+carries:
+
+```json
+{"DebugUI":{"HiHeapRemaining":"31506432"}}
+```
+
+There is no trailing NUL inside the indicated length. This is the fourth
+independent exact-length/no-NUL target observation, after 2026-09-30,
+2026-10-01 and 2026-10-03. The regression fixture now covers all four observed
+heap values.
