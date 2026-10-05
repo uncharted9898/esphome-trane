@@ -38,13 +38,15 @@ class TraneLogCollectorTests(unittest.TestCase):
         self.assertEqual(row["type"], "trane_log")
         self.assertIn("TRANE_SOMETHING", row["raw"])
 
-    def test_jsonl_writer_emits_timestamp_and_source(self):
+    def test_hourly_writer_emits_timestamp_and_source(self):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "capture.jsonl"
-            writer = collector.JsonlWriter(path, "trane-link.local")
+            base = Path(tmp) / "capture.jsonl"
+            writer = collector.HourlyArchiveWriter(base, "trane-link.local")
             writer.write({"type": "test", "value": 7})
             writer.close()
-            row = json.loads(path.read_text().strip())
+            paths = list(Path(tmp).glob("capture-????-??-??-??.jsonl"))
+            self.assertEqual(len(paths), 1)
+            row = json.loads(paths[0].read_text().strip())
             self.assertEqual(row["source"], "trane-link.local")
             self.assertEqual(row["type"], "test")
             self.assertEqual(row["value"], 7)
