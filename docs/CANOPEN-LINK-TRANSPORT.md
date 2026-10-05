@@ -351,3 +351,22 @@ Subtracting one from every indicated size is incorrect and caused the bridge to
 emit this message one segment early as malformed JSON. Firmware and the offline
 capture analyzer now preserve the indicated wire size and decide completion
 only after the final segment.
+
+
+### Repeated exact-length observations
+
+The exact-length/no-trailing-NUL form has now been observed independently on
+three days:
+
+- 2026-09-30: `HiHeapRemaining = 33054720`
+- 2026-10-01: `HiHeapRemaining = 32538624`
+- 2026-10-03: `HiHeapRemaining = 32022528`
+
+All three advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+optional-NUL rule is a normal Trane wire form rather than a one-off malformed
+sender.
+
+The 2026-10-03 archive was still captured with the pre-fix receiver. It emits
+one malformed `TRANE_JSON` line after 41 bytes, while the underlying CAN
+transaction is valid and the next block segment carries the final closing
+brace. The maintained receiver/analyzer fix accepts all three captures.
