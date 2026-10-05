@@ -120,3 +120,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-stock-setpoint-transport.md](2026-10-03/full-day-stock-setpoint-transport.md) | Full-day archive, exact stock SpOverride.Put CANopen block-SDO handshake, application Ack path, SystemOpStatus.E humidity requalification, and third exact-length/no-NUL JSON observation |
+
+
+## 2026-10-04
+
+| File | What it captured |
+|---|---|
+| [full-day-idle-stator-cadence.md](2026-10-04/full-day-idle-stator-cadence.md) | Complete 24-hour mechanical-idle capture, 18 isolated stator-heat cycles, strongest full-day pressure-equalization baseline, direct humidity/room mirrors, and a fourth exact-length/no-NUL 0x300A JSON transfer |
