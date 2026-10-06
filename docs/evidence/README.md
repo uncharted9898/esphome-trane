@@ -127,3 +127,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-idle-stator-cadence.md](2026-10-04/full-day-idle-stator-cadence.md) | Complete 24-hour mechanical-idle capture, 18 isolated stator-heat cycles, strongest full-day pressure-equalization baseline, direct humidity/room mirrors, and a fourth exact-length/no-NUL 0x300A JSON transfer |
+
+
+## 2026-10-05
+
+| File | What it captured |
+|---|---|
+| [full-day-idle-setpoint-stator.md](2026-10-05/full-day-idle-setpoint-stator.md) | Complete 24-hour mechanical-idle capture, three additional stock SpOverride.Put writes (77/79/78 F), five-write qualified setpoint evidence total, 15 stator-heat cycles taking the total to 109, pressure equalization, structured humidity/room mirrors, and clean NUL-sized JSON transport |
