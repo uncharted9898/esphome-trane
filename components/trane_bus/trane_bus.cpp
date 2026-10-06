@@ -1083,7 +1083,7 @@ bool TraneBus::set_setpoints(float heat_f, float cool_f, int zone, int hold_type
   }
 
   char payload[180];
-  // Preserve the exact field order observed in both stock October 3 writes.
+  // Preserve the exact field order observed in five stock writes across October 3 and 5.
   snprintf(payload, sizeof(payload),
            "{\"SpOverride\":{\"Put\":{\"%d\":{\"Csp\":\"%.0f\",\"Hsp\":\"%.0f\",\"HoldType\":\"%d\",\"Source\":\"%d\"}}}}",
            zone, cool_f, heat_f, hold_type, source);
