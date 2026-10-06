@@ -228,10 +228,10 @@ The repository's historical transmitter pre-dated this SDO decode and emitted a
 guessed `C2`/sequence stream without object index `0x300A` or the mandatory
 SDO server handshakes. That sequence remains removed.
 
-The October 3 capture qualifies one narrow active path: stock UX360 zone-1
-`SpOverride.Put` setpoint writes use request COB-ID `0x641`, response
-COB-ID `0x5C1`, object `0x300A:00`, CANopen block download, and an
-application `{"Ack":"200"}`.
+The October 3 and October 5 captures qualify one narrow active path: five
+independent stock UX360 zone-1 `SpOverride.Put` setpoint writes use request
+COB-ID `0x641`, response COB-ID `0x5C1`, object `0x300A:00`, CANopen
+block download, and an application `{"Ack":"200"}`.
 
 The maintained `trane_bus` now implements that setpoint path as a
 nonblocking, response-driven SDO client. It waits for `A0`, honors the
@@ -245,15 +245,17 @@ interleave its block download with an in-progress stock transaction. Mode,
 profile and arbitrary JSON writes remain fail-closed because no equivalent
 stock request capture has qualified them.
 
-Both stock writes used this exact application field order and policy:
+All five stock writes used this exact application field order and policy:
 
 ```json
 {"SpOverride":{"Put":{"1":{"Csp":"77","Hsp":"62","HoldType":"1","Source":"1"}}}}
 ```
 
-The second changes only `Csp` to `78`. The qualified writer therefore
-rejects zones other than 1 and hold/source values other than 1 rather than
-extrapolating uncaptured semantics.
+Across the captures, `Csp` is observed at 77, 78 and 79 F; `Hsp` remains
+62 F and every write retains `HoldType:"1"`, `Source:"1"`, zone 1 and the
+same JSON field order. The qualified writer therefore rejects zones other than
+1 and hold/source values other than 1 rather than extrapolating uncaptured
+semantics.
 
 
 ## Emergency-like identifiers
