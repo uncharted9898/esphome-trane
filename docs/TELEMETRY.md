@@ -45,7 +45,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Blower Active Flag Candidate | Strong candidate | Remains 1 during blower coast-down, reaches 0 when stopped. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
-| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 94 isolated cycles from 2026-09-23 through 2026-10-04, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. Compressor and outdoor fan stay stopped throughout isolated cycles. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 109 isolated cycles from 2026-09-23 through 2026-10-05, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. Compressor and outdoor fan stay stopped throughout isolated cycles. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
 | `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
 | `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
@@ -98,7 +98,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
 | `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
-| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 94 isolated stator-heat cycles through 2026-10-04, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 109 isolated stator-heat cycles through 2026-10-05, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -271,7 +271,7 @@ Do not invent friendly names for these until captured against a known OEM value:
 
 Receive-side SDO/JSON transport is well understood. **Application TX remains disabled by default and fail-closed unless an explicitly qualified path is opted in.**
 
-The 2026-10-03 capture contains two complete stock UX360 `SpOverride.Put` setpoint writes. They independently qualify the request-side `0x641/0x5C1` block-SDO transaction, object `0x300A:00`, accepted-state broadcast, and application `{"Ack":"200"}` path. The maintained local setpoint writer is therefore implemented behind explicit opt-in safety gates.
+The 2026-10-03 and 2026-10-05 captures now contain five complete stock UX360 `SpOverride.Put` setpoint writes. All five independently use the request-side `0x641/0x5C1` block-SDO transaction, object `0x300A:00`, accepted-state broadcast, and application `{"Ack":"200"}` path. The observed cooling setpoints are 77, 78 and 79 F, while every stock write retains zone 1, `HoldType:"1"`, `Source:"1"`, heat setpoint 62 F and the same JSON field order. The maintained local setpoint writer therefore remains intentionally constrained behind explicit opt-in safety gates.
 
 This evidence applies to **setpoints only**. No stock `SystemMode.Put` transaction has been captured, so mode writes and arbitrary JSON TX remain unqualified and fail-closed.
 
@@ -624,3 +624,60 @@ There is no trailing NUL inside the indicated length. This is the fourth
 independent exact-length/no-NUL target observation, after 2026-09-30,
 2026-10-01 and 2026-10-03. The regression fixture now covers all four observed
 heap values.
+
+
+### 2026-10-05 idle setpoint/control qualification
+
+The full-day archive is mechanically idle for all 24 hours:
+
+- compressor request and actual speed remain 0;
+- compressor power and outdoor fan remain 0;
+- blower current/speed/power remain 0;
+- `0x281` airflow target, compressor demand and blower-active fields remain 0.
+
+Despite no mechanical call, three stock UX360 `SpOverride.Put` writes occur:
+
+- 03:08:20 UTC -> Csp 77 F;
+- 10:52:52 UTC -> Csp 79 F;
+- 13:11:34 UTC -> Csp 78 F.
+
+All three use exactly:
+
+```json
+{"SpOverride":{"Put":{"1":{"Csp":"<77|79|78>","Hsp":"62","HoldType":"1","Source":"1"}}}}
+```
+
+Each is an 80-byte JSON body with one trailing NUL, so the CANopen block-SDO
+initiate request advertises 81 bytes. Each is followed by a matching
+`SpOverride.Update`, zone-state update and application `{"Ack":"200"}`.
+
+Combined with the two October 3 writes, the qualified setpoint transport now
+has **five independent stock observations**. This strengthens the exact
+transport/policy evidence but does not broaden the permitted local-write scope:
+zone 1 / hold type 1 / source 1 remain the only qualified semantics, and mode
+or arbitrary JSON TX remain fail-closed.
+
+The day also contains **15 isolated stator-heat cycles**, raising the cumulative
+project total to **109**. Cycle duration is ~7.29-9.37 min (median ~8.92 min),
+start-to-start spacing ~69.8-134.7 min (median ~91.2 min), and `0x390`
+appears ~8.73-9.78 s after the `0x282` enable (median ~9.35 s).
+
+Outdoor ambient spans ~64.7-75.8 F. With no refrigeration operation, the
+`0x383` pair remains tightly equalized:
+
+- suction/raw side: ~195.8-222.4;
+- paired high side: ~194.0-223.0;
+- median absolute separation: ~0.74;
+- maximum separation: ~2.83.
+
+Sparse structured environmental mirrors remain coherent:
+
+- six of seven `SystemOpStatus.E` humidity updates exactly match the nearest
+  `0x490.byte4` sample; the lone apparent mismatch changes from 62 to 61 on
+  the binary source ~0.83 s after the structured update;
+- all five `ZoneStatus.Update.1.H` room-temperature updates exactly match
+  the nearest `0x490.f0` sample.
+
+The archive contains 29 valid block-SDO JSON transfers. All observed block
+transfers are normal NUL-sized forms on this day; no fifth exact-length/no-NUL
+`DebugUI.HiHeapRemaining` example occurs.
