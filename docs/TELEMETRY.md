@@ -25,7 +25,7 @@ Dated reverse-engineering notes live under [evidence/](evidence/). Those notes i
 | Signal | Source | Confidence | Notes |
 |---|---|---|---|
 | Room Temperature | `0x490.float[0]` | Confirmed | Directly matched six `ZoneStatus.Update.1.H` updates at 72, 73, 74, 75 and 76°F within ~1 second in the 2026-09-25 archive; invalid/sentinel values filtered. |
-| Indoor Humidity | `0x490.byte4` | Strong candidate | Normal operation repeatedly 50s/60s; user-facing entity accepts only 0..100. Startup value 157 is rejected as invalid. |
+| Indoor Humidity | `0x490.byte4` | Confirmed | Directly mirrors `SystemOpStatus.E` on the target across repeated structured updates; user-facing entity accepts only 0..100. Startup value 157 is rejected as invalid. |
 | Outdoor Air Temperature | `0x380.float[1]` | Confirmed | Tracks outdoor ambient independently of SC360 JSON. |
 | Return Air Temperature | `0x308.float[0]` | Confirmed | Matches air-handler return-air behavior. |
 | Supply Air Temperature | `0x308.float[1]` | Confirmed | Tracks active cooling supply-air temperature. |
