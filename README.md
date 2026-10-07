@@ -107,10 +107,10 @@ A small subset of the current map:
 | outdoor ambient | `0x380.float[1]` |
 | return/supply air | `0x308.float[0..1]` |
 | total static pressure | `0x310.float[0]` |
-| blower airflow request | `0x200.u16@2` candidate |
-| blower airflow feedback | `0x318.u16@4` candidate |
-| actual airflow | `0x281.u16@0` |
-| blower speed | `0x318.u16@6` candidate |
+| blower speed request | `0x200.u16@2` strong candidate |
+| blower motor speed feedback | `0x318.u16@4` strong candidate |
+| airflow target/command | `0x281.u16@0` strong candidate |
+| blower-adjacent raw field | `0x318.u16@6` candidate |
 | blower power | `0x320.float[0]` |
 | compressor speed request | `0x280.float[0]` |
 | actual compressor speed | `0x384.float[0]` candidate |
