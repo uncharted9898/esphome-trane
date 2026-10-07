@@ -134,3 +134,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-idle-setpoint-stator.md](2026-10-05/full-day-idle-setpoint-stator.md) | Complete 24-hour mechanical-idle capture, three additional stock SpOverride.Put writes (77/79/78 F), five-write qualified setpoint evidence total, 15 stator-heat cycles taking the total to 109, pressure equalization, structured humidity/room mirrors, and clean NUL-sized JSON transport |
+
+
+## 2026-10-06
+
+| File | What it captured |
+|---|---|
+| [technician-profile-fan-long-json.md](2026-10-06/technician-profile-fan-long-json.md) | Full-day compressor-idle archive, Technician-qualified fan enable/50/100% control sequence, 0x281.byte7 blower-active disproof, HcStatus=4 fan/coast evidence, full EquipSummary inventory including CNT09525 and 10 kW 2-stage heater accessory, long-JSON logger truncation/fix, fifth exact-length/no-NUL transfer, and 14 complete + one carry-out stator-heat cycles |
