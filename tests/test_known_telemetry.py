@@ -86,6 +86,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn("id: dev_sc360", HA)
         self.assertIn("id: dev_air_handler", HA)
         self.assertIn("id: dev_heat_pump", HA)
+        self.assertIn("id: dev_mitigation", HA)
         self.assertIn("id: dev_discovery", HA)
         self.assertIn("id: hvac_can", HA)
         self.assertIn("id: trane_link", HA)
@@ -100,6 +101,10 @@ class KnownTelemetryContractTests(unittest.TestCase):
             self.assertNotIn("trane_bus.set_setpoints", package)
             self.assertNotIn("trane_bus.get_profile", package)
         self.assertNotIn("send_data(", without_yaml_comments(HA))
+
+    def test_logger_buffer_covers_max_rx_json(self):
+        self.assertIn("tx_buffer_size: 4608", HA)
+        self.assertIn("MAX_RX_JSON_PAYLOAD = 4096", BUS_CPP)
 
     def test_homeassistant_uses_std_finite_for_idf_gcc14(self):
         self.assertNotIn("if (isfinite(", without_yaml_comments(HA))
@@ -294,7 +299,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "0x281 Airflow Target Candidate",
             "0x281 Bytes 6-7 Composite Raw",
             "0x281 Compressor Demand Mirror",
-            "0x281 Blower Active Flag Candidate",
+            "0x281 Byte 7 State Candidate",
             "Return Air Temperature",
             "Supply Air Temperature",
             "Total Static Pressure",
@@ -515,13 +520,33 @@ class KnownTelemetryContractTests(unittest.TestCase):
 
     def test_active_modulation_refines_blower_and_speed_reference_fields(self):
         self.assertIn('name: "0x281 Compressor Demand Mirror"', EXTRA_BASE)
-        self.assertIn('name: "0x281 Blower Active Flag Candidate"', EXTRA_BASE)
+        self.assertIn('name: "0x281 Byte 7 State Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x281 Bytes 6-7 Composite Raw"', EXTRA_BASE)
         self.assertIn('name: "Actual Compressor Speed"', EXTRA_BASE)
         self.assertIn('name: "0x387 Compressor Speed Reference Limit Candidate"', TELEMETRY)
         self.assertNotIn('name: "0x281 Tail Word Raw"', EXTRA_BASE)
         self.assertNotIn('name: "0x281 Byte 6 Candidate"', EXTRA_BASE)
-        self.assertNotIn('name: "0x281 Byte 7 State Candidate"', EXTRA_BASE)
+        self.assertNotIn('name: "0x281 Blower Active Flag Candidate"', EXTRA_BASE)
+
+    def test_equip_summary_device_metadata_is_exposed(self):
+        self.assertIn('"EquipSummary"', HA)
+        for entity_id, label in (
+            ("trane_sc360_model", "SC360 Model"),
+            ("trane_sc360_software", "SC360 Software"),
+            ("trane_air_handler_model", "Air Handler Model"),
+            ("trane_air_handler_software", "Air Handler Software"),
+            ("trane_air_handler_heater_accessory", "Heater Accessory"),
+            ("trane_heat_pump_model", "Heat Pump Model"),
+            ("trane_heat_pump_software", "Heat Pump Software"),
+            ("trane_thermostat_model", "Thermostat Model"),
+            ("trane_thermostat_software", "Thermostat Software"),
+            ("trane_mitigation_model", "Mitigation Board Model"),
+            ("trane_mitigation_software", "Mitigation Board Software"),
+        ):
+            self.assertIn(f"id: {entity_id}", TELEMETRY)
+            self.assertIn(f'name: "{label}"', TELEMETRY)
+            self.assertIn(f"id({entity_id})", HA)
+        self.assertIn('get_value("HeaterAccessory"', HA)
 
     def test_structured_json_freshness_diagnostics_are_exposed(self):
         for label in (
