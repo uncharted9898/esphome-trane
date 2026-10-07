@@ -273,11 +273,18 @@ Receive-side SDO/JSON transport is well understood. **Application TX remains dis
 
 The 2026-10-03 and 2026-10-05 captures now contain five complete stock UX360 `SpOverride.Put` setpoint writes. All five independently use the request-side `0x641/0x5C1` block-SDO transaction, object `0x300A:00`, accepted-state broadcast, and application `{"Ack":"200"}` path. The observed cooling setpoints are 77, 78 and 79 F, while every stock write retains zone 1, `HoldType:"1"`, `Source:"1"`, heat setpoint 62 F and the same JSON field order. The maintained local setpoint writer therefore remains intentionally constrained behind explicit opt-in safety gates.
 
-This evidence applies to **setpoints only**. No stock `SystemMode.Put` transaction has been captured, so mode writes and arbitrary JSON TX remain unqualified and fail-closed.
+A second qualified family is now available from the 2026-10-06 Technician
+capture: `IndoorSettings.Put` fan enable/disable plus the captured 50% and
+100% request values. It has its **own** default-false
+`qualified_indoor_fan_tx_enabled` gate in addition to global `tx_enabled`.
+The implementation intentionally rejects uncaptured percentages.
+
+No stock `SystemMode.Put` transaction has been captured, so mode writes,
+profile writes and arbitrary JSON TX remain unqualified and fail-closed.
 
 Remaining requirements for any additional write family:
 
-1. capture the complete originating stock UX360 `Put` transaction;
+1. capture the complete originating stock/Technician `Put` transaction;
 2. verify request/response COB-ID direction, payload semantics, and application Ack;
 3. add receive-side regression evidence for the exact transaction;
 4. preserve timeout/abort/toggle/block-ACK handling and explicit opt-in safety gates.
@@ -721,9 +728,10 @@ Together with previous cooling shutdown/coast observations, code 4 is best
 described as a **fan/blower-only or blower-coast state**, not merely a shutdown
 transient.
 
-The receive-side fan-control semantics are now qualified, but local fan TX has
-not been enabled; it remains fail-closed until a separate guarded writer is
-intentionally implemented.
+The fan-control semantics and transport are now qualified in a separate guarded
+writer. It remains **disabled by default**: both global `tx_enabled` and
+`qualified_indoor_fan_tx_enabled` must be explicitly enabled. Fan percentage
+is restricted to the two captured values, 50 and 100.
 
 #### EquipSummary device inventory
 
