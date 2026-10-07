@@ -538,16 +538,16 @@ trane_bus:
               if (extra != nullptr && get_value("HeaterAccessory", d, e, v))
                 extra->publish_state(v);
             };
-            publish_equipment("HUB", &id(trane_sc360_model), &id(trane_sc360_serial),
-                              &id(trane_sc360_software), nullptr);
-            publish_equipment("ID1", &id(trane_air_handler_model), &id(trane_air_handler_serial),
-                              &id(trane_air_handler_software), &id(trane_air_handler_heater_accessory));
-            publish_equipment("OD", &id(trane_heat_pump_model), &id(trane_heat_pump_serial),
-                              &id(trane_heat_pump_software), nullptr);
-            publish_equipment("HI1", &id(trane_thermostat_model), &id(trane_thermostat_serial),
-                              &id(trane_thermostat_software), nullptr);
-            publish_equipment("MCB1", &id(trane_mitigation_model), &id(trane_mitigation_serial),
-                              &id(trane_mitigation_software), nullptr);
+            publish_equipment("HUB", id(trane_sc360_model), id(trane_sc360_serial),
+                              id(trane_sc360_software), nullptr);
+            publish_equipment("ID1", id(trane_air_handler_model), id(trane_air_handler_serial),
+                              id(trane_air_handler_software), id(trane_air_handler_heater_accessory));
+            publish_equipment("OD", id(trane_heat_pump_model), id(trane_heat_pump_serial),
+                              id(trane_heat_pump_software), nullptr);
+            publish_equipment("HI1", id(trane_thermostat_model), id(trane_thermostat_serial),
+                              id(trane_thermostat_software), nullptr);
+            publish_equipment("MCB1", id(trane_mitigation_model), id(trane_mitigation_serial),
+                              id(trane_mitigation_software), nullptr);
           }
         }
 
