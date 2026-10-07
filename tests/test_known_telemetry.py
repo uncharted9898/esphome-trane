@@ -409,8 +409,8 @@ class KnownTelemetryContractTests(unittest.TestCase):
             "Suction Line Temperature",
             "0x383 Suction Pressure Raw",
             "0x383 Liquid Pressure Raw",
-            "0x410 Drive Inverter/IPM Temperature Candidate",
-            "0x410 Drive Rectifier/PFC Temperature Candidate",
+            "0x410 Drive Inverter IPM Temperature Candidate",
+            "0x410 Drive Rectifier PFC Temperature Candidate",
             "0x430 Outdoor Fan IPM Temperature Candidate",
             "0x430 Float 2 Raw",
             "0x450 Float 1 Raw",
@@ -544,6 +544,17 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertNotIn('name: "0x281 Tail Word Raw"', EXTRA_BASE)
         self.assertNotIn('name: "0x281 Byte 6 Candidate"', EXTRA_BASE)
         self.assertNotIn('name: "0x281 Blower Active Flag Candidate"', EXTRA_BASE)
+
+    def test_equip_summary_uses_esphome_pointer_ids_directly(self):
+        for entity_id in (
+            "trane_sc360_model",
+            "trane_air_handler_model",
+            "trane_heat_pump_model",
+            "trane_thermostat_model",
+            "trane_mitigation_model",
+        ):
+            self.assertIn(f"id({entity_id})", HA)
+            self.assertNotIn(f"&id({entity_id})", HA)
 
     def test_equip_summary_device_metadata_is_exposed(self):
         self.assertIn('"EquipSummary"', HA)
