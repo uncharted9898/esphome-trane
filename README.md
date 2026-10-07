@@ -36,9 +36,9 @@ The bridge is a **parallel CAN tap**, not a replacement thermostat or inline gat
 
 **Application/control TX remains opt-in and fail-closed by default.**
 
-Passive captures proved the historical writer was not a valid CANopen SDO transaction. The October 3 full-day capture then supplied two complete stock UX360 `SpOverride.Put` transactions, including the `0x641/0x5C1` CANopen block-SDO handshake and application `{"Ack":"200"}`. The maintained component now has a nonblocking writer for that narrowly qualified **zone-1 setpoint path only**.
+Passive captures proved the historical writer was not a valid CANopen SDO transaction. The October 3 and October 5 captures then supplied five complete stock UX360 `SpOverride.Put` transactions, including the `0x641/0x5C1` CANopen block-SDO handshake and application `{"Ack":"200"}`. The October 6 Technician session independently captured the indoor-fan `IndoorSettings.Put` family for enable/disable plus 50% and 100% requests. The maintained component now has one response-driven nonblocking SDO client shared by those two narrowly qualified write families.
 
-`tx_enabled` still defaults to `false`. The qualified setpoint writer has a second static acknowledgement gate, `qualified_setpoint_tx_enabled`, which also defaults to `false`; both must be deliberately armed before a setpoint write can reach CAN. This prevents an older development config containing `tx_enabled: true` from silently gaining write capability after an update. Mode writes, profile requests and arbitrary JSON TX remain blocked because their stock request transactions have not been qualified. Passive monitoring remains the production-safe default.
+`tx_enabled` still defaults to `false`. Setpoints additionally require `qualified_setpoint_tx_enabled: true`; indoor-fan writes independently require `qualified_indoor_fan_tx_enabled: true`. Both qualification gates default to `false`, preventing an older development config containing `tx_enabled: true` from silently gaining write capability after an update. Fan percentage is intentionally limited to the captured 50/100 values. Mode writes, profile requests and arbitrary JSON TX remain blocked because their stock request transactions have not been qualified. Passive monitoring remains the production-safe default.
 
 ## Hardware
 
@@ -71,7 +71,7 @@ For wiring details, power guidance, and tap topology see [docs/WIRING.md](docs/W
 | `waveshare-trane-commissioning.yaml` | Commissioning/census workflow |
 | `waveshare-trane-homeassistant.yaml` | Curated Home Assistant monitoring profile |
 | `waveshare-trane-homeassistant-debug.yaml` | Opt-in raw/debug HA profile for protocol work |
-| `waveshare-trane-control.yaml` | Guarded control-development profile; stock-qualified setpoint writer available only when TX is explicitly armed |
+| `waveshare-trane-control.yaml` | Guarded control-development profile; qualified setpoint and indoor-fan writers available only when their separate TX gates are explicitly armed |
 | `waveshare-trane-full.yaml` | Full decoder/integration profile |
 | `esphome-trane.yaml` | Legacy full decoder retained for compatibility/testing |
 
