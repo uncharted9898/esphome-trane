@@ -11,6 +11,7 @@ CONF_CANBUS_ID = "canbus_id"
 CONF_COMMAND_CAN_ID = "command_can_id"
 CONF_TX_ENABLED = "tx_enabled"
 CONF_QUALIFIED_SETPOINT_TX_ENABLED = "qualified_setpoint_tx_enabled"
+CONF_QUALIFIED_INDOOR_FAN_TX_ENABLED = "qualified_indoor_fan_tx_enabled"
 CONF_RAW_JSON_ENABLED = "raw_json_enabled"
 CONF_REQUIRE_SC360_BEFORE_TX = "require_sc360_before_tx"
 CONF_BUS_ACTIVITY_TIMEOUT = "bus_activity_timeout"
@@ -29,6 +30,7 @@ CONF_COOL_F = "cool_f"
 CONF_ZONE = "zone"
 CONF_HOLD_TYPE = "hold_type"
 CONF_SOURCE = "source"
+CONF_PERCENT = "percent"
 CONF_PROFILE = "profile"
 
 trane_bus_ns = cg.esphome_ns.namespace("trane_bus")
@@ -37,6 +39,8 @@ TraneBusSendJsonAction = trane_bus_ns.class_("TraneBusSendJsonAction", automatio
 TraneBusSetTxEnabledAction = trane_bus_ns.class_("TraneBusSetTxEnabledAction", automation.Action)
 TraneBusSetModeAction = trane_bus_ns.class_("TraneBusSetModeAction", automation.Action)
 TraneBusSetSetpointsAction = trane_bus_ns.class_("TraneBusSetSetpointsAction", automation.Action)
+TraneBusSetIndoorFanEnabledAction = trane_bus_ns.class_("TraneBusSetIndoorFanEnabledAction", automation.Action)
+TraneBusSetIndoorFanPercentAction = trane_bus_ns.class_("TraneBusSetIndoorFanPercentAction", automation.Action)
 TraneBusGetProfileAction = trane_bus_ns.class_("TraneBusGetProfileAction", automation.Action)
 
 CONFIG_SCHEMA = cv.Schema(
@@ -46,6 +50,7 @@ CONFIG_SCHEMA = cv.Schema(
         cv.Optional(CONF_COMMAND_CAN_ID, default=0x641): cv.int_range(min=0, max=0x7FF),
         cv.Optional(CONF_TX_ENABLED, default=False): cv.boolean,
         cv.Optional(CONF_QUALIFIED_SETPOINT_TX_ENABLED, default=False): cv.boolean,
+        cv.Optional(CONF_QUALIFIED_INDOOR_FAN_TX_ENABLED, default=False): cv.boolean,
         cv.Optional(CONF_RAW_JSON_ENABLED, default=False): cv.boolean,
         cv.Optional(CONF_REQUIRE_SC360_BEFORE_TX, default=True): cv.boolean,
         cv.Optional(CONF_BUS_ACTIVITY_TIMEOUT, default="5min"): cv.positive_time_period_milliseconds,
@@ -71,6 +76,7 @@ async def to_code(config):
     cg.add(var.set_command_can_id(config[CONF_COMMAND_CAN_ID]))
     cg.add(var.set_tx_enabled(config[CONF_TX_ENABLED]))
     cg.add(var.set_qualified_setpoint_tx_enabled(config[CONF_QUALIFIED_SETPOINT_TX_ENABLED]))
+    cg.add(var.set_qualified_indoor_fan_tx_enabled(config[CONF_QUALIFIED_INDOOR_FAN_TX_ENABLED]))
     cg.add(var.set_raw_json_enabled(config[CONF_RAW_JSON_ENABLED]))
     cg.add(var.set_require_sc360_before_tx(config[CONF_REQUIRE_SC360_BEFORE_TX]))
     cg.add(var.set_bus_activity_timeout_ms(config[CONF_BUS_ACTIVITY_TIMEOUT].total_milliseconds))
@@ -151,6 +157,42 @@ async def set_setpoints_action_to_code(config, action_id, template_arg, args):
     cg.add(var.set_zone(await cg.templatable(config[CONF_ZONE], args, cg.int_)))
     cg.add(var.set_hold_type(await cg.templatable(config[CONF_HOLD_TYPE], args, cg.int_)))
     cg.add(var.set_source(await cg.templatable(config[CONF_SOURCE], args, cg.int_)))
+    return var
+
+
+@automation.register_action(
+    "trane_bus.set_indoor_fan_enabled",
+    TraneBusSetIndoorFanEnabledAction,
+    cv.Schema(
+        {
+            cv.GenerateID(CONF_ID): cv.use_id(TraneBus),
+            cv.Required(CONF_ENABLED): cv.templatable(cv.boolean),
+        }
+    ),
+    synchronous=True,
+)
+async def set_indoor_fan_enabled_action_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    await cg.register_parented(var, config[CONF_ID])
+    cg.add(var.set_enabled(await cg.templatable(config[CONF_ENABLED], args, cg.bool_)))
+    return var
+
+
+@automation.register_action(
+    "trane_bus.set_indoor_fan_percent",
+    TraneBusSetIndoorFanPercentAction,
+    cv.Schema(
+        {
+            cv.GenerateID(CONF_ID): cv.use_id(TraneBus),
+            cv.Required(CONF_PERCENT): cv.templatable(cv.int_range(min=50, max=100)),
+        }
+    ),
+    synchronous=True,
+)
+async def set_indoor_fan_percent_action_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    await cg.register_parented(var, config[CONF_ID])
+    cg.add(var.set_percent(await cg.templatable(config[CONF_PERCENT], args, cg.int_)))
     return var
 
 
