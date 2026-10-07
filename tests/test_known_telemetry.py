@@ -557,7 +557,10 @@ class KnownTelemetryContractTests(unittest.TestCase):
             self.assertNotIn(f"&id({entity_id})", HA)
 
     def test_equip_summary_device_metadata_is_exposed(self):
-        self.assertIn('"EquipSummary"', HA)
+        # The parser lives inside a YAML C++ lambda, so the embedded JSON key
+        # is escaped in source. Assert the parser expression itself rather than
+        # an unescaped JSON fragment that cannot occur in this file.
+        self.assertIn('p = j.find("\\\"EquipSummary\\\"");', HA)
         for entity_id, label in (
             ("trane_sc360_model", "SC360 Model"),
             ("trane_sc360_software", "SC360 Software"),
