@@ -50,6 +50,8 @@ void TraneBus::dump_config() {
   ESP_LOGCONFIG(TAG, "  TX enabled: %s", YESNO(tx_enabled_));
   ESP_LOGCONFIG(TAG, "  Qualified setpoint TX acknowledged: %s",
                 YESNO(qualified_setpoint_tx_enabled_));
+  ESP_LOGCONFIG(TAG, "  Qualified indoor-fan TX acknowledged: %s",
+                YESNO(qualified_indoor_fan_tx_enabled_));
   ESP_LOGCONFIG(TAG, "  Raw JSON enabled: %s", YESNO(raw_json_enabled_));
   ESP_LOGCONFIG(TAG, "  Require SC360 before TX: %s", YESNO(require_sc360_before_tx_));
   ESP_LOGCONFIG(TAG, "  Bus activity timeout: %u ms", static_cast<unsigned>(bus_activity_timeout_ms_));
@@ -784,29 +786,29 @@ bool TraneBus::send_frame_(const std::vector<uint8_t> &frame) {
 void TraneBus::abort_sdo_tx_(const char *reason) {
   if (!sdo_tx_.active())
     return;
-  ESP_LOGW(TAG, "Aborting qualified setpoint SDO transfer (%s): %s",
+  ESP_LOGW(TAG, "Aborting qualified SDO transfer (%s): %s",
            sdo_tx_.kind.c_str(), reason);
   tx_errors_++;
   sdo_tx_.reset();
 }
 
-bool TraneBus::start_setpoint_sdo_write_(const std::string &payload) {
+bool TraneBus::start_qualified_sdo_write_(const std::string &payload, const char *kind,
+                                                bool qualified_gate, const char *gate_name) {
   tx_attempts_++;
   if (!tx_enabled_) {
     tx_blocked_++;
-    ESP_LOGW(TAG, "TX blocked (monitor-only mode): setpoints");
+    ESP_LOGW(TAG, "TX blocked (monitor-only mode): %s", kind);
     return false;
   }
-  if (!qualified_setpoint_tx_enabled_) {
+  if (!qualified_gate) {
     tx_blocked_++;
-    ESP_LOGW(TAG,
-             "TX blocked: stock-qualified setpoint writer requires explicit "
-             "qualified_setpoint_tx_enabled acknowledgement");
+    ESP_LOGW(TAG, "TX blocked: stock-qualified %s writer requires explicit %s acknowledgement",
+             kind, gate_name);
     return false;
   }
   if (command_can_id_ != 0x641) {
     tx_blocked_++;
-    ESP_LOGE(TAG, "TX blocked: qualified setpoint writer requires request COB-ID 0x641");
+    ESP_LOGE(TAG, "TX blocked: qualified %s writer requires request COB-ID 0x641", kind);
     return false;
   }
   if (require_sc360_before_tx_ && !has_recent_trane_activity()) {
@@ -819,8 +821,7 @@ bool TraneBus::start_setpoint_sdo_write_(const std::string &payload) {
       static_cast<uint32_t>(now - last_command_sdo_activity_ms_) <
           COMMAND_SDO_QUIET_MS) {
     tx_busy_blocked_++;
-    ESP_LOGW(TAG,
-             "TX blocked: stock 0x641/0x5C1 SDO channel is currently active");
+    ESP_LOGW(TAG, "TX blocked: stock 0x641/0x5C1 SDO channel is currently active");
     return false;
   }
   if (pending_ack_ || sdo_tx_.active()) {
@@ -830,14 +831,16 @@ bool TraneBus::start_setpoint_sdo_write_(const std::string &payload) {
   }
   if (!validate_payload_shape_(payload) || payload.size() > MAX_TX_JSON_PAYLOAD) {
     tx_errors_++;
-    ESP_LOGE(TAG, "Refusing malformed or oversized setpoint JSON");
+    ESP_LOGE(TAG, "Refusing malformed or oversized JSON for %s", kind);
     return false;
   }
 
   sdo_tx_.reset();
-  sdo_tx_.kind = "setpoints";
+  sdo_tx_.kind = kind;
   sdo_tx_.wire_payload.assign(payload.begin(), payload.end());
-  sdo_tx_.wire_payload.push_back(0);  // Stock UX360 transfer includes trailing NUL.
+  // All qualified stock/Technician application writes captured so far include
+  // one trailing NUL in the CANopen indicated size.
+  sdo_tx_.wire_payload.push_back(0);
   const uint32_t wire_len = static_cast<uint32_t>(sdo_tx_.wire_payload.size());
 
   std::vector<uint8_t> initiate{
@@ -854,9 +857,15 @@ bool TraneBus::start_setpoint_sdo_write_(const std::string &payload) {
 
   sdo_tx_.phase = BlockSdoTxState::Phase::WAIT_INIT_RESPONSE;
   sdo_tx_.phase_started_ms = millis();
-  ESP_LOGI(TAG, "Started qualified setpoint block-SDO write (%u wire bytes)",
-           static_cast<unsigned>(wire_len));
+  ESP_LOGI(TAG, "Started qualified %s block-SDO write (%u wire bytes)",
+           kind, static_cast<unsigned>(wire_len));
   return true;
+}
+
+bool TraneBus::start_setpoint_sdo_write_(const std::string &payload) {
+  return this->start_qualified_sdo_write_(
+      payload, "setpoints", qualified_setpoint_tx_enabled_,
+      "qualified_setpoint_tx_enabled");
 }
 
 void TraneBus::service_sdo_tx_() {
@@ -983,7 +992,8 @@ void TraneBus::handle_sdo_tx_response_(const std::vector<uint8_t> &data) {
     pending_ack_since_ms_ = millis();
     pending_kind_ = kind;
     tx_messages_++;
-    ESP_LOGI(TAG, "Qualified setpoint SDO transport complete; waiting for application ACK");
+    ESP_LOGI(TAG, "Qualified %s SDO transport complete; waiting for application ACK",
+             kind.c_str());
   }
 }
 
@@ -1088,6 +1098,33 @@ bool TraneBus::set_setpoints(float heat_f, float cool_f, int zone, int hold_type
            "{\"SpOverride\":{\"Put\":{\"%d\":{\"Csp\":\"%.0f\",\"Hsp\":\"%.0f\",\"HoldType\":\"%d\",\"Source\":\"%d\"}}}}",
            zone, cool_f, heat_f, hold_type, source);
   return start_setpoint_sdo_write_(payload);
+}
+
+bool TraneBus::set_indoor_fan_enabled(bool enabled) {
+  char payload[96];
+  snprintf(payload, sizeof(payload),
+           "{\"IndoorSettings\":{\"Put\":{\"1\":{\"A\":\"%d\"}}}}}",
+           enabled ? 1 : 0);
+  return this->start_qualified_sdo_write_(
+      payload, "indoor-fan-enable", qualified_indoor_fan_tx_enabled_,
+      "qualified_indoor_fan_tx_enabled");
+}
+
+bool TraneBus::set_indoor_fan_percent(int percent) {
+  // Technician capture currently qualifies only 50% and 100%. Do not infer
+  // arbitrary percentages until stock/Technician traffic demonstrates them.
+  if (percent != 50 && percent != 100) {
+    tx_blocked_++;
+    ESP_LOGW(TAG, "TX blocked: qualified indoor-fan percent is limited to captured values 50 or 100");
+    return false;
+  }
+  char payload[96];
+  snprintf(payload, sizeof(payload),
+           "{\"IndoorSettings\":{\"Put\":{\"1\":{\"C\":\"%d\"}}}}}",
+           percent);
+  return this->start_qualified_sdo_write_(
+      payload, "indoor-fan-percent", qualified_indoor_fan_tx_enabled_,
+      "qualified_indoor_fan_tx_enabled");
 }
 
 bool TraneBus::request_profile(const std::string &profile) {
