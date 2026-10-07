@@ -94,6 +94,22 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn("TRANE_JSON", HA)
         self.assertIn("can_id_mask: 0x000", HA)
 
+    def test_indoor_fan_tx_is_separately_qualified_and_guarded(self):
+        self.assertIn("qualified_indoor_fan_tx_enabled: false", HA)
+        self.assertIn("CONF_QUALIFIED_INDOOR_FAN_TX_ENABLED", (ROOT / "components" / "trane_bus" / "__init__.py").read_text())
+        self.assertIn("trane_bus.set_indoor_fan_enabled", (ROOT / "components" / "trane_bus" / "__init__.py").read_text())
+        self.assertIn("trane_bus.set_indoor_fan_percent", (ROOT / "components" / "trane_bus" / "__init__.py").read_text())
+        self.assertIn('{"IndoorSettings":{"Put":{"1":{"A":"%d"}}}}', BUS_CPP)
+        self.assertIn('{"IndoorSettings":{"Put":{"1":{"C":"%d"}}}}', BUS_CPP)
+        self.assertIn("percent != 50 && percent != 100", BUS_CPP)
+        self.assertIn("qualified_indoor_fan_tx_enabled_", BUS_CPP)
+        self.assertIn('"indoor-fan-enable"', BUS_CPP)
+        self.assertIn('"indoor-fan-percent"', BUS_CPP)
+        self.assertIn("start_qualified_sdo_write_", BUS_CPP)
+        # Unqualified families remain routed through the fail-closed legacy path.
+        self.assertIn('return send_json_internal_(payload, true, "system-mode");', BUS_CPP)
+        self.assertIn('return send_json_internal_(payload, true, "raw-json");', BUS_CPP)
+
     def test_package_is_read_only(self):
         for package in (TELEMETRY, EXTRA_AGGREGATOR, EXTRA_BASE, TARGET_DISCOVERY):
             self.assertNotIn("trane_bus.set_tx_enabled", package)
