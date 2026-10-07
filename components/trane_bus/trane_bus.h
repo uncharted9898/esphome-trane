@@ -21,6 +21,7 @@ class TraneBus : public Component {
   void set_canbus(canbus::Canbus *canbus) { canbus_ = canbus; }
   void set_tx_enabled(bool enabled) { tx_enabled_ = enabled; }
   void set_qualified_setpoint_tx_enabled(bool enabled) { qualified_setpoint_tx_enabled_ = enabled; }
+  void set_qualified_indoor_fan_tx_enabled(bool enabled) { qualified_indoor_fan_tx_enabled_ = enabled; }
   void set_raw_json_enabled(bool enabled) { raw_json_enabled_ = enabled; }
   void set_require_sc360_before_tx(bool enabled) { require_sc360_before_tx_ = enabled; }
   void set_bus_activity_timeout_ms(uint32_t timeout_ms) { bus_activity_timeout_ms_ = timeout_ms; }
@@ -58,6 +59,8 @@ class TraneBus : public Component {
   bool send_json(const std::string &payload);
   bool set_system_mode(const std::string &mode);
   bool set_setpoints(float heat_f, float cool_f, int zone = 1, int hold_type = 1, int source = 1);
+  bool set_indoor_fan_enabled(bool enabled);
+  bool set_indoor_fan_percent(int percent);
   bool request_profile(const std::string &profile);
 
   void start_capture(bool clear_first = false);
@@ -201,6 +204,8 @@ class TraneBus : public Component {
 
   bool send_frame_(const std::vector<uint8_t> &frame);
   bool send_json_internal_(const std::string &payload, bool expect_ack, const char *kind);
+  bool start_qualified_sdo_write_(const std::string &payload, const char *kind,
+                                  bool qualified_gate, const char *gate_name);
   bool start_setpoint_sdo_write_(const std::string &payload);
   void service_sdo_tx_();
   void handle_sdo_tx_response_(const std::vector<uint8_t> &data);
@@ -222,6 +227,7 @@ class TraneBus : public Component {
   canbus::Canbus *canbus_{nullptr};
   bool tx_enabled_{false};
   bool qualified_setpoint_tx_enabled_{false};
+  bool qualified_indoor_fan_tx_enabled_{false};
   bool raw_json_enabled_{false};
   bool require_sc360_before_tx_{true};
   bool seen_sc360_{false};
@@ -319,6 +325,18 @@ template<typename... Ts> class TraneBusSetSetpointsAction : public Action<Ts...>
     this->parent_->set_setpoints(this->heat_f_.value(x...), this->cool_f_.value(x...), this->zone_.value(x...),
                                  this->hold_type_.value(x...), this->source_.value(x...));
   }
+};
+
+template<typename... Ts> class TraneBusSetIndoorFanEnabledAction : public Action<Ts...>, public Parented<TraneBus> {
+ public:
+  TEMPLATABLE_VALUE(bool, enabled)
+  void play(const Ts &...x) override { this->parent_->set_indoor_fan_enabled(this->enabled_.value(x...)); }
+};
+
+template<typename... Ts> class TraneBusSetIndoorFanPercentAction : public Action<Ts...>, public Parented<TraneBus> {
+ public:
+  TEMPLATABLE_VALUE(int, percent)
+  void play(const Ts &...x) override { this->parent_->set_indoor_fan_percent(this->percent_.value(x...)); }
 };
 
 template<typename... Ts> class TraneBusGetProfileAction : public Action<Ts...>, public Parented<TraneBus> {
