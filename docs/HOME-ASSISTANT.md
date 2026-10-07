@@ -145,10 +145,11 @@ Those values come from sparse structured profile exchanges. If the bridge boots
 after the OEM profile sweep, or the relevant profile has not been repeated,
 only the roots observed since bridge boot can be retained.
 
-The bridge intentionally does not force a profile refresh. Only the
-stock-qualified zone-1 setpoint writer has an active TX implementation, and it
-is disabled unless `tx_enabled` is explicitly armed. Profile and mode writes
-remain fail-closed. Check:
+The bridge intentionally does not force a profile refresh. The active TX
+implementation is limited to the stock-qualified zone-1 setpoint family and
+the separately gated Technician-qualified indoor-fan family. Both still require
+global `tx_enabled` plus their own default-off qualification gate. Profile and
+mode writes remain fail-closed. Check:
 
 - Structured Data Status
 - Structured Profile Snapshots Retained
