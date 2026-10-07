@@ -39,6 +39,8 @@ esphome:
       name: "Trane 5TAMX Air Handler"
     - id: dev_heat_pump
       name: "Trane 5TWV0X Heat Pump"
+    - id: dev_mitigation
+      name: "Trane Mitigation Control Board"
     - id: dev_discovery
       name: "Trane Link Diagnostics"
 
@@ -512,6 +514,39 @@ trane_bus:
               else if (zone == 5) id(trane_zone_name_5).publish_state(v);
               else if (zone == 6) id(trane_zone_name_6).publish_state(v);
             }
+          }
+        }
+
+        p = j.find("\"EquipSummary\"");
+        if (p != std::string::npos) {
+          size_t update = j.find("\"Update\"", p);
+          size_t root_end = object_end(p);
+          if (update != std::string::npos && update < root_end) {
+            auto publish_equipment = [&](const char *key,
+                                         text_sensor::TextSensor *model,
+                                         text_sensor::TextSensor *serial,
+                                         text_sensor::TextSensor *software,
+                                         text_sensor::TextSensor *extra) {
+              std::string needle = std::string("\"") + key + "\":{";
+              size_t d = j.find(needle, update);
+              if (d == std::string::npos || d >= root_end) return;
+              size_t e = object_end(d);
+              if (get_value("Model", d, e, v)) model->publish_state(v);
+              if (get_value("Serial", d, e, v)) serial->publish_state(v);
+              if (get_value("Software", d, e, v)) software->publish_state(v);
+              if (extra != nullptr && get_value("HeaterAccessory", d, e, v))
+                extra->publish_state(v);
+            };
+            publish_equipment("HUB", id(trane_sc360_model), id(trane_sc360_serial),
+                              id(trane_sc360_software), nullptr);
+            publish_equipment("ID1", id(trane_air_handler_model), id(trane_air_handler_serial),
+                              id(trane_air_handler_software), id(trane_air_handler_heater_accessory));
+            publish_equipment("OD", id(trane_heat_pump_model), id(trane_heat_pump_serial),
+                              id(trane_heat_pump_software), nullptr);
+            publish_equipment("HI1", id(trane_thermostat_model), id(trane_thermostat_serial),
+                              id(trane_thermostat_software), nullptr);
+            publish_equipment("MCB1", id(trane_mitigation_model), id(trane_mitigation_serial),
+                              id(trane_mitigation_software), nullptr);
           }
         }
 
