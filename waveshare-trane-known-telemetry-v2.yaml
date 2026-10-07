@@ -256,7 +256,7 @@ sensor:
 
   - platform: template
     id: trane_410_temp
-    name: "0x410 Drive Inverter/IPM Temperature Candidate"
+    name: "0x410 Drive Inverter IPM Temperature Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
