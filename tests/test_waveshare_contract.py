@@ -138,9 +138,20 @@ class WaveshareSafetyContractTests(unittest.TestCase):
     def test_legacy_profile_fail_closes_pre_sdo_raw_writer(self):
         self.assertIn("components: [trane_hvac]", LEGACY)
         self.assertIn("Blocked legacy JSON TX", LEGACY)
-        self.assertIn("object 0x300A:00 is not yet qualified", LEGACY)
+        self.assertIn("historical writer is not connected to the qualified trane_bus SDO client", LEGACY)
         self.assertNotIn("id(hvac_can).send_data(0x641", LEGACY)
         self.assertNotIn("std::vector<uint8_t> f0", LEGACY)
+
+    def test_control_profile_exposes_only_guarded_qualified_fan_surface(self):
+        control = (ROOT / "waveshare-trane-control.yaml").read_text()
+        self.assertIn("qualified_setpoint_tx_enabled: false", control)
+        self.assertIn("qualified_indoor_fan_tx_enabled: false", control)
+        self.assertIn("service: trane_set_indoor_fan_enabled", control)
+        self.assertIn("trane_bus.set_indoor_fan_enabled:", control)
+        self.assertIn("service: trane_set_indoor_fan_percent", control)
+        self.assertIn("trane_bus.set_indoor_fan_percent:", control)
+        self.assertIn("tx_enabled: false", control)
+        self.assertIn("raw_json_enabled: false", control)
 
     def test_trane_hvac_platform_keeps_guarded_bus_optional(self):
         self.assertNotIn('AUTO_LOAD = ["trane_bus"]', CLIMATE_PY)
