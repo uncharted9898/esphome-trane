@@ -138,7 +138,7 @@ Maintained details live in [TELEMETRY.md](TELEMETRY.md). High-value qualified/ca
 - airflow feedback candidate: `0x318.u16@4`;
 - airflow target/command candidate: `0x281.u16@0`;
 - compressor demand: `0x281.byte6` (binary mirror of structured `OdStatus.CompDemandPercent`);
-- active flag candidate: `0x281.byte7`;
+- unresolved operating-state candidate: `0x281.byte7`;
 - speed candidate: `0x318.u16@6`;
 - power: `0x320.float[0]`.
 
@@ -192,14 +192,14 @@ The evidence archive preserves old hypotheses, including mappings later disprove
 
 Highest-value remaining work:
 
-1. capture a physical UX360 setpoint/mode change from before the user action;
-2. implement/qualify application SDO TX only after that capture;
+1. capture/qualify a stock UX360 system-mode write; setpoint TX is already stock-qualified and opt-in guarded;
+2. decide whether to add a separately guarded Technician-qualified indoor-fan writer from the 2026-10-06 `IndoorSettings.Put` evidence;
 3. confirm the `0x383.float[0..1]` gauge-vs-absolute display conversion against synchronized Technician suction/liquid PSI and confirm `0x381.float[1]` against discharge temperature;
 4. independently qualify `0x430.float[1]`, `0x450.float[0..1]`, and `0x460.float[0]`;
 5. capture defrost/reversing-valve behavior;
-6. identify A2L mitigation telemetry and node/device identity;
-7. correlate electric heat stages;
-8. qualify per-device model/serial/software objects.
+6. qualify live A2L concentration/status/alarm telemetry; the mitigation board itself is now identified as CNT09525;
+7. correlate live electric-heat stage states; `EquipSummary` now confirms a 10 kW single-phase 2-stage heater accessory;
+8. validate long structured JSON logging on-device after the logger-buffer increase and continue hydrating any remaining profile fields not present in `EquipSummary`.
 
 ## Source hygiene
 
