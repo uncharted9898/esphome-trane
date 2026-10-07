@@ -198,8 +198,9 @@ globals:
 # download to manufacturer object 0x300A:00, with mandatory server handshakes.
 # The old sequence omitted the object index and those handshakes, so it is not
 # safe to emit. Keep the script ID for legacy climate/API wiring, but fail
-# closed until the maintained trane_bus gets a qualified asynchronous SDO
-# client and this monolithic profile is fully migrated onto it.
+# closed because this monolithic profile is not wired to the maintained,
+# response-driven trane_bus SDO client. Qualified control belongs in the
+# guarded Waveshare profiles, not in this historical transmit script.
 # ---------------------------------------------------------------------------
 script:
   - id: can_transmit_json
@@ -208,7 +209,7 @@ script:
     then:
       - lambda: |-
           ESP_LOGW("trane_tx",
-                   "Blocked legacy JSON TX: CANopen SDO writer for object 0x300A:00 is not yet qualified; payload=%s",
+                   "Blocked legacy JSON TX: historical writer is not connected to the qualified trane_bus SDO client; payload=%s",
                    payload.c_str());
 
 # ---------------------------------------------------------------------------
