@@ -270,11 +270,14 @@ sensor:
     lambda: 'return id(trane_link).get_last_byte_or_nan(0x281, 6);'
     device_id: dev_heat_pump
 
-  # Byte7 remains 1 through the blower coast-down after byte6 reaches zero,
-  # then becomes 0 once the indoor blower is stopped.
+  # Earlier cooling-only captures made this look blower-active because it
+  # remained 1 through blower coast-down. The 2026-10-06 Technician fan-only
+  # test disproves that interpretation: the blower ran at ~800 feedback units
+  # / ~79 W while byte7 stayed 0 throughout. Keep the wire byte neutral until
+  # its actual operating-state meaning is independently qualified.
   - platform: template
     id: trane_281_byte7
-    name: "0x281 Blower Active Flag Candidate"
+    name: "0x281 Byte 7 State Candidate"
     state_class: measurement
     accuracy_decimals: 0
     entity_category: diagnostic
