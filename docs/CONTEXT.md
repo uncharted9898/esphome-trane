@@ -59,7 +59,12 @@ Primary monitoring integration.
 
 Guarded control-development profile.
 
-The typed control API remains present, but the application writer is fail-closed until a valid CANopen SDO client is implemented and stock command direction is captured.
+The maintained nonblocking CANopen SDO client now supports two captured write families only:
+
+- stock UX360 zone-1 `SpOverride.Put` setpoints;
+- Technician `IndoorSettings.Put` fan enable/disable and captured 50/100% requests.
+
+Global TX plus the matching per-family qualification gate must both be explicitly armed. Mode, profile and arbitrary JSON writes remain fail-closed.
 
 ### `waveshare-trane-full.yaml`
 
@@ -107,19 +112,23 @@ Current rules:
 - raw JSON TX disabled by default;
 - climate state is non-optimistic;
 - typed actions remain validated;
-- `send_json_internal_` refuses application writes because the historical guessed writer is not a valid qualified SDO transaction;
-- passive receive/capture remains available.
+- one response-driven SDO client targets `0x300A:00` over `0x641/0x5C1`;
+- stock-qualified zone-1 setpoints additionally require `qualified_setpoint_tx_enabled: true`;
+- Technician-qualified indoor-fan writes independently require `qualified_indoor_fan_tx_enabled: true`;
+- fan percentage is intentionally limited to the captured 50% and 100% values;
+- mode, profile and arbitrary JSON writers remain blocked;
+- passive receive/capture remains available regardless of write arming.
 
-Required before writes are re-enabled:
+Qualified evidence now includes five independent stock UX360 `SpOverride.Put` writes across October 3 and 5, plus the October 6 Technician `IndoorSettings.Put` fan sequence. Both families use the captured block-SDO request/response path and require application `{"Ack":"200"}` after transport completion.
 
-1. start capture before a physical UX360 setpoint or mode change;
-2. recover the originating JSON write, not merely `SpOverride.Update`;
-3. identify the exact request/response SDO channel and Ack behavior;
-4. implement a nonblocking SDO client for `0x300A:00`;
-5. handle aborts, timeout, segmented toggle, block sequence/ACK, and end response;
-6. preserve SC360-presence, validation, serialization, and restore-OFF arming guards.
+Still required before widening writes:
 
-No captured log currently contains a literal stock JSON `"Put"` transaction.
+1. capture the originating stock request transaction for each new command family;
+2. preserve exact payload shape/policy rather than extrapolating uncaptured values;
+3. require the same response-driven SDO handshake, abort/timeout handling, SC360-presence guard, serialization and quiet-bus guard;
+4. add an independent default-off qualification gate for any newly admitted family;
+5. validate on-device coexistence with the stock UX360 before considering a path production-ready.
+
 
 ## Current telemetry highlights
 
@@ -193,7 +202,7 @@ The evidence archive preserves old hypotheses, including mappings later disprove
 Highest-value remaining work:
 
 1. capture/qualify a stock UX360 system-mode write; setpoint TX is already stock-qualified and opt-in guarded;
-2. validate the separately guarded Technician-qualified indoor-fan writer on-device; it is implemented but remains default-off behind both global TX and its dedicated qualification gate;
+2. validate the separately guarded Technician-qualified indoor-fan writer on-device through the control profile; it is implemented, exposed as typed services, and remains default-off behind both global TX and its dedicated qualification gate;
 3. confirm the `0x383.float[0..1]` gauge-vs-absolute display conversion against synchronized Technician suction/liquid PSI and confirm `0x381.float[1]` against discharge temperature;
 4. independently qualify `0x430.float[1]`, `0x450.float[0..1]`, and `0x460.float[0]`;
 5. capture defrost/reversing-valve behavior;
