@@ -228,10 +228,23 @@ The repository's historical transmitter pre-dated this SDO decode and emitted a
 guessed `C2`/sequence stream without object index `0x300A` or the mandatory
 SDO server handshakes. That sequence remains removed.
 
-The October 3 and October 5 captures qualify one narrow active path: five
-independent stock UX360 zone-1 `SpOverride.Put` setpoint writes use request
+The October 3 and October 5 captures qualify the stock zone-1
+`SpOverride.Put` setpoint path: five independent UX360 writes use request
 COB-ID `0x641`, response COB-ID `0x5C1`, object `0x300A:00`, CANopen
 block download, and an application `{"Ack":"200"}`.
+
+The October 6 Technician session independently qualifies a second narrow
+application family on the same transport:
+
+```json
+{"IndoorSettings":{"Put":{"1":{"A":"1"}}}}
+{"IndoorSettings":{"Put":{"1":{"C":"100"}}}}
+{"IndoorSettings":{"Put":{"1":{"C":"50"}}}}
+{"IndoorSettings":{"Put":{"1":{"A":"0"}}}}
+```
+
+Each write completes the response-driven SDO handshake, produces a matching
+`IndoorSettings.Update`, and is followed by application `{"Ack":"200"}`.
 
 The maintained `trane_bus` now implements that setpoint path as a
 nonblocking, response-driven SDO client. It waits for `A0`, honors the
@@ -364,12 +377,41 @@ three days:
 - 2026-10-01: `HiHeapRemaining = 32538624`
 - 2026-10-03: `HiHeapRemaining = 32022528`
 - 2026-10-04: `HiHeapRemaining = 31506432`
+- 2026-10-06: `HiHeapRemaining = 30900224`
 
-All four advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+All five advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
 optional-NUL rule is a normal Trane wire form rather than a one-off malformed
 sender.
 
 The 2026-10-03 archive was still captured with the pre-fix receiver. It emits
 one malformed `TRANE_JSON` line after 41 bytes, while the underlying CAN
 transaction is valid and the next block segment carries the final closing
-brace. The maintained receiver/analyzer fix accepts all four captures.
+brace. The maintained receiver/analyzer fix accepts all five captures.
+
+
+### Long structured JSON logger capacity
+
+The October 6 Technician profile sweep proves that CANopen reassembly and
+ESPHome log formatting have different size ceilings.
+
+Target-observed complete JSON bodies include:
+
+- `ZoneStatus`: 596 bytes, 597 indicated bytes with trailing NUL;
+- `EquipSummary`: 1,377 bytes, 1,378 indicated bytes with trailing NUL;
+- `WifiList`: 1,680 bytes, 1,681 indicated bytes with trailing NUL.
+
+`trane_bus` accepts RX JSON payloads up to 4,096 bytes and reconstructs all of
+those bodies correctly. The HA profile previously used ESPHome logger's
+512-byte default TX buffer, so the emitted `TRANE_JSON` line clipped large
+payloads at about 468 JSON characters after logger metadata.
+
+The production profile now sets:
+
+```yaml
+logger:
+  tx_buffer_size: 4608
+```
+
+which covers the component's 4,096-byte RX envelope plus logger prefix/header
+overhead. This is a logging-layer fix only; it does not alter CAN transport or
+JSON reassembly.
