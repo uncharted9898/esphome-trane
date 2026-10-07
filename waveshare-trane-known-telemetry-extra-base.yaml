@@ -564,7 +564,7 @@ sensor:
 
   - platform: template
     id: trane_410_float2
-    name: "0x410 Drive Rectifier/PFC Temperature Candidate"
+    name: "0x410 Drive Rectifier PFC Temperature Candidate"
     unit_of_measurement: "°F"
     device_class: temperature
     state_class: measurement
