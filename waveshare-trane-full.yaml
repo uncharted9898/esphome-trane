@@ -44,6 +44,7 @@ trane_bus:
   command_can_id: 0x641
   tx_enabled: false
   qualified_setpoint_tx_enabled: false
+  qualified_indoor_fan_tx_enabled: false
   raw_json_enabled: false
   require_sc360_before_tx: true
   bus_activity_timeout: 5min
