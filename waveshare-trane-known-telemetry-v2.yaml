@@ -499,6 +499,110 @@ text_sensor:
     name: "Outdoor Fault Code"
     device_id: dev_heat_pump
 
+  # Directly hydrated from the 2026-10-06 EquipSummary profile.
+  # These are per-device diagnostics; the older generic UnitID surfaces remain
+  # for compatibility with systems that expose that profile separately.
+  - platform: template
+    id: trane_sc360_model
+    name: "SC360 Model"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_sc360
+  - platform: template
+    id: trane_sc360_serial
+    name: "SC360 Serial"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_sc360
+  - platform: template
+    id: trane_sc360_software
+    name: "SC360 Software"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_sc360
+
+  - platform: template
+    id: trane_air_handler_model
+    name: "Air Handler Model"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_air_handler_serial
+    name: "Air Handler Serial"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_air_handler_software
+    name: "Air Handler Software"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_air_handler
+  - platform: template
+    id: trane_air_handler_heater_accessory
+    name: "Heater Accessory"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_air_handler
+
+  - platform: template
+    id: trane_heat_pump_model
+    name: "Heat Pump Model"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_heat_pump_serial
+    name: "Heat Pump Serial"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_heat_pump
+  - platform: template
+    id: trane_heat_pump_software
+    name: "Heat Pump Software"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_heat_pump
+
+  - platform: template
+    id: trane_thermostat_model
+    name: "Thermostat Model"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_thermostat_serial
+    name: "Thermostat Serial"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+  - platform: template
+    id: trane_thermostat_software
+    name: "Thermostat Software"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_thermostat
+
+  - platform: template
+    id: trane_mitigation_model
+    name: "Mitigation Board Model"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_mitigation
+  - platform: template
+    id: trane_mitigation_serial
+    name: "Mitigation Board Serial"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_mitigation
+  - platform: template
+    id: trane_mitigation_software
+    name: "Mitigation Board Software"
+    entity_category: diagnostic
+    disabled_by_default: true
+    device_id: dev_mitigation
+
   - platform: template
     id: trane_unit_model
     name: "Unit Model"
