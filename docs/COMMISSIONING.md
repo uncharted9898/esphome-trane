@@ -200,9 +200,15 @@ Do **not** assume the upstream gas-system `ID Stage 1/2` strings will be reused 
 
 ### 4.6 Fan-only / circulate
 
-Capture UX360 fan `On` and `Circ` operation separately if available.
+The 2026-10-06 Technician session captured and qualified the narrow
+`IndoorSettings.Put` fan writer used for explicit fan enable/disable and 50/100%
+requests. That is enough for the guarded Technician control path, but it does
+**not** prove that normal UX360 `On` and `Circ` modes use identical application
+semantics.
 
-This is needed because the upstream implementation never established a safe/real fan-only control mapping. It also cleanly separates blower telemetry from compressor/heat telemetry.
+Capture UX360 fan `On` and `Circ` operation separately if available. This
+will determine whether those user-facing modes are simple wrappers around the
+qualified Technician commands or a distinct higher-level policy.
 
 ### 4.7 Dehumidification / humidity-control transition
 
@@ -272,35 +278,33 @@ If a qualified technician runs them for legitimate commissioning/service reasons
 
 The maintained current map is [TELEMETRY.md](TELEMETRY.md). Do not repeat already-closed questions merely because an older capture note raised them.
 
-Closed/strongly constrained by target captures:
+Closed/strongly constrained by target captures now include:
 
-- `0x380.float[1]` outdoor ambient;
-- `0x308` return/supply air;
-- `0x310` total static pressure;
-- `0x281.u16@0` actual airflow;
-- blower request/feedback chain across `0x200`, `0x318`, and `0x281`;
-- compressor request/actual/target families across `0x280`, `0x384`, and `0x385`;
-- `0x38F.float[0]` line-voltage candidate;
-- `0x38C.float[1]` input power;
-- room temperature from `0x490.float[0]`;
-- filtered indoor humidity from `0x490.byte4`;
-- CANopen SDO JSON mailbox at `0x300A:00`.
+- room temperature and indoor humidity from `0x490`;
+- return/supply air and total static pressure;
+- blower request/feedback/power chain;
+- compressor request/actual/ceiling families;
+- suction/high-side pressure semantics as the paired `0x383.float[0..1]` family;
+- stator-heat enable and power-level behavior across 123 complete cycles;
+- CANopen SDO JSON mailbox at `0x300A:00`;
+- stock zone-1 `SpOverride.Put` setpoint transport and application ACK behavior;
+- Technician `IndoorSettings.Put` fan enable/50/100% transport;
+- per-device model/serial/software inventory from `EquipSummary`;
+- mitigation-board identity `CNT09525`;
+- installed heater accessory: 10 kW, single-phase, 2-stage.
 
 Highest-value unresolved questions:
 
-1. What exact pressure role/scaling does `0x381.float[1]` use?
-2. What exact physical sensor is `0x382.float[0]`?
+1. Are `0x383.float[0..1]` gauge or absolute pressure representations, and what exact display conversion does Technician use?
+2. Can `0x381.float[1]` be independently matched to Technician compressor-discharge temperature?
 3. What are `0x386.float[0]` and `0x386.float[1]` on this model?
-4. What are the exact sources/units for `0x430` and `0x450`?
-5. What is `0x460.float[0]`?
-6. Where is outdoor EEV command/position?
-7. Can suction and liquid/high-side pressure both be independently matched to Technician values?
-8. What exact fields represent electric heat stages 1-3 and emergency heat?
-9. What exact fields represent defrost and reversing-valve state?
-10. What CAN node/IDs/profile fields belong to the A2L mitigation controller and sensor?
-11. Where are per-device model/serial/software identities for each communicating assembly?
-12. Where is installed heater size/model/configuration?
-13. What is the originating stock UX360 JSON/SDO transaction for a setpoint or mode write?
+4. What are the exact sources/units for `0x430.float[1]`, `0x450.float[0..1]`, and `0x460.float[0]`?
+5. Where is outdoor EEV command/position?
+6. What exact live fields represent electric-heat stage 1 and stage 2 for the installed heater?
+7. What exact fields represent defrost and reversing-valve state?
+8. Which live CAN fields represent A2L concentration/status/alarm/mitigation state for the CNT09525 system?
+9. What is the originating stock UX360 JSON/SDO transaction for a system-mode write?
+10. Do normal UX360 fan `On`/`Circ` modes reuse the Technician-qualified fan family or apply additional policy?
 
 ## 6. General all-electric operating capture matrix
 
@@ -330,7 +334,8 @@ In addition to controlled service-test captures, record normal operation:
 
 ## 7. Guarded local control
 
-After monitoring is clean, `waveshare-trane-full.yaml` provides the guarded local-control surface.
+After monitoring is clean, use the guarded control profiles only for the two
+captured application families.
 
 At startup:
 
@@ -338,34 +343,37 @@ At startup:
 - Trane application TX starts disabled;
 - raw JSON remains disabled;
 - decoded telemetry continues working;
-- the SC360 remains authoritative.
+- the SC360 remains authoritative;
+- the setpoint and indoor-fan qualification gates remain independently false.
 
-The `Local Trane Control` switch restores OFF after every reboot.
+When deliberately armed, command transport:
 
-It may only enable if recent SC360 traffic has been observed. Even after enabled, command transport:
-
-- validates supported modes;
-- validates setpoint ranges/deadband;
-- blocks a second write while waiting for ACK;
-- times out a missing ACK;
+- allows only stock-qualified zone-1 setpoints with `HoldType=1` and `Source=1`;
+- allows only Technician-qualified fan enable/disable and 50/100% fan requests;
+- waits for the captured response-driven CANopen block-SDO handshake;
+- blocks a second write while another stock/local transaction is active;
+- times out missing transport/application acknowledgements;
 - keeps SC360-reported state authoritative;
 - does not continuously reassert Home Assistant state.
 
-Do not expose emergency heat, auto, fan-only, electric-stage control, defrost control, EEV control, or other service functions as normal local commands until their target-system semantics are captured and reviewed.
+Mode writes, profile requests, arbitrary JSON, emergency heat, electric-stage
+control, defrost control, EEV control and other uncaptured command families
+remain fail-closed.
 
 ## 8. First command sequence
 
 Use a low-risk sequence while physically present at the equipment.
 
-1. Request `SYSOP` profile only after its command path is confirmed compatible with the target system.
-2. Confirm SC360 traffic is fresh.
-3. Enable `Local Trane Control`.
-4. Change one setpoint by 1 F.
-5. Confirm CAN ACK 200.
-6. Confirm the UX360 updates to the same setpoint.
-7. Confirm the SC360 broadcast updates and Home Assistant reflects it.
-8. Change the value back from the UX360 and confirm Home Assistant follows without the bridge fighting the thermostat.
-9. Test heat/cool/off commands one at a time only after setpoint coexistence is proven.
+1. Confirm SC360 traffic is fresh and normal monitoring is stable.
+2. Explicitly arm global TX and the **setpoint** qualification gate only.
+3. Change one zone-1 setpoint by 1 F using the qualified service.
+4. Confirm the response-driven CANopen transfer completes and application ACK is 200.
+5. Confirm the UX360 updates to the same setpoint.
+6. Confirm the SC360 broadcast update and Home Assistant both reflect the new value.
+7. Change the value back from the UX360 and confirm Home Assistant follows without the bridge fighting the thermostat.
+8. Disarm setpoint TX again.
+9. If separately validating the October 6 fan writer, arm only the **indoor-fan** qualification gate, exercise one captured value, verify blower response/ACK, return the fan to its prior state, then disarm it.
+10. Do **not** test mode/profile/raw-JSON writes; those paths remain intentionally blocked until their own stock request transactions are captured and qualified.
 
 ## 9. Failure tests
 
