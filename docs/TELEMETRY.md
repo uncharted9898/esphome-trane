@@ -43,9 +43,9 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x281.u16@0` | Airflow Target Candidate | Strong candidate | Airflow-shaped, but 2026-09-27 startup/shutdown timing disproves delivered/actual airflow: it jumps to ~720 before blower current/power and `0x318` feedback leave zero, and remains nonzero briefly after the blower stops. |
 | `0x281.u16@2` | Raw fixed/configuration field | Raw | Often 500; remains 500 with blower stopped, so not actual airflow. |
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
-| `0x281.byte7` | Blower Active Flag Candidate | Strong candidate | Remains 1 during blower coast-down, reaches 0 when stopped. |
+| `0x281.byte7` | Byte 7 State Candidate | Candidate / old blower-active hypothesis disproved | Cooling-only captures made this look blower-active, but the 2026-10-06 Technician fan-only test ran the blower at ~800 feedback units / ~79 W while this byte stayed 0. Keep it neutral until its actual operating-state meaning is qualified. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
-| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 109 isolated cycles from 2026-09-23 through 2026-10-05, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. Compressor and outdoor fan stay stopped throughout isolated cycles. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 123 fully observed cycles from 2026-09-23 through 2026-10-06, plus one cycle still active at the 10/06 archive boundary, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. Compressor and outdoor fan stay stopped throughout isolated cycles. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
 | `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
 | `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
@@ -67,7 +67,7 @@ Current best interpretation:
 0x200.u16@2   -> blower speed request
 0x318.u16@4   -> blower motor speed feedback
 0x281.u16@0   -> airflow target/command candidate
-0x281.byte7   -> blower active flag
+0x281.byte7   -> unresolved operating-state byte
 0x318.u16@6   -> unresolved motor-adjacent raw field
 0x320.float0  -> blower power
 ```
@@ -98,7 +98,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
 | `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
-| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 109 isolated stator-heat cycles through 2026-10-05, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 123 fully observed stator-heat cycles through 2026-10-06, plus one 10/06 carry-out cycle, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -263,8 +263,8 @@ Do not invent friendly names for these until captured against a known OEM value:
 - both suction and liquid/high-side pressure with independently verified units;
 - defrost state and reversing-valve state;
 - A2L mitigation controller/sensor status and alarms;
-- electric heat stage states;
-- per-device model/serial/software mapping;
+- live electric heat stage states (installed accessory is now identified as 10 kW, single-phase, 2-stage);
+- remaining per-device profile fields not present in `EquipSummary`;
 - native UX360 mode-write transaction and non-setpoint control semantics.
 
 ## Control-write status
@@ -681,3 +681,104 @@ Sparse structured environmental mirrors remain coherent:
 The archive contains 29 valid block-SDO JSON transfers. All observed block
 transfers are normal NUL-sized forms on this day; no fifth exact-length/no-NUL
 `DebugUI.HiHeapRemaining` example occurs.
+
+
+### 2026-10-06 Technician profile / fan-only qualification
+
+October 6 remains compressor-idle for the full day, but a Technician-app
+session at ~13:51-13:56 UTC produces the richest profile/control burst captured
+so far.
+
+#### Technician fan-only control
+
+The stock Technician traffic contains:
+
+```json
+{"IndoorSettings":{"Put":{"1":{"A":"1"}}}}
+{"IndoorSettings":{"Put":{"1":{"C":"100"}}}}
+{"IndoorSettings":{"Put":{"1":{"C":"50"}}}}
+{"IndoorSettings":{"Put":{"1":{"A":"0"}}}}
+```
+
+Observed response chain:
+
+- `A=1` starts the indoor fan path without compressor operation;
+- `C=100` produces `IndoorStatus.E=100` and `0x200.u16@2=800`;
+- `C=50` produces `IndoorStatus.E=50` and `0x200.u16@2=400`;
+- `0x318.u16@4` follows as physical motor feedback and reaches ~807;
+- blower power reaches ~79 W;
+- `A=0` stops the motor and feedback returns to zero.
+
+This directly confirms the ~8 request-units-per-percent scale and proves
+numeric `IndoorStatus.E` is a request/target percentage.
+
+During the entire fan-only interval, `0x281.byte7` remains 0. The previous
+"Blower Active Flag" label is therefore disproved and has been demoted to a
+neutral state candidate.
+
+`ZoneStatus.HcStatus=4` persists during this deliberate fan-only operation.
+Together with previous cooling shutdown/coast observations, code 4 is best
+described as a **fan/blower-only or blower-coast state**, not merely a shutdown
+transient.
+
+The receive-side fan-control semantics are now qualified, but local fan TX has
+not been enabled; it remains fail-closed until a separate guarded writer is
+intentionally implemented.
+
+#### EquipSummary device inventory
+
+The raw CAN reassembles a 1,377-byte `EquipSummary` profile containing the
+enrolled Link equipment. It directly identifies:
+
+- SC360 system controller model/software;
+- 5TAMX air-handler model/software;
+- 5TWV0X heat-pump model/software;
+- UX360 thermostat model/software;
+- CNT09525 mitigation control board model/software.
+
+The air-handler record also reports:
+
+```text
+HeaterAccessory = Electric, 10KW, Single-Phase, 2-Stage
+```
+
+Per-device model/serial/software diagnostics and the heater-accessory field are
+now hydrated from `EquipSummary`. The accessory identity does **not** by
+itself qualify live electric-heat stage telemetry.
+
+#### Long structured JSON logging
+
+The profile session also exposes a logging-layer truncation separate from the
+CANopen receiver. Valid reassembled messages include:
+
+- `ZoneStatus`: 596 JSON bytes (+ NUL on wire);
+- `EquipSummary`: 1,377 JSON bytes (+ NUL);
+- `WifiList`: 1,680 JSON bytes (+ NUL).
+
+The old ESPHome logger used its 512-byte default TX buffer, causing emitted
+`TRANE_JSON` lines to clip at about 468 JSON characters even though
+`trane_bus` had correctly reassembled the complete payload. The HA profile
+now sets `logger.tx_buffer_size: 4608`, covering the component's 4,096-byte
+maximum RX JSON payload plus log metadata.
+
+A fifth exact-length/no-NUL `DebugUI.HiHeapRemaining` transfer is also
+present, now with value `30900224`; the maintained optional-NUL receiver fix
+already covers this wire form.
+
+#### Stator heat and idle pressure baseline
+
+October 6 contains 15 stator-heat starts: 14 fully complete in the archive and
+one still active at 23:59:59 UTC. Complete-cycle duration is ~7.25-9.51 min
+(median ~8.95 min). The `0x390` onset lag remains ~8.84-9.80 s
+(median ~9.49 s).
+
+Cumulative evidence is therefore **123 fully observed cycles plus one carry-out
+cycle**.
+
+With compressor request/actual/power all zero, the pressure pair remains
+equalized over the day:
+
+- `0x383.f0`: ~176.5-224.5;
+- `0x383.f1`: ~175.7-224.2;
+- median absolute separation: ~1.55;
+- maximum separation: ~4.55.
