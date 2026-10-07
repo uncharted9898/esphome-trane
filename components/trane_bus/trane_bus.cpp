@@ -959,9 +959,9 @@ void TraneBus::handle_sdo_tx_response_(const std::vector<uint8_t> &data) {
       return;
     }
 
-    // Both October 3 stock writes finish in one 12-segment block and the
-    // server responds A2 0C 00..., i.e. no next-block size is needed. Accept
-    // that exact final-ACK form before validating a continuation block size.
+    // A final block ACK may carry no continuation block size. Accept that
+    // final-ACK form before validating continuation sizing; this applies to
+    // both the qualified setpoint and shorter indoor-fan transfers.
     if (sdo_tx_.offset >= sdo_tx_.wire_payload.size()) {
       if (!this->send_sdo_end_request_())
         this->abort_sdo_tx_("failed to send block-end request");
@@ -1040,9 +1040,10 @@ bool TraneBus::send_json_internal_(const std::string &payload, bool expect_ack, 
     return false;
   }
 
-  // October 3 qualifies this transport only for stock SpOverride.Put setpoint
-  // writes. Raw JSON, mode writes and profile requests remain intentionally
-  // fail-closed until their own stock request transactions are captured.
+  // Only explicitly qualified application families bypass this generic path:
+  // stock SpOverride.Put setpoints and the captured Technician IndoorSettings
+  // fan controls. Raw JSON, mode writes and profile requests remain
+  // intentionally fail-closed until their own request transactions qualify them.
   (void) expect_ack;
   tx_blocked_++;
   ESP_LOGE(TAG, "TX blocked: application writer is not qualified for %s", kind);
