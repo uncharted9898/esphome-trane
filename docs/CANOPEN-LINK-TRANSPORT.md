@@ -246,17 +246,21 @@ application family on the same transport:
 Each write completes the response-driven SDO handshake, produces a matching
 `IndoorSettings.Update`, and is followed by application `{"Ack":"200"}`.
 
-The maintained `trane_bus` now implements that setpoint path as a
+The maintained `trane_bus` implements both qualified families with one
 nonblocking, response-driven SDO client. It waits for `A0`, honors the
 negotiated block size, waits for matching `A2`, sends the encoded block-end
 request, waits for `A1`, and only then starts the application-ACK timer.
-`tx_enabled` remains false by default. The setpoint writer also requires the
-static `qualified_setpoint_tx_enabled: true` acknowledgement, which defaults
-false, plus recent SC360 activity. Before starting a local transfer it requires
-100 ms of quiet on the stock `0x641/0x5C1` SDO pair so the bridge cannot
-interleave its block download with an in-progress stock transaction. Mode,
-profile and arbitrary JSON writes remain fail-closed because no equivalent
-stock request capture has qualified them.
+
+`tx_enabled` remains false by default. Setpoints additionally require
+`qualified_setpoint_tx_enabled: true`; Technician fan control independently
+requires `qualified_indoor_fan_tx_enabled: true`. Both qualification flags
+default false and both paths require recent SC360 activity plus 100 ms of quiet
+on the stock `0x641/0x5C1` SDO pair so local traffic cannot interleave with
+an in-progress stock transaction.
+
+The fan writer accepts only the captured `A=0/1` enable states and
+`C=50/100` request values. Mode, profile and arbitrary JSON writes remain
+fail-closed because no equivalent request capture has qualified them.
 
 All five stock writes used this exact application field order and policy:
 
@@ -370,8 +374,8 @@ only after the final segment.
 
 ### Repeated exact-length observations
 
-The exact-length/no-trailing-NUL form has now been observed independently on
-three days:
+The exact-length/no-trailing-NUL form has now been observed independently across
+five capture days:
 
 - 2026-09-30: `HiHeapRemaining = 33054720`
 - 2026-10-01: `HiHeapRemaining = 32538624`
