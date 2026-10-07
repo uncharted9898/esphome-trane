@@ -55,6 +55,10 @@ external_components:
 
 logger:
   level: INFO
+  # Default ESPHome log TX buffer is 512 bytes, which clips valid long
+  # TRANE_JSON profile messages. trane_bus accepts up to 4096-byte RX JSON,
+  # so leave enough headroom for logger metadata and the TRANE_JSON prefix.
+  tx_buffer_size: 4608
   logs:
     canbus: WARN
     trane_bus: INFO
