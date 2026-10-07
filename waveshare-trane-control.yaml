@@ -50,6 +50,22 @@ api:
             hold_type: 1
             source: 1
 
+    - service: trane_set_indoor_fan_enabled
+      variables:
+        enabled: bool
+      then:
+        - trane_bus.set_indoor_fan_enabled:
+            id: trane_link
+            enabled: !lambda 'return enabled;'
+
+    - service: trane_set_indoor_fan_percent
+      variables:
+        percent: int
+      then:
+        - trane_bus.set_indoor_fan_percent:
+            id: trane_link
+            percent: !lambda 'return percent;'
+
     - service: trane_get_profile
       variables:
         profile: string
@@ -93,6 +109,10 @@ trane_bus:
   # Field testing requires deliberately changing this to true as well as
   # enabling runtime TX; existing configs cannot acquire writes by accident.
   qualified_setpoint_tx_enabled: false
+  # Separate default-off gate for the October 6 Technician-qualified fan path.
+  # Runtime code additionally accepts only A=0/1 and C=50/100, the values
+  # actually captured from the stock Technician session.
+  qualified_indoor_fan_tx_enabled: false
   raw_json_enabled: false
   require_sc360_before_tx: true
   bus_activity_timeout: 5min
