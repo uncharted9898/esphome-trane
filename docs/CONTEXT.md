@@ -193,7 +193,7 @@ The evidence archive preserves old hypotheses, including mappings later disprove
 Highest-value remaining work:
 
 1. capture/qualify a stock UX360 system-mode write; setpoint TX is already stock-qualified and opt-in guarded;
-2. decide whether to add a separately guarded Technician-qualified indoor-fan writer from the 2026-10-06 `IndoorSettings.Put` evidence;
+2. validate the separately guarded Technician-qualified indoor-fan writer on-device; it is implemented but remains default-off behind both global TX and its dedicated qualification gate;
 3. confirm the `0x383.float[0..1]` gauge-vs-absolute display conversion against synchronized Technician suction/liquid PSI and confirm `0x381.float[1]` against discharge temperature;
 4. independently qualify `0x430.float[1]`, `0x450.float[0..1]`, and `0x460.float[0]`;
 5. capture defrost/reversing-valve behavior;
