@@ -76,8 +76,8 @@ sensor:
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x2D0, 4);'
     device_id: dev_air_handler
 
-  # Captures from 2026-09-23 through 2026-10-05 now expose 109 isolated
-  # stator-heating cycles (2 + 19 + 16 + 13 + 8 + 6 + 2 + 3 + 4 + 2 + 1 + 18 + 15). byte1 consistently
+  # Captures from 2026-09-23 through 2026-10-06 now expose 123 fully observed
+  # stator-heating cycles (2 + 19 + 16 + 13 + 8 + 6 + 2 + 3 + 4 + 2 + 1 + 18 + 15 + 14 complete; plus one 10-06 carry-out). byte1 consistently
   # asserts about 9-10 s before the outdoor drive phase currents/input power
   # rise, remains
   # asserted through the heat interval, and clears as the electrical load
@@ -96,7 +96,7 @@ sensor:
     device_id: dev_heat_pump
 
   # 0x390 remains stator-heat-specific through all later captures. Across the
-  # 109 isolated cycles, byte0 sits at 44-46 and its first nonzero sample
+  # 123 fully observed cycles, byte0 sits at 44-46 and its first nonzero sample
   # appears about 9-10 s after the 0x282 enable, coincident with the outdoor
   # input-power rise.
   # Technician exposes a MocStatorHeatPower monitor, but exact wire units are
