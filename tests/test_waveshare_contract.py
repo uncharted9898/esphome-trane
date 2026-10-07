@@ -126,6 +126,8 @@ class WaveshareSafetyContractTests(unittest.TestCase):
 
     def test_full_profile_starts_control_disarmed(self):
         self.assertIn("tx_enabled: false", FULL)
+        self.assertIn("qualified_setpoint_tx_enabled: false", FULL)
+        self.assertIn("qualified_indoor_fan_tx_enabled: false", FULL)
         self.assertIn("raw_json_enabled: false", FULL)
         self.assertIn("restore_mode: ALWAYS_OFF", FULL)
         self.assertIn("has_recent_trane_activity", FULL)
