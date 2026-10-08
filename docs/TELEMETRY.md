@@ -45,7 +45,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Byte 7 State Candidate | Candidate / old blower-active hypothesis disproved | Cooling-only captures made this look blower-active, but the 2026-10-06 Technician fan-only test ran the blower at ~800 feedback units / ~79 W while this byte stayed 0. Keep it neutral until its actual operating-state meaning is qualified. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
-| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 123 fully observed cycles from 2026-09-23 through 2026-10-06, plus one cycle still active at the 10/06 archive boundary, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. Compressor and outdoor fan stay stopped throughout isolated cycles. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 139 fully completed isolated cycles through 2026-10-07, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
 | `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
 | `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
@@ -57,7 +57,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x318.u16@4` | Blower Motor Speed | Strong/confirmed family | Follows the `0x200.u16@2` speed request only after the blower actually starts, tracks modulation and power, and returns to zero with motor stop. Literal RPM scaling is retained as the best working unit pending synchronized Technician speed. |
 | `0x318.u16@6` | Raw/Candidate | Candidate | Moves with blower operation but no longer carries the primary speed label; exact physical meaning remains unresolved. |
 | `0x320.float[0]` | Blower Power | Confirmed/strong | ~45-73 W under observed active states and 0 W stopped. |
-| `0x2D0.u16@2` | Airflow Limit Candidate | Candidate | ~775 CFM at high load and ~771 while delivered airflow was only ~658 CFM; behaves more like an airflow ceiling/configuration value than actual airflow. |
+| `0x2D0.u16@4` | Airflow Limit Candidate | Strong candidate | ~775 CFM at high load and ~771 while delivered airflow was only ~658 CFM. On the mechanically idle 2026-10-07 archive it continues varying ~773-827 while blower request, feedback and power remain zero, decisively excluding actual/delivered airflow. |
 
 ### Blower request/feedback chain
 
@@ -98,7 +98,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
 | `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
-| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 123 fully observed stator-heat cycles through 2026-10-06, plus one 10/06 carry-out cycle, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 139 fully completed isolated stator-heat cycles through 2026-10-07, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -790,3 +790,16 @@ equalized over the day:
 - `0x383.f1`: ~175.7-224.2;
 - median absolute separation: ~1.55;
 - maximum separation: ~4.55.
+
+
+### 2026-10-07 full-day idle / stator / network follow-up
+
+October 7 is mechanically idle for all 24 hours: compressor request, actual speed and power are zero; blower request, feedback and power are zero; airflow target and compressor demand are zero. The October 6 carry-out stator event clears just after midnight, followed by 15 new complete cycles. Cumulative evidence is now **139 completed isolated stator-heat cycles**.
+
+The 15 new cycles run ~7.27-9.97 min (median ~8.27 min). `0x390.byte0` begins ~8.77-9.77 s after `0x282.byte1` (median ~9.07 s) and remains confined to 44/45/46. All three phase-current candidates assert again with compressor speed fixed at zero.
+
+The day also extends the equalization baseline across roughly 50.2-79.4 F outdoor ambient. `0x383.f0` spans ~158.0-229.2, `0x383.f1` ~156.3-227.5, with median absolute separation ~1.70 and max ~3.68.
+
+A useful scheduling clue appears: stator starts continue into the low 70s, then stop for roughly 290 minutes while ambient spends the warmest portion of the day mostly around 75-79 F, resuming near 74.8 F. Treat this only as an outdoor-temperature inhibit/eligibility candidate; it is not enough evidence to hard-code a threshold.
+
+October 7 also decisively excludes `0x2D0.u16@4` from actual airflow: it varies ~773-827 all day while every real blower signal remains zero. Keep it as an airflow limit/ceiling/configuration candidate.
