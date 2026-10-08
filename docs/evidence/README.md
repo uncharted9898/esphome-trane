@@ -141,3 +141,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [technician-profile-fan-long-json.md](2026-10-06/technician-profile-fan-long-json.md) | Full-day compressor-idle archive, Technician-qualified fan enable/50/100% control sequence, 0x281.byte7 blower-active disproof, HcStatus=4 fan/coast evidence, full EquipSummary inventory including CNT09525 and 10 kW 2-stage heater accessory, long-JSON logger truncation/fix, fifth exact-length/no-NUL transfer, and 14 complete + one carry-out stator-heat cycles |
+
+
+## 2026-10-07
+
+| File | What it captured |
+|---|---|
+| [full-day-idle-bridge-reboot-stator.md](2026-10-07/full-day-idle-bridge-reboot-stator.md) | Complete mechanical-idle day, closure of the 10/06 stator carry-out plus 15 new complete cycles taking the corpus to 139, wide-ambient pressure equalization, a bridge-only reboot/reconnect without OEM heartbeat reset, 0x2D0 non-airflow disproof, and 0x53D/0x53E network-status refinement |
