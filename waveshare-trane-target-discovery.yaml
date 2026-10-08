@@ -76,8 +76,9 @@ sensor:
     lambda: 'return id(trane_link).get_last_u16_le_or_nan(0x2D0, 4);'
     device_id: dev_air_handler
 
-  # Captures from 2026-09-23 through 2026-10-06 now expose 123 fully observed
-  # fully observed stator-heating cycles, plus one 2026-10-06 cycle still active at the archive boundary. byte1 consistently
+  # Captures through 2026-10-07 now expose 139 fully completed isolated
+  # stator-heating cycles. The 2026-10-06 carry-out closes cleanly just after
+  # midnight on 10/07. byte1 consistently
   # asserts about 9-10 s before the outdoor drive phase currents/input power
   # rise, remains
   # asserted through the heat interval, and clears as the electrical load
@@ -96,7 +97,7 @@ sensor:
     device_id: dev_heat_pump
 
   # 0x390 remains stator-heat-specific through all later captures. Across the
-  # 123 fully observed cycles, byte0 sits at 44-46 and its first nonzero sample
+  # 139 fully completed cycles, byte0 sits at 44-46 and its first nonzero sample
   # appears about 9-10 s after the 0x282 enable, coincident with the outdoor
   # input-power rise.
   # Technician exposes a MocStatorHeatPower monitor, but exact wire units are
@@ -236,8 +237,9 @@ sensor:
 
   # CANopen/network-management observations --------------------------------
   # 0x53E.byte5 fell 5 -> 4 while node 3 rebooted and returned to 5 after the
-  # node reached NMT operational. Treat this as an active/available-node count
-  # candidate until a topology test proves the exact contract.
+  # node reached NMT operational. On 2026-10-07 it remains 5 for all 40,986
+  # samples while heartbeat nodes 1-5 all remain operational, strengthening the
+  # active/available-node-count interpretation without yet proving ownership.
   - platform: template
     id: trane_53e_active_nodes_candidate
     name: "0x53E Active Link Nodes Candidate"
