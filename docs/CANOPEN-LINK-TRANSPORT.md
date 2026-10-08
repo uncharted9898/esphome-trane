@@ -311,7 +311,7 @@ Do not assign HVAC semantics merely from the CANopen identifier range.
 
 These frames had initially been tempting to call A2L traffic because the target has a mitigation board. The CANopen startup evidence argues for caution.
 
-Steady state:
+Earlier steady-state captures included:
 
 ```text
 0x53D 01 00 00 00 00
@@ -320,9 +320,15 @@ Steady state:
 
 During cold boot, the final byte of `0x53E` temporarily changes from `05` to `04`, then returns to `05` after the node-3 boot/pre-operational/operational sequence completes.
 
-Because five heartbeat node IDs (`0x701`..`0x705`) are present, `0x53E.byte5` is a strong **active/available Link node-count candidate**. It is exposed as a candidate only; ownership and exact contract remain unresolved.
+The mechanically idle 2026-10-07 archive adds an important constraint:
 
-`0x53D` remains raw network/status evidence.
+- all 40,986 `0x53D` samples are `00 00 00 00 00`;
+- all 40,986 `0x53E` samples remain `00 00 00 00 01 05`;
+- heartbeat nodes `0x701` through `0x705` all remain `0x05` (operational).
+
+A bridge-only reboot/reconnect near 10:42 UTC does not disturb those OEM heartbeat states.
+
+So `0x53D.byte0 = 1` is **not** required for a healthy five-node operational network and `0x53D` remains raw. Conversely, `0x53E.byte5 = 5` now has another full-day correlation with five simultaneously operational heartbeat nodes, strengthening the **active/available Link node-count candidate** interpretation. Physical ownership and exact contract remain unresolved.
 
 ## Six-slot 0x4C0..0x4C5 family
 
