@@ -165,7 +165,8 @@ Maintained details live in [TELEMETRY.md](TELEMETRY.md). High-value qualified/ca
 - compressor discharge-temperature candidate: `0x381.float[1]`;
 - suction-pressure raw/confirmed semantic: `0x383.float[0]`;
 - liquid/high-side pressure raw candidate: `0x383.float[1]`;
-- stator-heat enable: `0x282.byte1`;\n- stator-heat power/level candidate: `0x390.byte0`;
+- stator-heat enable: `0x282.byte1`;
+- stator-heat power/level candidate: `0x390.byte0`;
 - compressor phase-current candidates: `0x388.float[0..1]` + `0x389.float[0]`;
 - drive IPM/PFC temperature candidates: `0x410.float[0..1]`;
 - outdoor-fan IPM temperature candidate: `0x430.float[0]`;
@@ -196,6 +197,10 @@ docs/evidence/YYYY-MM-DD/
 ```
 
 The evidence archive preserves old hypotheses, including mappings later disproved. Current truth belongs in `TELEMETRY.md`, source, and tests.
+
+## Latest capture checkpoint
+
+The 2026-10-07 archive is mechanically idle all day and closes the 10/06 stator carry-out, taking the project corpus to **139 completed isolated stator-heat cycles**. It also strengthens `0x2D0.u16@4` as an airflow limit/configuration field rather than actual airflow, and strengthens `0x53E.byte5` as an active/available node-count candidate while proving `0x53D.byte0=1` is not required for a healthy five-node operational network.
 
 ## Immediate engineering work
 
