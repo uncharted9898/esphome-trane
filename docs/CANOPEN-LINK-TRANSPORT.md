@@ -381,15 +381,16 @@ only after the final segment.
 ### Repeated exact-length observations
 
 The exact-length/no-trailing-NUL form has now been observed independently across
-five capture days:
+six capture days:
 
 - 2026-09-30: `HiHeapRemaining = 33054720`
 - 2026-10-01: `HiHeapRemaining = 32538624`
 - 2026-10-03: `HiHeapRemaining = 32022528`
 - 2026-10-04: `HiHeapRemaining = 31506432`
 - 2026-10-06: `HiHeapRemaining = 30900224`
+- 2026-10-08: `HiHeapRemaining = 30384128`
 
-All five advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+All six advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
 optional-NUL rule is a normal Trane wire form rather than a one-off malformed
 sender.
 
@@ -425,3 +426,6 @@ logger:
 which covers the component's 4,096-byte RX envelope plus logger prefix/header
 overhead. This is a logging-layer fix only; it does not alter CAN transport or
 JSON reassembly.
+
+
+On 2026-10-08 the sixth 42-byte no-NUL sample was emitted completely by the updated ESPHome receiver, directly confirming the deployed optional-NUL fix. The other 1,126 CANopen JSON transactions on that day reconstructed correctly, with no profile/mode/control `Put` family observed.
