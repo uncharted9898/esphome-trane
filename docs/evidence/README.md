@@ -148,3 +148,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-idle-bridge-reboot-stator.md](2026-10-07/full-day-idle-bridge-reboot-stator.md) | Complete mechanical-idle day, closure of the 10/06 stator carry-out plus 15 new complete cycles taking the corpus to 139, wide-ambient pressure equalization, a bridge-only reboot/reconnect without OEM heartbeat reset, 0x2D0 non-airflow disproof, and 0x53D/0x53E network-status refinement |
+
+
+## 2026-10-08
+
+| File | What it captured |
+|---|---|
+| [full-day-cooling-stator-sixth-nonul.md](2026-10-08/full-day-cooling-stator-sixth-nonul.md) | Full day with eight cooling runs, ~73.5 minutes Stage 2, 13 new stator cycles (152 cumulative), pressure/room/humidity validation, compressor-request-adjacent 0x281.byte7 behavior, and sixth exact-length/no-NUL JSON transfer verified on-device |
