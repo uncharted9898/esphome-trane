@@ -200,7 +200,7 @@ The evidence archive preserves old hypotheses, including mappings later disprove
 
 ## Latest capture checkpoint
 
-The 2026-10-07 archive is mechanically idle all day and closes the 10/06 stator carry-out, taking the project corpus to **139 completed isolated stator-heat cycles**. It also strengthens `0x2D0.u16@4` as an airflow limit/configuration field rather than actual airflow, and strengthens `0x53E.byte5` as an active/available node-count candidate while proving `0x53D.byte0=1` is not required for a healthy five-node operational network.
+The 2026-10-07 archive is mechanically idle and closes the 10/06 stator carry-out. The 2026-10-08 archive adds eight real cooling runs and 13 stator cycles, taking the corpus to **152 completed isolated stator-heat cycles**. Its sixth exact-length/no-NUL JSON example is received correctly by the installed bridge. It also strengthens `0x2D0.u16@4` as an airflow limit/configuration field rather than actual airflow, and strengthens `0x53E.byte5` as an active/available node-count candidate while proving `0x53D.byte0=1` is not required for a healthy five-node operational network.
 
 ## Immediate engineering work
 
