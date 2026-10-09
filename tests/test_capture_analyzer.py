@@ -127,7 +127,7 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertEqual([row["json"] for row in messages], [{"Long": "abcdefghijklmnop"}])
 
     def test_block_download_exact_length_without_trailing_nul(self):
-        for heap_remaining in ("33054720", "32538624", "32022528", "31506432", "30900224"):
+        for heap_remaining in ("33054720", "32538624", "32022528", "31506432", "30900224", "30384128"):
             payload = (
                 f'{{"DebugUI":{{"HiHeapRemaining":"{heap_remaining}"}}}}'
             ).encode()
