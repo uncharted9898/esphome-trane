@@ -155,3 +155,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-cooling-stator-sixth-nonul.md](2026-10-08/full-day-cooling-stator-sixth-nonul.md) | Full day with eight cooling runs, ~73.5 minutes Stage 2, 13 new stator cycles (152 cumulative), pressure/room/humidity validation, compressor-request-adjacent 0x281.byte7 behavior, and sixth exact-length/no-NUL JSON transfer verified on-device |
+
+
+## 2026-10-09
+
+| File | What it captured |
+|---|---|
+| [full-day-stage1-stator-thermal-correlations.md](2026-10-09/full-day-stage1-stator-thermal-correlations.md) | Complete full-day Stage 1 capture with 12 compressor runs (~104 min), 4 isolated stator cycles (156 cumulative), all 1,304 structured JSON messages reassembled from CAN without mismatch, compressor-request/0x281.byte7 correlation, pressure equalization, indoor mirrors and stronger 0x460 electronics thermal-family evidence |
