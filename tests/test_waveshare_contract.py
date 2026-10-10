@@ -1,0 +1,271 @@
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+LISTEN = (ROOT / "waveshare-trane-listenonly.yaml").read_text()
+COMMISSION = (ROOT / "waveshare-trane-commissioning.yaml").read_text()
+HOMEASSISTANT = (ROOT / "waveshare-trane-homeassistant.yaml").read_text()
+HOMEASSISTANT_DEBUG = (ROOT / "waveshare-trane-homeassistant-debug.yaml").read_text()
+FULL = (ROOT / "waveshare-trane-full.yaml").read_text()
+LEGACY = (ROOT / "esphome-trane.yaml").read_text()
+BUS_CPP = (ROOT / "components/trane_bus/trane_bus.cpp").read_text()
+BUS_H = (ROOT / "components/trane_bus/trane_bus.h").read_text()
+BUS_PY = (ROOT / "components/trane_bus/__init__.py").read_text()
+CLIMATE_PY = (ROOT / "components/trane_hvac/climate.py").read_text()
+CLIMATE_H = (ROOT / "components/trane_hvac/trane_climate.h").read_text()
+CLIMATE_CPP = (ROOT / "components/trane_hvac/trane_climate.cpp").read_text()
+
+
+class WaveshareSafetyContractTests(unittest.TestCase):
+    def test_reference_can_pins_and_rate(self):
+        for config in (LISTEN, FULL, HOMEASSISTANT):
+            self.assertIn("tx_pin: GPIO15", config)
+            self.assertIn("rx_pin: GPIO16", config)
+            self.assertNotIn("tx_pin: GPIO17", config)
+            self.assertNotIn("rx_pin: GPIO18", config)
+            self.assertIn("bit_rate: 50kbps", config)
+
+    def test_homeassistant_profile_targets_s3_and_has_required_can_id(self):
+        self.assertIn("variant: esp32s3", HOMEASSISTANT)
+        self.assertIn("flash_size: 16MB", HOMEASSISTANT)
+        self.assertIn("can_id: 0x7FF", HOMEASSISTANT)
+        self.assertIn("mode: NORMAL", HOMEASSISTANT)
+        self.assertIn("tx_enabled: false", HOMEASSISTANT)
+        self.assertIn("raw_json_enabled: false", HOMEASSISTANT)
+        self.assertIn("github://uncharted9898/esphome-trane@dev", HOMEASSISTANT)
+
+    def test_debug_ha_profile_loads_raw_surface(self):
+        self.assertIn("waveshare-trane-homeassistant.yaml", HOMEASSISTANT_DEBUG)
+        self.assertIn("waveshare-trane-target-raw.yaml", HOMEASSISTANT_DEBUG)
+        self.assertNotIn("waveshare-trane-target-raw.yaml", HOMEASSISTANT)
+
+    def test_homeassistant_health_entities_are_grouped_as_diagnostics(self):
+        self.assertIn('name: "Trane Link Diagnostics"', HOMEASSISTANT)
+        self.assertIn('name: "Structured Data Status"', HOMEASSISTANT)
+        self.assertGreaterEqual(HOMEASSISTANT.count("device_id: dev_discovery"), 8)
+
+    def test_homeassistant_uses_std_isfinite_for_gcc14(self):
+        self.assertIn("std::isfinite", HOMEASSISTANT)
+        self.assertNotIn("if (isfinite(", HOMEASSISTANT)
+
+    def test_commissioning_uses_real_full_stack_with_normal_can(self):
+        self.assertIn("full_stack: !include waveshare-trane-full.yaml", COMMISSION)
+        self.assertIn("mode: NORMAL", COMMISSION)
+        self.assertIn("tx_enabled: false", COMMISSION)
+        self.assertIn("raw_json_enabled: false", COMMISSION)
+        self.assertIn("switch: !remove", COMMISSION)
+        self.assertIn("button: !remove", COMMISSION)
+        self.assertNotIn("trane_bus.set_tx_enabled", COMMISSION)
+        self.assertNotIn("trane_bus.set_mode", COMMISSION)
+        self.assertNotIn("trane_bus.set_setpoints", COMMISSION)
+        self.assertNotIn("trane_bus.get_profile", COMMISSION)
+
+    def test_commissioning_has_continuous_recorder_with_bounded_ram(self):
+        self.assertIn("capture_capacity: 2048", COMMISSION)
+        self.assertIn("capture_enabled: true", COMMISSION)
+        self.assertIn("can_id_mask: 0x000", COMMISSION)
+        self.assertIn("can_id_mask: 0x00000000", COMMISSION)
+        self.assertIn("TRANE_CAN_LIVE,S", COMMISSION)
+        self.assertIn("TRANE_CAN_LIVE,E", COMMISSION)
+        self.assertIn("TRANE_JSON", COMMISSION)
+        self.assertIn("TRANE_RECORDER_READY", COMMISSION)
+        self.assertGreaterEqual(COMMISSION.count("reboot_timeout: 0s"), 2)
+        self.assertIn("power_save_mode: none", COMMISSION)
+        self.assertIn("rx_queue_len: 128", COMMISSION)
+
+    def test_passive_image_is_hardware_listen_only(self):
+        self.assertIn("mode: LISTENONLY", LISTEN)
+        self.assertIn("tx_queue_len: 0", LISTEN)
+        self.assertIn("tx_enabled: false", LISTEN)
+        self.assertIn("raw_json_enabled: false", LISTEN)
+        self.assertNotIn("trane_bus.set_tx_enabled", LISTEN)
+        self.assertNotIn("trane_bus.set_mode", LISTEN)
+        self.assertNotIn("trane_bus.set_setpoints", LISTEN)
+        self.assertNotIn("trane_bus.get_profile", LISTEN)
+
+    def test_passive_image_has_bounded_freeze_and_dump_capture(self):
+        self.assertIn("capture_capacity: 2048", LISTEN)
+        self.assertIn("capture_enabled: true", LISTEN)
+        self.assertIn("Freeze CAN Capture", LISTEN)
+        self.assertIn("Dump Frozen CAN Capture", LISTEN)
+        self.assertIn("Clear And Resume CAN Capture", LISTEN)
+        self.assertIn("capture_capacity_", BUS_H)
+        self.assertIn("capture_overwrites_", BUS_H)
+        self.assertIn("TRANE_CAPTURE_BEGIN", BUS_CPP)
+        self.assertIn("TRANE_CAPTURE_END", BUS_CPP)
+
+    def test_capture_schema_prevents_oversized_ram_ring(self):
+        self.assertIn("max=4096", BUS_PY)
+        for config in (LISTEN, COMMISSION, HOMEASSISTANT):
+            self.assertNotIn("capture_capacity: 16384", config)
+            self.assertIn("capture_capacity: 2048", config)
+
+    def test_passive_image_continuously_logs_all_can_frames(self):
+        self.assertIn("can_id_mask: 0x000", LISTEN)
+        self.assertIn("can_id_mask: 0x00000000", LISTEN)
+        self.assertIn("TRANE_CAN_LIVE,S", LISTEN)
+        self.assertIn("TRANE_CAN_LIVE,E", LISTEN)
+        self.assertIn("TRANE_RECORDER_READY", LISTEN)
+        self.assertIn("TRANE_JSON", LISTEN)
+
+    def test_passive_image_does_not_reboot_for_network_loss(self):
+        self.assertGreaterEqual(LISTEN.count("reboot_timeout: 0s"), 2)
+        self.assertIn("power_save_mode: none", LISTEN)
+        self.assertIn("rx_queue_len: 128", LISTEN)
+
+    def test_passive_image_exposes_discovery_counters(self):
+        self.assertIn("Total CAN Frames Seen", LISTEN)
+        self.assertIn("Known Trane Frames Seen", LISTEN)
+        self.assertIn("Unclassified CAN Frames Seen", LISTEN)
+        self.assertIn("Segmented JSON Messages", LISTEN)
+        self.assertIn("RX Transport Errors", LISTEN)
+        self.assertIn("get_rx_frames()", LISTEN)
+        self.assertIn("get_trane_frames()", LISTEN)
+        self.assertIn("get_rx_json_messages()", LISTEN)
+        self.assertIn("get_rx_transport_errors()", LISTEN)
+
+    def test_full_profile_starts_control_disarmed(self):
+        self.assertIn("tx_enabled: false", FULL)
+        self.assertIn("qualified_setpoint_tx_enabled: false", FULL)
+        self.assertIn("qualified_indoor_fan_tx_enabled: false", FULL)
+        self.assertIn("raw_json_enabled: false", FULL)
+        self.assertIn("restore_mode: ALWAYS_OFF", FULL)
+        self.assertIn("has_recent_trane_activity", FULL)
+        self.assertIn("trane_bus_id: trane_link", FULL)
+
+    def test_full_profile_removes_legacy_raw_surfaces(self):
+        self.assertIn("on_boot: !remove", FULL)
+        self.assertIn("services: !remove", FULL)
+
+    def test_legacy_profile_fail_closes_pre_sdo_raw_writer(self):
+        self.assertIn("components: [trane_hvac]", LEGACY)
+        self.assertIn("Blocked legacy JSON TX", LEGACY)
+        self.assertIn("historical writer is not connected to the qualified trane_bus SDO client", LEGACY)
+        self.assertNotIn("id(hvac_can).send_data(0x641", LEGACY)
+        self.assertNotIn("std::vector<uint8_t> f0", LEGACY)
+
+    def test_control_profile_exposes_only_guarded_qualified_fan_surface(self):
+        control = (ROOT / "waveshare-trane-control.yaml").read_text()
+        self.assertIn("qualified_setpoint_tx_enabled: false", control)
+        self.assertIn("qualified_indoor_fan_tx_enabled: false", control)
+        self.assertIn("service: trane_set_indoor_fan_enabled", control)
+        self.assertIn("trane_bus.set_indoor_fan_enabled:", control)
+        self.assertIn("service: trane_set_indoor_fan_percent", control)
+        self.assertIn("trane_bus.set_indoor_fan_percent:", control)
+        self.assertIn("tx_enabled: false", control)
+        self.assertIn("raw_json_enabled: false", control)
+
+    def test_trane_hvac_platform_keeps_guarded_bus_optional(self):
+        self.assertNotIn('AUTO_LOAD = ["trane_bus"]', CLIMATE_PY)
+        self.assertIn('cg.add_define("USE_TRANE_HVAC_GUARDED_BUS")', CLIMATE_PY)
+        self.assertIn("class TraneBus;", CLIMATE_H)
+        self.assertNotIn("trane_bus/trane_bus.h", CLIMATE_H)
+        self.assertIn("#ifdef USE_TRANE_HVAC_GUARDED_BUS", CLIMATE_CPP)
+        self.assertIn('#include "esphome/components/trane_bus/trane_bus.h"', CLIMATE_CPP)
+
+    def test_target_profile_vocabulary_and_snapshot_capacity_are_retained(self):
+        for profile in (
+            "TECHAPPSETTINGS",
+            "NOTIFICATIONDATA",
+            "INDOORSTATE",
+            "ZONESTATE",
+            "ODSTATE",
+            "ODSETTINGS",
+        ):
+            self.assertIn(f'"{profile}"', BUS_CPP)
+        self.assertIn("JSON_SNAPSHOT_SLOTS = 32", BUS_H)
+
+    def test_custom_actions_match_esphome_2026_9_play_signature(self):
+        self.assertGreaterEqual(BUS_H.count("void play(const Ts &...x) override"), 5)
+        self.assertNotIn("void play(Ts... x) override", BUS_H)
+
+    def test_transport_requires_recent_sc360_and_unqualified_writers_fail_closed(self):
+        self.assertIn("require_sc360_before_tx_ && !has_recent_trane_activity()", BUS_CPP)
+        self.assertIn("pending_ack_ || sdo_tx_.active()", BUS_CPP)
+        self.assertIn("application writer is not qualified for %s", BUS_CPP)
+        tx = BUS_CPP.split("bool TraneBus::send_json_internal_", 1)[1].split(
+            "bool TraneBus::send_json(const std::string &payload)", 1
+        )[0]
+        self.assertNotIn("send_frame_(", tx)
+
+    def test_stock_qualified_setpoint_writer_is_response_driven(self):
+        self.assertIn("BlockSdoTxState", BUS_H)
+        self.assertIn("WAIT_INIT_RESPONSE", BUS_H)
+        self.assertIn("WAIT_BLOCK_ACK", BUS_H)
+        self.assertIn("WAIT_END_RESPONSE", BUS_H)
+        self.assertIn("start_setpoint_sdo_write_", BUS_CPP)
+        self.assertIn("0xC2, 0x0A, 0x30, 0x00", BUS_CPP)
+        self.assertIn("data[0] != 0xA0", BUS_CPP)
+        self.assertIn("data[0] != 0xA2", BUS_CPP)
+        self.assertIn("data[1] != sdo_tx_.last_sequence", BUS_CPP)
+        final_ack = BUS_CPP.index("if (sdo_tx_.offset >= sdo_tx_.wire_payload.size())")
+        continuation_size = BUS_CPP.index("invalid continuation block size")
+        self.assertLess(final_ack, continuation_size)
+        self.assertIn("data[0] != 0xA1", BUS_CPP)
+        self.assertIn("0xC1U | (unused << 2)", BUS_CPP)
+        self.assertIn("wire_payload.push_back(0)", BUS_CPP)
+        self.assertIn("pending_ack_ = true", BUS_CPP)
+        self.assertIn("command_can_id_ != 0x641", BUS_CPP)
+        self.assertIn("qualified_setpoint_tx_enabled_", BUS_CPP)
+        self.assertIn('CONF_QUALIFIED_SETPOINT_TX_ENABLED = "qualified_setpoint_tx_enabled"', BUS_PY)
+        self.assertIn("default=False", BUS_PY)
+        for profile in (
+            "waveshare-trane-control.yaml",
+            "waveshare-trane-full.yaml",
+            "waveshare-trane-homeassistant.yaml",
+        ):
+            self.assertIn(
+                "qualified_setpoint_tx_enabled: false",
+                (ROOT / profile).read_text(),
+            )
+        self.assertIn("COMMAND_SDO_QUIET_MS = 100", BUS_CPP)
+        self.assertIn("last_command_sdo_activity_ms_", BUS_H)
+        self.assertIn("stock 0x641/0x5C1 SDO channel is currently active", BUS_CPP)
+
+    def test_setpoint_writer_uses_stock_oct3_shape_only(self):
+        block = BUS_CPP.split("bool TraneBus::set_setpoints", 1)[1].split(
+            "bool TraneBus::request_profile", 1
+        )[0]
+        self.assertIn("zone != 1 || hold_type != 1 || source != 1", block)
+        self.assertIn('\\\"Csp\\\":\\\"%.0f\\\",\\\"Hsp\\\":\\\"%.0f', block)
+        self.assertIn("start_setpoint_sdo_write_(payload)", block)
+        self.assertIn("default=1", BUS_PY)
+        self.assertIn("hold_type: 1", (ROOT / "waveshare-trane-control.yaml").read_text())
+
+    def test_canopen_sdo_json_is_reassembled_in_source(self):
+        self.assertIn("feed_segmented_json_", BUS_CPP)
+        self.assertIn("feed_sdo_json_response_", BUS_CPP)
+        for token in ("case 0x601:", "case 0x621:", "case 0x641:", "case 0x649:"):
+            self.assertIn(token, BUS_CPP)
+        self.assertIn("0x300A:00", BUS_CPP)
+        self.assertIn("json_trigger_.trigger(json, can_id)", BUS_CPP)
+        self.assertIn('CONF_ON_JSON = "on_json"', BUS_PY)
+
+    def test_raw_json_is_opt_in_and_typed_actions_exist(self):
+        self.assertIn("cv.Optional(CONF_RAW_JSON_ENABLED, default=False)", BUS_PY)
+        self.assertIn('"trane_bus.set_mode"', BUS_PY)
+        self.assertIn('"trane_bus.set_setpoints"', BUS_PY)
+        self.assertIn('"trane_bus.get_profile"', BUS_PY)
+
+    def test_setpoint_validation_bounds_both_targets(self):
+        setpoints = BUS_CPP.split("bool TraneBus::set_setpoints", 1)[1].split(
+            "bool TraneBus::request_profile", 1
+        )[0]
+        self.assertIn("heat_f < setpoint_min_f_", setpoints)
+        self.assertIn("heat_f > setpoint_max_f_", setpoints)
+        self.assertIn("cool_f < setpoint_min_f_", setpoints)
+        self.assertIn("cool_f > setpoint_max_f_", setpoints)
+        self.assertIn("cool_f - heat_f < min_deadband_f_", setpoints)
+
+    def test_supported_mode_encoder_does_not_fall_through_to_off(self):
+        mode = BUS_CPP.split("bool TraneBus::set_system_mode", 1)[1].split(
+            "bool TraneBus::set_setpoints", 1
+        )[0]
+        self.assertIn('mode == "heat"', mode)
+        self.assertIn('mode == "cool"', mode)
+        self.assertIn('mode == "off"', mode)
+        self.assertIn("Refusing unsupported Trane system mode", mode)
+
+
+if __name__ == "__main__":
+    unittest.main()

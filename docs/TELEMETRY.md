@@ -1,0 +1,829 @@
+# Trane Link telemetry map
+
+This is the **maintained semantic map** for the current target system.
+
+Target:
+
+- 5TWV0X24A1000B outdoor unit
+- 5TAMXC03AV31DB air handler
+- UX360 + SC360
+- R-454B / A2L system
+- Waveshare ESP32-S3-RS485-CAN parallel tap
+
+Dated reverse-engineering notes live under [evidence/](evidence/). Those notes intentionally preserve old hypotheses and disproved labels. When they conflict with this file, **this file and current source/tests are authoritative**.
+
+## Confidence vocabulary
+
+- **Confirmed** — repeatedly observed and independently correlated against a known state/value.
+- **Strong candidate** — repeated cross-capture correlation with coherent transition behavior; exact OEM label still unverified.
+- **Candidate** — plausible but not sufficiently isolated for promotion.
+- **Raw** — preserve value without assigning semantic meaning.
+- **Superseded** — an older interpretation disproved by later captures.
+
+## Environmental telemetry
+
+| Signal | Source | Confidence | Notes |
+|---|---|---|---|
+| Room Temperature | `0x490.float[0]` | Confirmed | Directly matched six `ZoneStatus.Update.1.H` updates at 72, 73, 74, 75 and 76°F within ~1 second in the 2026-09-25 archive; invalid/sentinel values filtered. |
+| Indoor Humidity | `0x490.byte4` | Confirmed | Directly mirrors `SystemOpStatus.E` on the target across repeated structured updates; user-facing entity accepts only 0..100. Startup value 157 is rejected as invalid. |
+| Outdoor Air Temperature | `0x380.float[1]` | Confirmed | Tracks outdoor ambient independently of SC360 JSON. |
+| Return Air Temperature | `0x308.float[0]` | Confirmed | Matches air-handler return-air behavior. |
+| Supply Air Temperature | `0x308.float[1]` | Confirmed | Tracks active cooling supply-air temperature. |
+
+The friendly environmental entities intentionally use the live binary sources above instead of depending on sparse structured JSON snapshots.
+
+## Indoor / 5TAMX telemetry
+
+| CAN field | Current meaning | Confidence | Notes |
+|---|---|---|---|
+| `0x200.u16@0` | Indoor EEV Position Candidate | Candidate | Tracks a step-like control value; exact OEM label not independently confirmed. |
+| `0x200.u16@2` | Blower Speed Request Candidate | Strong candidate | 2026-09-27 long-run data shows numeric `IndoorStatus.E` tracks this word at ~7.9 request units per percent (correlation ~0.99); it leads the `0x318.u16@4` motor-speed feedback through starts, modulation, and coast-down. |
+| `0x280.float[0]` | Compressor Speed Request | Strong/confirmed | Commanded/requested compressor RPS. Tracks ~29 RPS low load, ~40-43 moderate load, ~57.5-58 high load, and changes ahead of achieved speed on shutdown. |
+| `0x280.float[1]` | Raw/Candidate | Candidate | Do not call literal power factor. |
+| `0x281.u16@0` | Airflow Target Candidate | Strong candidate | Airflow-shaped, but 2026-09-27 startup/shutdown timing disproves delivered/actual airflow: it jumps to ~720 before blower current/power and `0x318` feedback leave zero, and remains nonzero briefly after the blower stops. |
+| `0x281.u16@2` | Raw fixed/configuration field | Raw | Often 500; remains 500 with blower stopped, so not actual airflow. |
+| `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
+| `0x281.byte7` | Byte 7 State Candidate | Candidate / old blower-active hypothesis disproved | Cooling-only captures made this look blower-active, but the 2026-10-06 Technician fan-only test ran the blower at ~800 feedback units / ~79 W while this byte stayed 0. Keep it neutral until its actual operating-state meaning is qualified. |
+| `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 156 fully completed isolated cycles through 2026-10-09, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
+| `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
+| `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
+| `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
+| `0x300.f0 - f1` | ID Superheat Candidate | Strong candidate | Dynamic difference behaves coherently during cooling. |
+| `0x308.float[0]` | Return Air Temperature | Confirmed | See environmental map. |
+| `0x308.float[1]` | Supply Air Temperature | Confirmed | See environmental map. |
+| `0x310.float[0]` | Total Static Pressure | Strong candidate | ~0.09-0.12 inWC across active captures. |
+| `0x318.float[0]` | Blower Input Current Candidate | Strong candidate | Follows blower load. |
+| `0x318.u16@4` | Blower Motor Speed | Strong/confirmed family | Follows the `0x200.u16@2` speed request only after the blower actually starts, tracks modulation and power, and returns to zero with motor stop. Literal RPM scaling is retained as the best working unit pending synchronized Technician speed. |
+| `0x318.u16@6` | Raw/Candidate | Candidate | Moves with blower operation but no longer carries the primary speed label; exact physical meaning remains unresolved. |
+| `0x320.float[0]` | Blower Power | Confirmed/strong | ~45-73 W under observed active states and 0 W stopped. |
+| `0x2D0.u16@4` | Airflow Limit Candidate | Strong candidate | ~775 CFM at high load and ~771 while delivered airflow was only ~658 CFM. On the mechanically idle 2026-10-07 archive it continues varying ~773-827 while blower request, feedback and power remain zero, decisively excluding actual/delivered airflow. |
+
+### Blower request/feedback chain
+
+Current best interpretation:
+
+```text
+0x200.u16@2   -> blower speed request
+0x318.u16@4   -> blower motor speed feedback
+0x281.u16@0   -> airflow target/command candidate
+0x281.byte7   -> unresolved operating-state byte
+0x318.u16@6   -> unresolved motor-adjacent raw field
+0x320.float0  -> blower power
+```
+
+This interpretation is based on lead/lag behavior across modulation and cooling-to-satisfied shutdown captures.
+
+## Outdoor / 5TWV0X telemetry
+
+| CAN field | Current meaning | Confidence | Notes |
+|---|---|---|---|
+| `0x380.float[0]` | unavailable/raw | Raw | Frequently `-99`; treat as unavailable sentinel. |
+| `0x380.float[1]` | Outdoor Air Temperature | Confirmed | Live ambient temperature. |
+| `0x381.float[0]` | Outdoor Coil Temperature Candidate | Strong candidate | Tracks condenser/outdoor-coil family rather than suction temp in later captures. |
+| `0x381.float[1]` | Compressor Discharge Temperature Candidate | Strong candidate | Long-idle capture on 2026-09-23 disproved the old suction-pressure interpretation: this field cooled through ~81→75°F while `0x383.f0/f1` equalized as a pressure pair, and earlier active captures put it in the ~155-194°F range. |
+| `0x382.float[0]` | Suction Line Temperature | Strong/confirmed | Fits the outdoor-board suction-temperature position between coil and liquid-temperature channels and behaves coherently across the active-cooling captures. |
+| `0x382.float[1]` | Liquid Temperature Candidate | Strong candidate | Tracks liquid-line temperature family. |
+| `0x383.float[0]` | Suction Pressure Raw | Confirmed semantic / representation unresolved | Long-idle captures show equalization with `0x383.float[1]`; active cooling drives this field down while the paired high-side field rises. On 2026-09-28 OEM Err 185.10/185.11 low-suction protection occurred with this field around ~69-74 while the high-side field remained ~266-274, directly confirming the suction-pressure role. Gauge-vs-absolute display conversion remains unresolved. |
+| `0x383.float[1]` | Liquid/High-Side Pressure Raw | Strong candidate / representation unresolved | Rises as the suction field falls under cooling and converges with it during idle equalization. The 2026-09-28 low-suction protection sequence leaves this field high while `0x383.float[0]` collapses, strongly supporting the paired high-side interpretation. Gauge-vs-absolute conversion remains unresolved. |
+| `0x384.float[0]` | Actual Compressor Speed Candidate | Strong candidate | 0 when satisfied; ~58 RPS at high load; coherent ramp-down. |
+| `0x384.u16@4` | Drive DC Voltage | Strong candidate | ~340-352 Vdc. |
+| `0x384.u16@6` | Outdoor Fan Speed | Strong candidate | ~750-775 RPM under high load, 0 stopped. |
+| `0x385.float[0]` | Compressor Power Candidate | Strong candidate | ~1.3-1.5 kW high load; 0 stopped. |
+| `0x385.float[1]` | Compressor Speed Ceiling Candidate | Strong candidate | Sits above the immediate `0x280` request across low/moderate/high load (~40 vs 29, ~63 vs 56, ~66-68 vs ~58 RPS) and becomes 0 idle. The 65535 startup sentinel recurs across later clean starts (six more on 2026-10-02) and is filtered rather than published as a fake RPS spike. |
+| `0x386.float[0]` | Raw | Raw | Often 2.0 in target captures. |
+| `0x386.float[1]` | Raw | Raw | Often fixed 50.0; old saturation-temperature label disproved. |
+| `0x387.float[0]` | Compressor Speed Reference/Limit Candidate | Strong candidate | Fixed ~55 RPS across idle and varying load; not actual speed. |
+| `0x387.float[1]` | Fan Phase Current Candidate | Candidate | ~0.3-0.4 A active, 0 stopped. |
+| `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
+| `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
+| `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 156 fully completed isolated stator-heat cycles through 2026-10-09, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
+| `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
+| `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
+| `0x3D0.float[1]` | Compressor Target Minimum Speed Candidate | Strong candidate | ~20-21 RPS even when live speed/target are zero. |
+| `0x3E0` | Minimum-speed mirror/status family | Candidate | Sparse/NA in some captures. |
+| `0x410.float[0]` | Drive Inverter/IPM Temperature Candidate | Strong candidate | ~98°F at high load; matches the Technician `MocDriveIpmTemperature` family. |
+| `0x410.float[1]` | Drive Rectifier/PFC Temperature Candidate | Strong candidate | ~99-100°F at high load; adjacent to the IPM channel and matches the Technician `MocDrivePfcTemperature` family. |
+| `0x430.float[0]` | Outdoor Fan IPM Temperature Candidate | Candidate | ~97°F and closely tracks the drive thermal family; Technician exposes a separate `OdFanIpmTemperature` monitor. |
+| `0x430.float[1]` | Raw | Raw | Highly dynamic ~260-360 values in otherwise steady operation; not credible as a direct temperature. |
+| `0x450.float[0..1]` | Raw pair | Raw | Both vary broadly in the new captures and have no trustworthy physical label yet. |
+| `0x460.float[0]` | Outdoor Electronics Thermal-Family Candidate | Strong candidate / exact sensor unresolved | Old liquid-saturation label disproved. October 9 live cooling/idle traces show r≈0.991 with `0x410.f0` inverter/IPM candidate, r≈0.987 with `0x410.f1` PFC candidate, r≈0.984 with `0x430.f0` fan-IPM candidate, but only r≈0.248 with outdoor ambient. Exact component, OEM scaling and physical units remain unresolved. |
+
+### Compressor speed chain
+
+Three distinct speed-family channels are now supported by transition/modulation evidence:
+
+```text
+0x281.byte6  -> compressor demand % mirror
+0x280.float0 -> commanded/requested compressor speed
+0x384.float0 -> achieved/actual compressor speed
+0x385.float1 -> compressor speed ceiling candidate
+0x387.float0 -> fixed speed reference/limit candidate
+0x3D0/3E0    -> minimum-speed limit family
+```
+
+Do not collapse these into one “compressor frequency” entity.
+
+## UX360 / zone sensor family
+
+| Field | Current meaning | Confidence |
+|---|---|---|
+| `0x490.float[0]` | Zone 1 / room temperature | Confirmed |
+| `0x490.byte4` | humidity byte | Strong candidate; user-facing sensor filters >100 |
+| `0x491..0x495.float[0]` | zone 2-6 temperature candidates | Candidate |
+| `0x491..0x495.byte4` | zone 2-6 byte-4 candidates | Candidate |
+| `0x4B1.u32` | epoch seconds | Confirmed |
+| `0x4B2` | raw float pair | Raw |
+
+The raw `0x490.byte4` diagnostic is intentionally preserved even though the friendly Indoor Humidity entity filters invalid values.
+
+## Structured JSON profiles
+
+Trane structured JSON is transported through CANopen SDO writes to object `0x300A:00`. See [CANOPEN-LINK-TRANSPORT.md](CANOPEN-LINK-TRANSPORT.md).
+
+### `SystemOpStatus`
+
+| Key | Current interpretation | Confidence |
+|---|---|---|
+| `A` | system state code | Observed; preserve raw |
+| `B` | system mode code | Strong/observed |
+| `C` | demand/stage text | Observed |
+| `D` | System Demand Percent Candidate | Strong candidate; slower cadence than dedicated OdStatus demand |
+| `E` | Indoor Humidity Mirror | Confirmed on target; 2026-10-03 matched `0x490.byte4` on 22/23 nearest updates (R² ~0.991, |r| ~0.996), including changes while compressor demand was zero |
+
+Superseded: the old parser interpreted `SystemOpStatus.E` as outdoor temperature when decimal-formatted and humidity otherwise. Target captures disproved both meanings.
+
+### `OdStatus`
+
+| Key | Meaning |
+|---|---|
+| `A` | outdoor active flag |
+| `B` | structured compressor-speed percentage |
+| `C` | outdoor unit state code |
+| `D` | outdoor fault code |
+| `CompDemandPercent` | compressor demand percentage |
+
+`OdStatus.B` correlates tightly with `0x280.float[0]`: 70-73% modulation implied a nearly constant ~58.05 RPS full-scale request.
+
+### `IndoorStatus`
+
+| Key | Meaning |
+|---|---|
+| `D` | indoor/blower operating-state family |
+| `E` | blower-speed request/target percentage in normal operation; 2026-09-28/29 long-run data correlates it ~0.998-0.999 with the `0x200.u16@2` speed request at ~7.95-7.98 request units per percent. On clean starts E can already be 36-38% while blower feedback/power are still zero. Healthy starts also emit nonnumeric `TA_INV_HI`, so raw value is retained and nonnumeric E values must not be treated as faults. |
+| `F` | raw/unknown |
+| `HumControl` | humidity-control state |
+| `HumidifierStatus` | humidifier status |
+| `DehumidifierStatus` | dehumidifier status |
+| `VentilatorStatus` | ventilator status |
+
+A cooling-to-satisfied transition showed `D` changing running→stopped and `E` updating to 0 when the blower stopped.
+
+### `ZoneStatus`
+
+Observed keys include:
+
+- `H` room temperature;
+- `Hsp` / `Csp` active heat/cool setpoints;
+- `HcStatus` heat/cool status code;
+- `HoldText`;
+- `E` airflow-like percentage;
+- `F` zone state;
+- `G` zone demand.
+
+The friendly Room Temperature entity uses the live `0x490` frame so sparse structured updates do not leave it unavailable.
+
+### Other observed objects
+
+- `SpOverride`
+- `PresetSettings`
+- `ZoneSettings`
+- `IndoorSettings`
+- `SystemSettings`
+- `ScheduleSettings`
+- `ActiveAlarms`
+- `Notifications`
+- `VersionDetails`
+- `ZoneCardState`
+- `ZoningInfo`
+- `WeatherData`
+- `WeatherToday`
+- `UnitID`
+- `OutdoorSettings`
+- `OdWidget`
+- `Debug`
+
+Structured snapshots have freshness ages because profile values may remain cached long after the last wire update.
+
+## CANopen/network telemetry
+
+Target-observed standard behavior:
+
+- `0x000` — NMT;
+- `0x701..0x705` — heartbeat/error-control nodes observed operational;
+- `0x7E5/0x7E4` — LSS manager/server;
+- `0x601/0x581`, `0x621/0x5A1`, `0x641/0x5C1`, `0x649/0x5C9` — SDO JSON pairs.
+
+A complete LSS Fastscan capture reconstructed identity words:
+
+- vendor ID `0x00000001`
+- product code `0x00000004`
+- revision `0x00000000`
+- serial `0xC345985F`
+
+followed by successful configuration/startup of node ID 3. Physical Trane product identity for CANopen node numbers remains intentionally unassigned until topology/disconnect evidence proves it.
+
+## Superseded mappings
+
+These names should not be reintroduced without new independent evidence:
+
+| Old mapping | Why superseded |
+|---|---|
+| `0x383.float[1] = line voltage` | active capture showed ~400 while actual line source stayed ~237 V |
+| `0x38F.float[0] = liquid pressure` | stable ~237-241 across operating states; behaves as line voltage |
+| `0x385.float[0] = outdoor EEV position` | values ~1400-1500 track compressor/input power, not EEV steps |
+| `0x387.float[0] = actual compressor speed` | remains 55 while compressor is stopped |
+| `0x386.float[1] = vapor saturation temperature` | fixed ~50 across changing load |
+| `0x460.float[0] = liquid saturation temperature` | does not track high-side pressure changes |
+| `SystemOpStatus.E = outdoor temperature` | 2026-10-03 directly matches the indoor-humidity byte instead |
+| `SystemOpStatus.E = compressor speed ceiling/reference` | 2026-10-03 changes 51-59 while compressor is often stopped and matches `0x490.byte4` on 22/23 nearest updates |
+| `0x281.u16@6 = blower RPM` | it is only byte6/byte7 combined; bytes are separate demand/active fields |
+
+## Still unresolved / high-value targets
+
+Do not invent friendly names for these until captured against a known OEM value:
+
+- confirm `0x381.float[1]` against synchronized Technician discharge-temperature telemetry;
+- exact meaning of `0x386` fields;
+- exact identity/scaling of `0x430.float[1]` and both `0x450` fields;
+- exact meaning of `0x460.float[0]`;
+- outdoor EEV command/position;
+- both suction and liquid/high-side pressure with independently verified units;
+- defrost state and reversing-valve state;
+- A2L mitigation controller/sensor status and alarms;
+- live electric heat stage states (installed accessory is now identified as 10 kW, single-phase, 2-stage);
+- remaining per-device profile fields not present in `EquipSummary`;
+- native UX360 mode-write transaction and non-setpoint control semantics.
+
+## Control-write status
+
+Receive-side SDO/JSON transport is well understood. **Application TX remains disabled by default and fail-closed unless an explicitly qualified path is opted in.**
+
+The 2026-10-03 and 2026-10-05 captures now contain five complete stock UX360 `SpOverride.Put` setpoint writes. All five independently use the request-side `0x641/0x5C1` block-SDO transaction, object `0x300A:00`, accepted-state broadcast, and application `{"Ack":"200"}` path. The observed cooling setpoints are 77, 78 and 79 F, while every stock write retains zone 1, `HoldType:"1"`, `Source:"1"`, heat setpoint 62 F and the same JSON field order. The maintained local setpoint writer therefore remains intentionally constrained behind explicit opt-in safety gates.
+
+A second qualified family is now available from the 2026-10-06 Technician
+capture: `IndoorSettings.Put` fan enable/disable plus the captured 50% and
+100% request values. It has its **own** default-false
+`qualified_indoor_fan_tx_enabled` gate in addition to global `tx_enabled`.
+The implementation intentionally rejects uncaptured percentages.
+
+No stock `SystemMode.Put` transaction has been captured, so mode writes,
+profile writes and arbitrary JSON TX remain unqualified and fail-closed.
+
+Remaining requirements for any additional write family:
+
+1. capture the complete originating stock/Technician `Put` transaction;
+2. verify request/response COB-ID direction, payload semantics, and application Ack;
+3. add receive-side regression evidence for the exact transaction;
+4. preserve timeout/abort/toggle/block-ACK handling and explicit opt-in safety gates.
+
+## Evidence trail
+
+Key dated evidence is indexed at [evidence/README.md](evidence/README.md).
+
+The most current multi-capture active-cooling/requalification note is:
+
+- [evidence/2026-09-22/outdoor-sensor-chain-long-pass.md](evidence/2026-09-22/outdoor-sensor-chain-long-pass.md)
+
+Earlier 2026-09-17 notes are intentionally preserved because they document how current mappings were falsified and requalified.
+
+
+### 2026-09-26 cooling-cycle qualification
+
+Five independent AC Stage 1 cycles were captured with coherent startup,
+modulation, shutdown, and blower coast-down. Across all five:
+
+- `SystemOpStatus.C` changed to `AC Stage 1` at call start and back to `--`
+  at shutdown;
+- `OdStatus.C` was `A` during active cooling and `D` after shutdown;
+- `IndoorStatus.D` was `B` while active and `A` after shutdown;
+- `ZoneStatus.HcStatus` was `2` during cooling, briefly `4` during
+  shutdown/coast, and `1` once idle;
+- `IndoorStatus.E` emitted `TA_INV_HI` at healthy startup, then numeric
+  values around 35-40 during operation, and 0 once stopped.
+
+The pressure pair also behaves exactly as expected for low/high sides: before
+startup `0x383.f0/f1` are nearly equal, then within 30 seconds the pair splits
+by roughly 56-71 psi and by ~2 minutes the split is ~113-148 psi. After
+shutdown the split collapses back toward equalization.
+
+These transitions strongly reinforce the existing `0x383` suction/high-side
+pressure mapping and show that `TA_INV_HI` is an operating-status
+token, not a fault string.
+
+
+### 2026-09-27 long-run blower requalification
+
+The day contains nine compressor-running intervals, including one continuous
+~83-minute cooling run and one `AC Stage 2` transition. The low-load startup
+timing separates command from physical motor feedback:
+
+- `0x281.u16@0` jumps to about 720 before blower current/power and `0x318`
+  feedback leave zero, so it is not actual/delivered airflow;
+- `0x200.u16@2` tracks numeric `IndoorStatus.E` at roughly 7.9 request
+  units per percentage point (correlation about 0.99);
+- `0x318.u16@4` remains zero until the blower actually starts, then follows
+  request/modulation/coast-down and returns to zero with the motor;
+- `0x318.u16@6` moves with blower operation but no longer has enough evidence
+  to carry the primary speed/RPM label.
+
+The maintained map therefore treats `0x200.u16@2` as the blower-speed request,
+`0x318.u16@4` as the motor-speed feedback, and `0x281.u16@0` as an airflow
+target/command candidate.
+
+
+### 2026-09-28 low-suction protection cross-check
+
+The first afternoon cooling cycle produced two short-lived OEM alarms:
+
+- `Err 185.10`
+- `Err 185.11`
+
+Public Trane alert documentation identifies this 185.10/185.11 pair as
+cooling low-suction-pressure protection states. In the capture, the sequence is
+coherent with the bus telemetry:
+
+- suction-pressure field `0x383.f0` falls to roughly 69-74;
+- paired high-side `0x383.f1` remains roughly 266-274;
+- compressor request is reduced from 45 RPS toward 20 RPS;
+- the alarms clear within seconds while suction pressure recovers.
+
+This independently confirms the **suction-pressure semantic** of
+`0x383.f0`. It does **not** by itself prove whether the raw wire value is
+gauge or absolute pressure, so the maintained names now deliberately avoid the
+old `Absolute` wording.
+
+The same day also contains a sustained `AC Stage 2` interval lasting about
+66 minutes inside a ~93-minute cooling run. Compressor speed remains
+continuously variable through the stage transition, reinforcing that the stage
+text is supervisory demand/staging state rather than a discrete fixed-speed
+compressor step.
+
+
+### 2026-09-29 control-day confirmation
+
+The full-day archive contains 16 compressor-running intervals, including long
+runs of roughly 100 and 88 minutes, with no A2L/leak/defrost/heating JSON and
+no repeat of the 2026-09-28 Err 185.10/185.11 low-suction protection event.
+That makes 09/29 a useful clean control day for the prior mappings.
+
+The structured blower field is better described as a request/target percent,
+not actual speed:
+
+- `IndoorStatus.E` correlates ~0.998 with `0x200.u16@2`;
+- median scale is ~7.95 request units per percent;
+- on clean starts E is already 36-38% while `0x318.u16@4` motor feedback and
+  `0x320.f0` blower power are still zero.
+
+The `0x385.f1` compressor speed-ceiling field also shows a repeatable literal
+`65535` startup sentinel on multiple clean compressor starts. The entity now
+filters values outside a sane 0-200 RPS range.
+
+Two structured setpoint overrides were captured:
+
+- 03:32:31 UTC: zone 1 cooling setpoint -> 77 F
+- 13:17:41 UTC: zone 1 cooling setpoint -> 78 F
+
+At 03:32:31, the override is followed about 3 seconds later by
+`AC Stage 1`, and actual compressor speed leaves zero about 13 seconds after
+the override. This is a useful end-to-end confirmation of the structured
+setpoint/override decode path.
+
+Two additional isolated stator-heat cycles bring the cumulative total to 66.
+
+
+### 2026-09-30 exact-length JSON and control confirmation
+
+The full-day archive contains 14 compressor-running intervals, including:
+
+- a ~121-minute run beginning 03:00 UTC;
+- a ~151-minute run beginning 17:39 UTC;
+- a ~50-minute run beginning 22:44 UTC.
+
+The first long run spends ~103.3 minutes in `AC Stage 2`; the second spends
+~104.1 minutes in Stage 2 before returning to Stage 1, followed by two brief
+Stage-2 re-entries. Compressor speed remains continuously variable throughout.
+
+Blower command evidence remains stable:
+
+- 148 numeric `IndoorStatus.E` / `0x200.u16@2` pairs;
+- correlation ~0.996;
+- median scale exactly ~8.0 request units per percent.
+
+Four more clean starts emit the `0x385.f1 = 65535` startup sentinel, further
+justifying the existing 0-200 RPS validity filter.
+
+Two cooling-setpoint override transactions were again captured:
+
+- 03:00:26 UTC -> 77 F;
+- 12:39:36 UTC -> 78 F.
+
+No A2L/leak, heating, defrost, reversing-valve, or 185.x pressure-protection
+event appears in the structured stream.
+
+Three isolated stator-heat cycles raise the cumulative project total to **69**.
+
+#### Exact-length CANopen JSON transfer
+
+One `DebugUI.HiHeapRemaining` transfer exposed a transport bug in the bridge.
+The CANopen initiate request declares 42 bytes, exactly the UTF-8 JSON length:
+
+```json
+{"DebugUI":{"HiHeapRemaining":"33054720"}}
+```
+
+There is no trailing NUL. The previous receiver unconditionally subtracted one
+from every indicated `0x300A:00` size and therefore emitted the JSON after
+41 bytes, before the final closing brace arrived 12 ms later.
+
+Firmware and the offline analyzer now preserve the indicated wire length and
+accept both:
+
+- exact-length JSON with no NUL; and
+- JSON whose indicated size includes a trailing NUL.
+
+This archive contains zero malformed JSONL records. The one malformed
+`TRANE_JSON` payload was generated by the old receiver logic above and is the
+regression fixture for the fix.
+
+
+### 2026-10-01 repeated exact-length JSON and long-run confirmation
+
+The full-day archive contains six compressor-running intervals:
+
+- ~113 minutes beginning 01:59 UTC;
+- ~6.6 minutes beginning 15:12 UTC;
+- ~7.3 minutes beginning 17:34 UTC;
+- ~167 minutes beginning 17:50 UTC;
+- ~166 minutes beginning 20:44 UTC;
+- ~9.7 minutes beginning 23:40 UTC.
+
+The long runs contain sustained Stage 2 operation while compressor speed remains
+continuously variable, again supporting supervisory demand/staging semantics.
+
+Blower request evidence remains extremely stable:
+
+- 184 numeric `IndoorStatus.E` / `0x200.u16@2` pairs;
+- correlation ~0.999;
+- median scale ~8.0 request units per percent.
+
+Two more `0x385.f1 = 65535` startup sentinels were captured and are correctly
+covered by the existing sanity filter.
+
+Four isolated stator-heat cycles raise the cumulative total to **73**.
+
+No A2L/leak, heating, defrost, reversing-valve, or 185.x pressure-protection
+event appears in the structured stream.
+
+#### Second exact-length/no-NUL JSON observation
+
+At 23:21:59 UTC, a second independent `DebugUI.HiHeapRemaining` transfer uses
+the same 42-byte exact-length/no-NUL form observed on 2026-09-30, this time with:
+
+```json
+{"DebugUI":{"HiHeapRemaining":"32538624"}}
+```
+
+The old receiver again emitted the payload one byte early because this archive
+was captured before the optional-NUL transport fix was deployed. The raw CAN
+contains the sixth/final segment immediately afterward with the missing brace.
+
+The regression fixture now covers both independently captured heap values,
+demonstrating that exact-length/no-NUL is a repeatable Trane wire form rather
+than a one-off malformed sender.
+
+
+### 2026-10-02 five-hour Stage 2 confirmation
+
+The full-day archive contains nine compressor-running intervals. The standout
+run is:
+
+- compressor motion: ~17:06:20-22:51:38 UTC (~345.3 min / 5.75 h);
+- structured Stage 2: ~17:21:14-22:39:30 UTC (~318.3 min / 5.30 h).
+
+Actual compressor speed remains continuously variable throughout the sustained
+Stage 2 interval and peaks around 58 RPS. This is the longest sustained
+Stage-2-heavy run in the evidence set so far and strongly reinforces the
+supervisory-demand/staging interpretation.
+
+A second long run spans ~04:10:33-06:22:15 UTC (~131.7 min), with Stage 2
+lasting ~119.4 minutes.
+
+Blower request scaling remains stable across 232 numeric
+`IndoorStatus.E` observations:
+
+- correlation with `0x200.u16@2`: ~0.998;
+- median scale: ~7.97 request units per percent.
+
+Six additional clean compressor starts emit `0x385.f1 = 65535`, further
+validating the existing 0-200 RPS sanity filter.
+
+Two isolated stator-heat cycles raise the cumulative project total to **75**.
+
+No A2L/leak, heating, defrost, reversing-valve, or 185.x low-suction-protection
+event appears in the structured stream.
+
+The pressure and unresolved outdoor families remain consistent:
+
+- `0x383.f0/f1` continue to behave as suction/high-side pressure;
+- `0x460.f0` remains strongly correlated with the outdoor power-electronics
+  thermal family (~0.94 with `0x410` / `0x430.f0`);
+- `0x430.f1` and both `0x450` fields remain unqualified.
+
+The day contains many 42-byte `0x300A` transfers, but the observed examples
+are NUL-terminated and parse cleanly. No exact-length/no-NUL DebugUI transfer
+occurred on this day, so the 2026-09-30/10-01 regression evidence remains the
+basis for that transport fix.
+
+
+### 2026-10-03 stock setpoint transport
+
+The full-day archive contains two stock `SpOverride.Put` writes on
+`0x641/0x5C1`, both using CANopen block SDO download to `0x300A:00`,
+followed by accepted-state broadcasts and application `{"Ack":"200"}`.
+Both stock requests use `HoldType:"1"` and `Source:"1"`.
+
+The same day independently confirms `SystemOpStatus.E` as an indoor-humidity
+mirror: 22/23 nearest updates exactly match `0x490.byte4`, with correlation
+~0.996 (R² ~0.991).
+
+Raw `0x384` compressor motion shows 19 operating intervals including the
+carry-over interval already active at midnight. Structured `SystemOpStatus.C`
+contains 18 new cooling starts, ~100.4 minutes total Stage 2, and a longest
+~105.5-minute cooling interval whose Stage-2 portion is also ~100.4 minutes.
+
+One isolated stator-heat interval (~8.2 minutes) raises the cumulative project
+total to **76**; `0x390` becomes nonzero ~8.8 seconds after the `0x282`
+enable.
+
+At ~03:17:09 UTC a third independent exact-length/no-NUL
+`DebugUI.HiHeapRemaining` block transfer appears. The archived bridge emits
+one malformed `TRANE_JSON` record because it was using the pre-fix
+length-minus-one behavior, while the underlying CAN transaction is valid and
+contains the final brace in the next block segment.
+
+No stock mode-write transaction was observed. A qualified local writer may use
+this evidence for setpoints only; mode and arbitrary JSON TX remain unqualified.
+
+
+### 2026-10-04 all-day idle stator cadence
+
+The full-day archive is mechanically idle for all 24 hours:
+
+- compressor request `0x280.f0 = 0`;
+- actual compressor speed `0x384.f0 = 0`;
+- compressor power `0x385.f0 = 0`;
+- blower current/speed/power remain zero;
+- no structured cooling/heating/defrost/A2L event is present.
+
+Despite that, `0x282.byte1` identifies **18 isolated stator-heat cycles**.
+Observed cadence:
+
+- duration range: ~7.54-8.32 min;
+- median duration: ~7.96 min;
+- mean duration: ~7.95 min;
+- start-to-start spacing: ~65.4-116.2 min;
+- median spacing: ~76.0 min;
+- mean spacing: ~80.0 min;
+- `0x390.byte0` becomes nonzero ~8.84-9.76 s after enable
+  (median ~9.48 s).
+
+Outdoor ambient `0x380.f1` spans roughly 60.3-68.0 F through the day.
+The `0x383` pressure pair remains tightly equalized:
+
+- low/suction raw range: ~182.4-200.9;
+- high-side raw range: ~182.5-201.2;
+- median absolute separation: ~0.74;
+- maximum observed separation: ~2.85.
+
+This is the cleanest all-day equalization baseline yet and raises the cumulative
+stator-heat evidence to **94 isolated cycles**.
+
+Sparse structured mirrors also match their binary sources exactly:
+
+- `SystemOpStatus.E` values 58, 59, 59, 61 and 62 match
+  `0x490.byte4` humidity;
+- `ZoneStatus.Update.1.H` values 77 and 76 match `0x490.f0` room
+  temperature.
+
+#### Fourth exact-length/no-NUL JSON observation
+
+At ~11:18:54 UTC, object `0x300A:00` again advertises exactly 42 bytes and
+carries:
+
+```json
+{"DebugUI":{"HiHeapRemaining":"31506432"}}
+```
+
+There is no trailing NUL inside the indicated length. This is the fourth
+independent exact-length/no-NUL target observation, after 2026-09-30,
+2026-10-01 and 2026-10-03. The regression fixture now covers all four observed
+heap values.
+
+
+### 2026-10-05 idle setpoint/control qualification
+
+The full-day archive is mechanically idle for all 24 hours:
+
+- compressor request and actual speed remain 0;
+- compressor power and outdoor fan remain 0;
+- blower current/speed/power remain 0;
+- `0x281` airflow target, compressor demand and blower-active fields remain 0.
+
+Despite no mechanical call, three stock UX360 `SpOverride.Put` writes occur:
+
+- 03:08:20 UTC -> Csp 77 F;
+- 10:52:52 UTC -> Csp 79 F;
+- 13:11:34 UTC -> Csp 78 F.
+
+All three use exactly:
+
+```json
+{"SpOverride":{"Put":{"1":{"Csp":"<77|79|78>","Hsp":"62","HoldType":"1","Source":"1"}}}}
+```
+
+Each is an 80-byte JSON body with one trailing NUL, so the CANopen block-SDO
+initiate request advertises 81 bytes. Each is followed by a matching
+`SpOverride.Update`, zone-state update and application `{"Ack":"200"}`.
+
+Combined with the two October 3 writes, the qualified setpoint transport now
+has **five independent stock observations**. This strengthens the exact
+transport/policy evidence but does not broaden the permitted local-write scope:
+zone 1 / hold type 1 / source 1 remain the only qualified semantics, and mode
+or arbitrary JSON TX remain fail-closed.
+
+The day also contains **15 isolated stator-heat cycles**, raising the cumulative
+project total to **109**. Cycle duration is ~7.29-9.37 min (median ~8.92 min),
+start-to-start spacing ~69.8-134.7 min (median ~91.2 min), and `0x390`
+appears ~8.73-9.78 s after the `0x282` enable (median ~9.35 s).
+
+Outdoor ambient spans ~64.7-75.8 F. With no refrigeration operation, the
+`0x383` pair remains tightly equalized:
+
+- suction/raw side: ~195.8-222.4;
+- paired high side: ~194.0-223.0;
+- median absolute separation: ~0.74;
+- maximum separation: ~2.83.
+
+Sparse structured environmental mirrors remain coherent:
+
+- six of seven `SystemOpStatus.E` humidity updates exactly match the nearest
+  `0x490.byte4` sample; the lone apparent mismatch changes from 62 to 61 on
+  the binary source ~0.83 s after the structured update;
+- all five `ZoneStatus.Update.1.H` room-temperature updates exactly match
+  the nearest `0x490.f0` sample.
+
+The archive contains 29 valid block-SDO JSON transfers. All observed block
+transfers are normal NUL-sized forms on this day; no fifth exact-length/no-NUL
+`DebugUI.HiHeapRemaining` example occurs.
+
+
+### 2026-10-06 Technician profile / fan-only qualification
+
+October 6 remains compressor-idle for the full day, but a Technician-app
+session at ~13:51-13:56 UTC produces the richest profile/control burst captured
+so far.
+
+#### Technician fan-only control
+
+The stock Technician traffic contains:
+
+```json
+{"IndoorSettings":{"Put":{"1":{"A":"1"}}}}
+{"IndoorSettings":{"Put":{"1":{"C":"100"}}}}
+{"IndoorSettings":{"Put":{"1":{"C":"50"}}}}
+{"IndoorSettings":{"Put":{"1":{"A":"0"}}}}
+```
+
+Observed response chain:
+
+- `A=1` starts the indoor fan path without compressor operation;
+- `C=100` produces `IndoorStatus.E=100` and `0x200.u16@2=800`;
+- `C=50` produces `IndoorStatus.E=50` and `0x200.u16@2=400`;
+- `0x318.u16@4` follows as physical motor feedback and reaches ~807;
+- blower power reaches ~79 W;
+- `A=0` stops the motor and feedback returns to zero.
+
+This directly confirms the ~8 request-units-per-percent scale and proves
+numeric `IndoorStatus.E` is a request/target percentage.
+
+During the entire fan-only interval, `0x281.byte7` remains 0. The previous
+"Blower Active Flag" label is therefore disproved and has been demoted to a
+neutral state candidate.
+
+`ZoneStatus.HcStatus=4` persists during this deliberate fan-only operation.
+Together with previous cooling shutdown/coast observations, code 4 is best
+described as a **fan/blower-only or blower-coast state**, not merely a shutdown
+transient.
+
+The fan-control semantics and transport are now qualified in a separate guarded
+writer. It remains **disabled by default**: both global `tx_enabled` and
+`qualified_indoor_fan_tx_enabled` must be explicitly enabled. Fan percentage
+is restricted to the two captured values, 50 and 100.
+
+#### EquipSummary device inventory
+
+The raw CAN reassembles a 1,377-byte `EquipSummary` profile containing the
+enrolled Link equipment. It directly identifies:
+
+- SC360 system controller model/software;
+- 5TAMX air-handler model/software;
+- 5TWV0X heat-pump model/software;
+- UX360 thermostat model/software;
+- CNT09525 mitigation control board model/software.
+
+The air-handler record also reports:
+
+```text
+HeaterAccessory = Electric, 10KW, Single-Phase, 2-Stage
+```
+
+Per-device model/serial/software diagnostics and the heater-accessory field are
+now hydrated from `EquipSummary`. The accessory identity does **not** by
+itself qualify live electric-heat stage telemetry.
+
+#### Long structured JSON logging
+
+The profile session also exposes a logging-layer truncation separate from the
+CANopen receiver. Valid reassembled messages include:
+
+- `ZoneStatus`: 596 JSON bytes (+ NUL on wire);
+- `EquipSummary`: 1,377 JSON bytes (+ NUL);
+- `WifiList`: 1,680 JSON bytes (+ NUL).
+
+The old ESPHome logger used its 512-byte default TX buffer, causing emitted
+`TRANE_JSON` lines to clip at about 468 JSON characters even though
+`trane_bus` had correctly reassembled the complete payload. The HA profile
+now sets `logger.tx_buffer_size: 4608`, covering the component's 4,096-byte
+maximum RX JSON payload plus log metadata.
+
+A fifth exact-length/no-NUL `DebugUI.HiHeapRemaining` transfer is also
+present, now with value `30900224`; the maintained optional-NUL receiver fix
+already covers this wire form.
+
+#### Stator heat and idle pressure baseline
+
+October 6 contains 15 stator-heat starts: 14 fully complete in the archive and
+one still active at 23:59:59 UTC. Complete-cycle duration is ~7.25-9.51 min
+(median ~8.95 min). The `0x390` onset lag remains ~8.84-9.80 s
+(median ~9.49 s).
+
+Cumulative evidence is therefore **123 fully observed cycles plus one carry-out
+cycle**.
+
+With compressor request/actual/power all zero, the pressure pair remains
+equalized over the day:
+
+- `0x383.f0`: ~176.5-224.5;
+- `0x383.f1`: ~175.7-224.2;
+- median absolute separation: ~1.55;
+- maximum separation: ~4.55.
+
+
+### 2026-10-07 full-day idle / stator / network follow-up
+
+October 7 is mechanically idle for all 24 hours: compressor request, actual speed and power are zero; blower request, feedback and power are zero; airflow target and compressor demand are zero. The October 6 carry-out stator event clears just after midnight, followed by 15 new complete cycles. Cumulative evidence is now **139 completed isolated stator-heat cycles**.
+
+The 15 new cycles run ~7.27-9.97 min (median ~8.27 min). `0x390.byte0` begins ~8.77-9.77 s after `0x282.byte1` (median ~9.07 s) and remains confined to 44/45/46. All three phase-current candidates assert again with compressor speed fixed at zero.
+
+The day also extends the equalization baseline across roughly 50.2-79.4 F outdoor ambient. `0x383.f0` spans ~158.0-229.2, `0x383.f1` ~156.3-227.5, with median absolute separation ~1.70 and max ~3.68.
+
+A useful scheduling clue appears: stator starts continue into the low 70s, then stop for roughly 290 minutes while ambient spends the warmest portion of the day mostly around 75-79 F, resuming near 74.8 F. Treat this only as an outdoor-temperature inhibit/eligibility candidate; it is not enough evidence to hard-code a threshold.
+
+October 7 also decisively excludes `0x2D0.u16@4` from actual airflow: it varies ~773-827 all day while every real blower signal remains zero. Keep it as an airflow limit/ceiling/configuration candidate.
+
+
+### 2026-10-08 full-day cooling / stator / receiver qualification
+
+The October 8 archive is complete: 2,624,871 raw CAN frames and 1,127 structured JSON messages. Eight cooling/compressor intervals total ~191.75 minutes actual-speed runtime, with a sustained ~107.37-minute run including ~73.54 minutes of Stage 2 across two adjacent intervals. Four more `0x385.f1=65535` startup sentinels confirm that speed-ceiling filtering remains necessary.
+
+Thirteen completed isolated stator cycles raise the cumulative corpus to **152**. The median cycle lasts ~8.19 min, with `0x390.byte0` appearing a median ~9.19 s after `0x282.byte1`. The last stator start occurs near 73.1 F ambient; rising temperatures and the absence of additional starts support but do not prove an outdoor-temperature inhibit hypothesis.
+
+`0x281.byte7` asserts for all eight compressor-request intervals and follows request on/off edges much more closely than actual compressor motor speed. The October 6 fan-only disproof remains decisive: this is not a general blower-active flag. Keep the semantic neutral until heating/control capture differentiates compressor enable from another demand-adjacent status.
+
+The sixth exact-length/no-NUL `DebugUI.HiHeapRemaining` block download (value `30384128`) is received and emitted intact by the installed ESPHome bridge, independently verifying the optional-NUL fix on-device. Thirteen of thirteen sparse humidity mirrors match `0x490.byte4` exactly; five of six room-temperature mirrors match the nearest `0x490.f0` sample, with the last binary update following 0.715 s later. No new write family or protection event is qualified.
+
+
+### 2026-10-09 Stage 1 cooling, stator and thermal follow-up
+
+The complete October 9 archive reconstructs **652 CANopen block status updates** and **652 segmented application acknowledgements**, matching all 1,304 emitted structured JSON messages. No malformed transport, application write or new command family appears. Twelve `AC Stage 1` cooling cycles total **~104.04 minutes physical compressor runtime**, with **no Stage 2**.
+
+`0x281.byte7` repeats the **compressor-request adjacency** across all twelve starts/stops, with request-edge lags typically under 1.4 s and actual motor speed rising ~8.5–10.2 s after request. Combined with the earlier Technician fan-only disproof, continue treating it as a state candidate rather than a blower-active flag.
+
+Four completed stator cycles take the cumulative total to **156**, at ~8.07–8.56 min per cycle, with `0x390.byte0` arriving ~8.83–9.26 s after enable. All three phase-current candidates assert while actual compressor speed stays zero. The final stator event starts at about 72.29 °F ambient; the possible warm-ambient eligibility threshold remains a hypothesis, not a hardcoded rule.
+
+Cooling separates the `0x383.f0/f1` pressure pair by up to ~167.37 raw units, while idle samples at least twenty minutes after compressor stops have median absolute separation ~0.70. Gauge/absolute representation is still unresolved. The `0x430.f1` and `0x450.f0/f1` raw values are highly variable but have negligible correlation with relevant temperatures, speed and power; preserve their raw diagnostic labels. `0x460.f0` instead exhibits a very stable electronics-thermal pattern (r≈0.991 with `0x410.f0`), justifying the stronger **thermal-family candidate** description without assigning a specific sensor.
+
+Four of five humidity structured updates match the closest `0x490.byte4` sample exactly; the fifth precedes the matching binary change by **0.578 s**. Both room-temperature updates match directly. No new safety or writer qualification is implied.
