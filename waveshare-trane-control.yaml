@@ -45,8 +45,8 @@ api:
             heat_f: !lambda 'return heat_f;'
             cool_f: !lambda 'return cool_f;'
             zone: 1
-            # Both stock October 3 SpOverride.Put captures use HoldType=1
-            # and Source=1. The qualified writer rejects other values.
+            # All six captured stock SpOverride.Put writes through October 10
+            # use HoldType=1 and Source=1. The qualified writer rejects other values.
             hold_type: 1
             source: 1
 
@@ -105,7 +105,7 @@ trane_bus:
   # Deliberately false in the repository. Set true only after the listen-only
   # commissioning image has verified the installed system and CAN wiring.
   tx_enabled: false
-  # Static second gate for the October 3 stock-qualified setpoint writer.
+  # Static second gate for the stock-qualified zone-1 setpoint writer.
   # Field testing requires deliberately changing this to true as well as
   # enabling runtime TX; existing configs cannot acquire writes by accident.
   qualified_setpoint_tx_enabled: false
