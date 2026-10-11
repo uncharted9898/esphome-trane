@@ -45,7 +45,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Byte 7 State Candidate | Candidate / old blower-active hypothesis disproved | Cooling-only captures made this look blower-active, but the 2026-10-06 Technician fan-only test ran the blower at ~800 feedback units / ~79 W while this byte stayed 0. Keep it neutral until its actual operating-state meaning is qualified. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
-| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 156 fully completed isolated cycles through 2026-10-09, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 166 fully completed isolated cycles through 2026-10-10, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
 | `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
 | `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
@@ -98,7 +98,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
 | `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
-| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 156 fully completed isolated stator-heat cycles through 2026-10-09, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 166 fully completed isolated stator-heat cycles through 2026-10-10, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -271,7 +271,7 @@ Do not invent friendly names for these until captured against a known OEM value:
 
 Receive-side SDO/JSON transport is well understood. **Application TX remains disabled by default and fail-closed unless an explicitly qualified path is opted in.**
 
-The 2026-10-03 and 2026-10-05 captures now contain five complete stock UX360 `SpOverride.Put` setpoint writes. All five independently use the request-side `0x641/0x5C1` block-SDO transaction, object `0x300A:00`, accepted-state broadcast, and application `{"Ack":"200"}` path. The observed cooling setpoints are 77, 78 and 79 F, while every stock write retains zone 1, `HoldType:"1"`, `Source:"1"`, heat setpoint 62 F and the same JSON field order. The maintained local setpoint writer therefore remains intentionally constrained behind explicit opt-in safety gates.
+The 2026-10-03 and 2026-10-05 captures now contain six complete stock UX360 `SpOverride.Put` setpoint writes. All six independently use the request-side `0x641/0x5C1` block-SDO transaction, object `0x300A:00`, accepted-state broadcast, and application `{"Ack":"200"}` path. The observed cooling setpoints are 77, 78 and 79 F, while every stock write retains zone 1, `HoldType:"1"`, `Source:"1"`, heat setpoint 62 F and the same JSON field order. The maintained local setpoint writer therefore remains intentionally constrained behind explicit opt-in safety gates.
 
 A second qualified family is now available from the 2026-10-06 Technician
 capture: `IndoorSettings.Put` fan enable/disable plus the captured 50% and
@@ -827,3 +827,20 @@ Four completed stator cycles take the cumulative total to **156**, at ~8.07–8.
 Cooling separates the `0x383.f0/f1` pressure pair by up to ~167.37 raw units, while idle samples at least twenty minutes after compressor stops have median absolute separation ~0.70. Gauge/absolute representation is still unresolved. The `0x430.f1` and `0x450.f0/f1` raw values are highly variable but have negligible correlation with relevant temperatures, speed and power; preserve their raw diagnostic labels. `0x460.f0` instead exhibits a very stable electronics-thermal pattern (r≈0.991 with `0x410.f0`), justifying the stronger **thermal-family candidate** description without assigning a specific sensor.
 
 Four of five humidity structured updates match the closest `0x490.byte4` sample exactly; the fifth precedes the matching binary change by **0.578 s**. Both room-temperature updates match directly. No new safety or writer qualification is implied.
+
+ 
+### 2026-10-10 cooling, seventh no-NUL sample, and stock setpoint write
+
+The complete October 10 archive contains 2,599,232 raw CAN records plus 528 emitted JSON records (82 unique IDs, zero malformed). Raw CAN independently reconstructs all 528 JSON messages with no missing/mismatched transactions: 263 block `0x649` updates, two `0x641` block transfers and 263 segmented `0x641` application ACKs; all ACKs are 200.
+
+Three compressor runs total ~73.20 minutes of physical operation. The middle run lasts ~49.22 minutes and includes four brief structured `AC Stage 2` periods totaling ~52.60 seconds, not sustained Stage 2. `0x281.byte7` again tracks compressor request transitions closely and is not a general blower-active flag.
+
+Ten fully completed isolated stator cycles take the cumulative evidence to **166 complete cycles**. Durations are ~7.64–8.67 minutes (median ~8.04); `0x390.byte0` follows enable by ~8.90–9.68 seconds (median ~9.46). All three phase-current candidates assert while compressor speed stays zero.
+
+At ~02:56:51 UTC, the sixth independently observed zone-1 stock `SpOverride.Put` writes Csp 77 F / Hsp 62 F / HoldType 1 / Source 1. Its 81-byte block transaction and the `SpOverride.Update`, `ZoneStatus`, application `Ack:200` chain match prior captures. Write permissions remain narrowly gated.
+
+At ~01:28:47 UTC, the seventh observed exact-length/no-NUL `DebugUI.HiHeapRemaining` is `29868032`, indicated wire size 42, emitted correctly on the deployed ESPHome bridge.
+
+Ambient spans ~59.98–71.32 F, so October 10 does not challenge the tentative warm-ambient stator scheduling hypothesis. `0x383` recovers to median absolute separation ~0.97 after compressor shutdown (minimum 20-minute recovery). Outdoor electronics thermal candidate `0x460.f0` again tracks `0x410.f0` closely (r≈0.995), while raw `0x430.f1` and `0x450` do not.
+
+Structured `SystemOpStatus.E` humidity matches nearby `0x490.byte4` in 8/9 updates; the ninth (54 vs 55) precedes the matching binary update by ~0.606 s. All three structured room-temperature mirrors match. No heat, defrost, A2L, 185.x alarm or new write family was observed.
