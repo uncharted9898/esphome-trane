@@ -228,8 +228,8 @@ The repository's historical transmitter pre-dated this SDO decode and emitted a
 guessed `C2`/sequence stream without object index `0x300A` or the mandatory
 SDO server handshakes. That sequence remains removed.
 
-The October 3 and October 5 captures qualify the stock zone-1
-`SpOverride.Put` setpoint path: five independent UX360 writes use request
+The October 3, October 5 and October 10 captures qualify the stock zone-1
+`SpOverride.Put` setpoint path: six independent UX360 writes use request
 COB-ID `0x641`, response COB-ID `0x5C1`, object `0x300A:00`, CANopen
 block download, and an application `{"Ack":"200"}`.
 
@@ -262,7 +262,7 @@ The fan writer accepts only the captured `A=0/1` enable states and
 `C=50/100` request values. Mode, profile and arbitrary JSON writes remain
 fail-closed because no equivalent request capture has qualified them.
 
-All five stock writes used this exact application field order and policy:
+All six stock writes used this exact application field order and policy:
 
 ```json
 {"SpOverride":{"Put":{"1":{"Csp":"77","Hsp":"62","HoldType":"1","Source":"1"}}}}
@@ -389,15 +389,16 @@ six capture days:
 - 2026-10-04: `HiHeapRemaining = 31506432`
 - 2026-10-06: `HiHeapRemaining = 30900224`
 - 2026-10-08: `HiHeapRemaining = 30384128`
+- 2026-10-10: `HiHeapRemaining = 29868032`
 
-All six advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+All seven advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
 optional-NUL rule is a normal Trane wire form rather than a one-off malformed
 sender.
 
 The 2026-10-03 archive was still captured with the pre-fix receiver. It emits
 one malformed `TRANE_JSON` line after 41 bytes, while the underlying CAN
 transaction is valid and the next block segment carries the final closing
-brace. The maintained receiver/analyzer fix accepts all five captures.
+brace. The maintained receiver/analyzer fix accepts all seven captures.
 
 
 ### Long structured JSON logger capacity
@@ -429,3 +430,6 @@ JSON reassembly.
 
 
 On 2026-10-08 the sixth 42-byte no-NUL sample was emitted completely by the updated ESPHome receiver, directly confirming the deployed optional-NUL fix. The other 1,126 CANopen JSON transactions on that day reconstructed correctly, with no profile/mode/control `Put` family observed.
+
+
+On 2026-10-10 a seventh exact-length/no-NUL 42-byte `DebugUI.HiHeapRemaining` transfer (`29868032`) was fully emitted by the installed receiver. The same archive also contains a stock 81-byte `SpOverride.Put` zone-1 setpoint write (77 F cooling, 62 F heating, HoldType/Source 1), using the full block-SDO handshake with final `A2 0C 00`, followed by a matching update and `Ack:200`. The application write policy remains unchanged.
