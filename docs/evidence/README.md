@@ -162,3 +162,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-stage1-stator-thermal-correlations.md](2026-10-09/full-day-stage1-stator-thermal-correlations.md) | Complete full-day Stage 1 capture with 12 compressor runs (~104 min), 4 isolated stator cycles (156 cumulative), all 1,304 structured JSON messages reassembled from CAN without mismatch, compressor-request/0x281.byte7 correlation, pressure equalization, indoor mirrors and stronger 0x460 electronics thermal-family evidence |
+
+
+## 2026-10-10
+
+| File | What it captured |
+|---|---|
+| [full-day-stator-cooling-setpoint-seventh-nonul.md](2026-10-10/full-day-stator-cooling-setpoint-seventh-nonul.md) | Complete 24-hour CAN capture with three cooling runs, brief Stage 2 transitions, ten complete stator cycles (166 cumulative), sixth stock setpoint Put, seventh exact-length/no-NUL DebugUI transaction, direct room/humidity mirrors and unchanged guardrails |
