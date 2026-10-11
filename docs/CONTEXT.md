@@ -119,7 +119,7 @@ Current rules:
 - mode, profile and arbitrary JSON writers remain blocked;
 - passive receive/capture remains available regardless of write arming.
 
-Qualified evidence now includes five independent stock UX360 `SpOverride.Put` writes across October 3 and 5, plus the October 6 Technician `IndoorSettings.Put` fan sequence. Both families use the captured block-SDO request/response path and require application `{"Ack":"200"}` after transport completion.
+Qualified evidence now includes six independent stock UX360 `SpOverride.Put` writes across October 3, 5 and 10, plus the October 6 Technician `IndoorSettings.Put` fan sequence. Both families use the captured block-SDO request/response path and require application `{"Ack":"200"}` after transport completion.
 
 Still required before widening writes:
 
@@ -202,7 +202,7 @@ The evidence archive preserves old hypotheses, including mappings later disprove
 
 The 2026-10-07 archive is mechanically idle and closes the 10/06 stator carry-out. The 2026-10-08 archive adds eight cooling runs and 13 stator cycles; October 9 adds twelve Stage 1 cooling runs and four fully observed stator cycles, taking the corpus to **156 completed isolated stator-heat cycles**. All 1,304 October 9 structured JSON messages reassemble exactly from the raw CAN stream, and `0x460.f0` further tracks the electronics-thermal family (exact sensor still unresolved). Its sixth exact-length/no-NUL JSON example is received correctly by the installed bridge. It also strengthens `0x2D0.u16@4` as an airflow limit/configuration field rather than actual airflow, and strengthens `0x53E.byte5` as an active/available node-count candidate while proving `0x53D.byte0=1` is not required for a healthy five-node operational network.
 
-## Immediate engineering work
+The 2026-10-10 archive adds three cooling runs (73.2 min actual compressor runtime), ten complete isolated stator cycles (**166 total**), the sixth exact stock setpoint transaction and the seventh valid 42-byte no-NUL DebugUI transfer. All 528 CAN-reassembled JSON messages match the collector. Mode/profile/other raw application writes remain unqualified.\n\n## Immediate engineering work
 
 Highest-value remaining work:
 
