@@ -127,7 +127,7 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertEqual([row["json"] for row in messages], [{"Long": "abcdefghijklmnop"}])
 
     def test_block_download_exact_length_without_trailing_nul(self):
-        for heap_remaining in ("33054720", "32538624", "32022528", "31506432", "30900224", "30384128", "29868032"):
+        for heap_remaining in ("33054720", "32538624", "32022528", "31506432", "30900224", "30384128", "29868032", "29351936"):
             payload = (
                 f'{{"DebugUI":{{"HiHeapRemaining":"{heap_remaining}"}}}}'
             ).encode()
@@ -224,6 +224,50 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertEqual(initiate["size"], 81)
         ack = next(
             row for row in transport if row["phase"] == "block_download_subblock_response"
+        )
+        self.assertEqual(ack["ack_sequence"], 12)
+        self.assertEqual(transport[-1]["phase"], "block_download_end_response")
+
+    def test_oct11_captured_stock_setpoint_block_sdo(self):
+        # October 11 UX360 wire bytes: seventh stock zone-1 override.
+        # Final A2 sequence 12 has zero continuation size, which is valid
+        # because this block fully completes the transfer.
+        lines = [
+            "TRANE_CAN_LIVE,S,1000,641,8,C20A300051000000",
+            "TRANE_CAN_LIVE,S,1001,5C1,8,A00A30000C000000",
+            "TRANE_CAN_LIVE,S,1002,641,8,017B2253704F7665",
+            "TRANE_CAN_LIVE,S,1003,641,8,027272696465223A",
+            "TRANE_CAN_LIVE,S,1004,641,8,037B22507574223A",
+            "TRANE_CAN_LIVE,S,1005,641,8,047B2231223A7B22",
+            "TRANE_CAN_LIVE,S,1006,641,8,05437370223A2237",
+            "TRANE_CAN_LIVE,S,1007,641,8,0638222C22487370",
+            "TRANE_CAN_LIVE,S,1008,641,8,07223A223632222C",
+            "TRANE_CAN_LIVE,S,1009,641,8,0822486F6C645479",
+            "TRANE_CAN_LIVE,S,1010,641,8,097065223A223122",
+            "TRANE_CAN_LIVE,S,1011,641,8,0A2C22536F757263",
+            "TRANE_CAN_LIVE,S,1012,641,8,0B65223A2231227D",
+            "TRANE_CAN_LIVE,S,1013,641,8,8C7D7D7D0031227D",
+            "TRANE_CAN_LIVE,S,1014,5C1,8,A20C000000000000",
+            "TRANE_CAN_LIVE,S,1015,641,8,CD00000000000000",
+            "TRANE_CAN_LIVE,S,1016,5C1,8,A100000000000000",
+        ]
+        frames = analyzer.parse_frames(lines)
+        messages = analyzer.reassemble_json(frames)
+        self.assertEqual(
+            [message["json"] for message in messages],
+            [{"SpOverride": {"Put": {"1": {
+                "Csp": "78", "Hsp": "62", "HoldType": "1", "Source": "1",
+            }}}}],
+        )
+        transport = analyzer.decode_canopen_sdo_transport(frames)
+        initiate = next(
+            row for row in transport
+            if row["phase"] == "block_download_initiate_request"
+        )
+        self.assertEqual(initiate["size"], 81)
+        ack = next(
+            row for row in transport
+            if row["phase"] == "block_download_subblock_response"
         )
         self.assertEqual(ack["ack_sequence"], 12)
         self.assertEqual(transport[-1]["phase"], "block_download_end_response")
