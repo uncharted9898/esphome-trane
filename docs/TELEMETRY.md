@@ -45,7 +45,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Byte 7 State Candidate | Candidate / old blower-active hypothesis disproved | Cooling-only captures made this look blower-active, but the 2026-10-06 Technician fan-only test ran the blower at ~800 feedback units / ~79 W while this byte stayed 0. Keep it neutral until its actual operating-state meaning is qualified. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
-| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 179 fully completed isolated cycles through 2026-10-11, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 187 fully completed isolated cycles through 2026-10-12, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
 | `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
 | `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
@@ -98,7 +98,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
 | `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
-| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 179 fully completed isolated stator-heat cycles through 2026-10-11, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 187 fully completed isolated stator-heat cycles through 2026-10-12, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -855,3 +855,14 @@ Thirteen complete stator cycles bring cumulative evidence to **179**. Median dur
 The eighth field example of exact-length/no-NUL `DebugUI.HiHeapRemaining` carries `29351936` (42 bytes, correctly logged). A seventh stock `SpOverride.Put` at 23:35 UTC sets zone-1 Csp 78 F/Hsp 62 F with HoldType/Source 1. The 81-byte block-SDO transfer, `SpOverride.Update`, `ZoneStatus.Csp` and application `Ack:200` follow prior captured semantics; neither event broadens write permissions.
 
 During Stage 2 the `0x383` pressure pair has median absolute separation ~134.47 raw units, versus ~0.86 after 20+ minutes idle. Electronics-thermal candidate `0x460.f0` continues correlating with `0x410.f0/f1` and `0x430.f0`. No new system mode, heating, defrost or mitigation control family is qualified.
+
+
+### 2026-10-12 long Stage 2, stator and transport confirmation
+
+The complete 24-hour archive has 2,636,299 raw CAN frames and 1,582 structured JSON messages. An independent, frame-order-preserving CANopen replay matches **all 1,582** JSON messages (791 block-SDO status updates and 791 segmented application ACKs), with zero aborts, incomplete transfers or missing messages. No new Put/profile command and no ninth no-NUL transfer occurs.
+
+Nine actual compressor intervals total **279.77 minutes**, including a **211.32-minute** physical run with **176.26 minutes uninterrupted AC Stage 2**. Median Stage 2 speed/power/outdoor input power: ~44.2 RPS / 756 W / 924 W, versus Stage 1 ~29.8 RPS / 452 W / 566 W. Six further `0x385.f1=65535` startup sentinels reconfirm the speed sanity filter.
+
+Eight new isolated stator cycles raise the cumulative corpus to **187 complete cycles**. The median cycle lasts **7.76 minutes**; median `0x282.byte1` to `0x390.byte0` lag is **9.25 seconds**. A start at **77.35 F** adds another direct disproof of a fixed 75 F inhibit cutoff. Do not encode a guessed stator eligibility threshold.
+
+The `0x383.f0/f1` pressure pair again has median absolute separation ~153.81 during Stage 2, versus ~0.97 in recovered idle, reinforcing paired pressure roles while gauge/absolute units remain unknown. All three structured room mirrors match `0x490.f0`, and six of seven humidity updates match `0x490.byte4` directly; the seventh matches a binary update 0.626 s later. `0x460.f0` remains only an outdoor electronics-thermal-family candidate (r≈0.970 with `0x410.f0`, but also r≈0.904 with ambient on this day).
