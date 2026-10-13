@@ -176,3 +176,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-stage2-stator-setpoint-eighth-nonul.md](2026-10-11/full-day-stage2-stator-setpoint-eighth-nonul.md) | Full-day CAN capture with four cooling runs and 118.29 minutes uninterrupted Stage 2, 13 complete stator cycles (179 cumulative), 75 F inhibit disproof, exact match of all 976 structured JSON bodies, seventh stock setpoint write, and eighth exact-length/no-NUL DebugUI transfer |
+
+
+## 2026-10-12
+
+| File | What it captured |
+|---|---|
+| [full-day-stage2-stator-transport.md](2026-10-12/full-day-stage2-stator-transport.md) | 24-hour CAN capture with nine compressor runs, 176.26 minutes uninterrupted Stage 2, eight complete stator cycles (187 cumulative), full 1,582/1,582 structured JSON replay, pressure/room/humidity correlation and unchanged write-safety policy |
