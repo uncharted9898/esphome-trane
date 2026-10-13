@@ -206,6 +206,8 @@ The 2026-10-10 archive adds three cooling runs (73.2 min actual compressor runti
 
 The 2026-10-11 archive adds four cooling runs (~167.36 minutes physical compressor runtime), including 118.29 minutes uninterrupted Stage 2; 13 new isolated stator cycles (**179 total**); the seventh stock zone-1 setpoint write; and the eighth complete exact-length/no-NUL DebugUI transfer. All 976 collector JSON messages match raw CAN reassembly. Stator heat at ~75.24 and ~77.03 F disproves a fixed 75 F inhibit threshold. Write scope remains unchanged.
 
+The 2026-10-12 archive adds nine compressor runs (279.77 minutes total actual-speed runtime), including 176.26 minutes continuous Stage 2. Eight complete isolated stator cycles advance the corpus to **187**, including a start at 77.35 F. All 1,582 CANopen JSON messages reassemble exactly, with no new stock Put family or no-NUL event. The default-off TX safety boundary remains unchanged.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
