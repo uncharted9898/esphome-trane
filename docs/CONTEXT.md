@@ -208,6 +208,8 @@ The 2026-10-11 archive adds four cooling runs (~167.36 minutes physical compress
 
 The 2026-10-12 archive adds nine compressor runs (279.77 minutes total actual-speed runtime), including 176.26 minutes continuous Stage 2. Eight complete isolated stator cycles advance the corpus to **187**, including a start at 77.35 F. All 1,582 CANopen JSON messages reassemble exactly, with no new stock Put family or no-NUL event. The default-off TX safety boundary remains unchanged.
 
+The 2026-10-13 archive includes 12 compressor starts (11 complete and one carry-out), **at least 272.66 minutes observed runtime**, one 124.61-minute uninterrupted Stage 2 interval, and seven completed isolated stator cycles (**194 cumulative**). All **1,605** structured messages reassemble exactly from raw CAN. A ninth exact-length/no-NUL `DebugUI.HiHeapRemaining=28835840` block-SDO is correctly emitted by the deployed bridge; no new stock `Put` or alarm family appears. Application TX remains independently gated and fail-closed. The declining heap value remains diagnostic only, not a proven leak.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
