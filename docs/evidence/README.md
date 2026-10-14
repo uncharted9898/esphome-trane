@@ -183,3 +183,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-stage2-stator-transport.md](2026-10-12/full-day-stage2-stator-transport.md) | 24-hour CAN capture with nine compressor runs, 176.26 minutes uninterrupted Stage 2, eight complete stator cycles (187 cumulative), full 1,582/1,582 structured JSON replay, pressure/room/humidity correlation and unchanged write-safety policy |
+
+
+## 2026-10-13
+
+| File | What it captured |
+|---|---|
+| [full-day-stage2-stator-ninth-nonul.md](2026-10-13/full-day-stage2-stator-ninth-nonul.md) | Full-day 2,637,881-frame CAN replay with 1,605/1,605 structured JSON matches, twelve compressor starts (one carry-out), 124.61 minutes sustained Stage 2, seven stator cycles (194 cumulative), ninth exact-length/no-NUL DebugUI transfer, and preserved write safety |
