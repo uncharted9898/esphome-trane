@@ -391,15 +391,16 @@ six capture days:
 - 2026-10-08: `HiHeapRemaining = 30384128`
 - 2026-10-10: `HiHeapRemaining = 29868032`
 - 2026-10-11: `HiHeapRemaining = 29351936`
+- 2026-10-13: `HiHeapRemaining = 28835840`
 
-All eight advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+All nine advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
 optional-NUL rule is a normal Trane wire form rather than a one-off malformed
 sender.
 
 The 2026-10-03 archive was still captured with the pre-fix receiver. It emits
 one malformed `TRANE_JSON` line after 41 bytes, while the underlying CAN
 transaction is valid and the next block segment carries the final closing
-brace. The maintained receiver/analyzer fix accepts all eight captures.
+brace. The maintained receiver/analyzer fix accepts all nine captures.
 
 
 ### Long structured JSON logger capacity
@@ -437,3 +438,6 @@ On 2026-10-10 a seventh exact-length/no-NUL 42-byte `DebugUI.HiHeapRemaining` tr
 
 
 On October 11, the eighth no-NUL `HiHeapRemaining=29351936` was received correctly (42 bytes, final `A2 06 00`, `C1`, `A1`). The seventh stock zone-1 `SpOverride.Put` used 81 indicated bytes, final `A2 0C 00`, and the expected structured update/application ACK path. No new application-write family is qualified.
+
+
+On October 13 a ninth independent no-NUL block-SDO carried `HiHeapRemaining=28835840` in exactly 42 bytes, completing the normal final `0x86`, `A2 06 00`, `C1`, `A1` exchange; the installed receiver emitted the entire valid JSON. All 1,605 October 13 collector messages match the read-only raw-CAN replay. No new stock Put family was observed. The decreasing HiHeapRemaining sequence is diagnostic evidence only, not proof of a memory leak or ownership.
