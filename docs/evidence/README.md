@@ -190,3 +190,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-stage2-stator-ninth-nonul.md](2026-10-13/full-day-stage2-stator-ninth-nonul.md) | Full-day 2,637,881-frame CAN replay with 1,605/1,605 structured JSON matches, twelve compressor starts (one carry-out), 124.61 minutes sustained Stage 2, seven stator cycles (194 cumulative), ninth exact-length/no-NUL DebugUI transfer, and preserved write safety |
+
+
+## 2026-10-14
+
+| File | What it captured |
+|---|---|
+| [full-day-stage2-stator-power-sentinel.md](2026-10-14/full-day-stage2-stator-power-sentinel.md) | Full 24-hour CAN replay (1,480/1,480 JSON messages), compressor carry-in/out, 247.2 minutes sustained Stage 2, six stator cycles (200 cumulative), and first confirmed 65535 W compressor-power startup sentinel requiring filtered HA telemetry |
