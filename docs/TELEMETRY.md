@@ -45,7 +45,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Byte 7 State Candidate | Candidate / old blower-active hypothesis disproved | Cooling-only captures made this look blower-active, but the 2026-10-06 Technician fan-only test ran the blower at ~800 feedback units / ~79 W while this byte stayed 0. Keep it neutral until its actual operating-state meaning is qualified. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
-| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 194 fully completed isolated cycles through 2026-10-13, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 200 fully completed isolated cycles through 2026-10-14, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
 | `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
 | `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
@@ -89,7 +89,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x384.float[0]` | Actual Compressor Speed Candidate | Strong candidate | 0 when satisfied; ~58 RPS at high load; coherent ramp-down. |
 | `0x384.u16@4` | Drive DC Voltage | Strong candidate | ~340-352 Vdc. |
 | `0x384.u16@6` | Outdoor Fan Speed | Strong candidate | ~750-775 RPM under high load, 0 stopped. |
-| `0x385.float[0]` | Compressor Power Candidate | Strong candidate | ~1.3-1.5 kW high load; 0 stopped. |
+| `0x385.float[0]` | Compressor Power Candidate | Strong candidate | ~1.3-1.5 kW high load; 0 stopped. One literal 65535.0 W startup sentinel on 2026-10-14 is filtered in the friendly HA entity without imposing a speculative power limit. |
 | `0x385.float[1]` | Compressor Speed Ceiling Candidate | Strong candidate | Sits above the immediate `0x280` request across low/moderate/high load (~40 vs 29, ~63 vs 56, ~66-68 vs ~58 RPS) and becomes 0 idle. The 65535 startup sentinel recurs across later clean starts (six more on 2026-10-02) and is filtered rather than published as a fake RPS spike. |
 | `0x386.float[0]` | Raw | Raw | Often 2.0 in target captures. |
 | `0x386.float[1]` | Raw | Raw | Often fixed 50.0; old saturation-temperature label disproved. |
@@ -98,7 +98,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
 | `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
-| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 194 fully completed isolated stator-heat cycles through 2026-10-13, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 200 fully completed isolated stator-heat cycles through 2026-10-14, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -879,3 +879,16 @@ Seven fully completed isolated stator cycles increase the cumulative project evi
 During Stage 2, `0x383.f0/f1` median absolute separation is **~172.26 raw units**, while recovered idle median absolute separation is **~0.72**. Pressure gauge/absolute conversion remains unresolved. All **8/8** humidity and **4/4** room-temperature structured updates agree with the binary `0x490` mirrors.
 
 The ninth exact-length/no-NUL `DebugUI.HiHeapRemaining` example, value **28835840**, is reconstructed and logged intact by the deployed ESPHome bridge. The captured sequence declines by ~4.02 MiB between September 30 and October 13, but the cause and owner of that value are still unknown; do not call it a proven leak. No >512-byte structured profile capture appeared after the logger-buffer fix.
+
+
+### 2026-10-14 sustained Stage 2, stator, and power sentinel
+
+The complete archive contains 2,640,867 raw CAN frames and **1,480 structured JSON** messages, with exact CANopen reconstruction (740 status block downloads plus 740 application ACKs, all `200`). No malformed transport, tenth no-NUL sample or new stock Put request was observed.
+
+The October 13 compressor carry-out is reconciled across midnight, closing at ~00:05:55 UTC. October 14 contains nine observed compressor-running intervals including the carry-in and a new carry-out still active at midnight. A **276.06-minute physical run** includes **247.20 uninterrupted minutes AC Stage 2**, from ~17:44 to 21:51 UTC. Stage 2 median raw high/low pressure separation is ~177.19; recovered idle median ~1.21. The HVAC network remains operational with all five heartbeat nodes.
+
+Six completed isolated stator cycles take the project evidence to **200**; their median duration is ~8.18 min and median `0x282` to `0x390` lag ~8.94 s. All three phase-current candidates assert with actual compressor speed zero.
+
+The important new field issue is `0x385.float[0]=65535.0 W` during compressor startup at ~17:14:15 UTC. It is a demonstrated invalid sentinel and the previously unfiltered compressor-power HA sensor would have displayed it. The friendly sensor now rejects exactly 65535.0 and nonfinite/negative values while retaining genuine zero and all other finite power readings. A targeted regression test protects this rule. This is distinct from the existing `0x385.float[1]=65535` speed-ceiling sentinel.
+
+All 14 structured humidity and 2 room-temperature mirrors match nearby `0x490` fields. No new heating/defrost/A2L/control qualification was found.
