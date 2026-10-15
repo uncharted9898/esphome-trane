@@ -514,6 +514,17 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertIn('name: "0x281 Compressor Demand Mirror"', EXTRA_BASE)
         self.assertNotIn('name: "0x281 Blower Demand Candidate"', EXTRA_BASE)
 
+    def test_compressor_power_rejects_observed_startup_sentinel(self):
+        idx = EXTRA_BASE.index('name: "Compressor Power"')
+        start = EXTRA_BASE.rfind("  - platform: template", 0, idx)
+        end = EXTRA_BASE.find("  - platform:", idx + 5)
+        block = EXTRA_BASE[start:end if end >= 0 else len(EXTRA_BASE)]
+        self.assertIn("get_last_float_le_or_nan(0x385, 0)", block)
+        self.assertIn("value == 65535.0f", block)
+        self.assertIn("value < 0.0f", block)
+        self.assertIn("return NAN;", block)
+        self.assertNotIn("value > 200.0f", block)
+
     def test_0x385_startup_sentinel_is_filtered(self):
         idx = EXTRA_BASE.index('name: "0x385 Compressor Speed Ceiling Candidate"')
         start = EXTRA_BASE.rfind("  - platform: template", 0, idx)
