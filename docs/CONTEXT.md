@@ -210,6 +210,8 @@ The 2026-10-12 archive adds nine compressor runs (279.77 minutes total actual-sp
 
 The 2026-10-13 archive includes 12 compressor starts (11 complete and one carry-out), **at least 272.66 minutes observed runtime**, one 124.61-minute uninterrupted Stage 2 interval, and seven completed isolated stator cycles (**194 cumulative**). All **1,605** structured messages reassemble exactly from raw CAN. A ninth exact-length/no-NUL `DebugUI.HiHeapRemaining=28835840` block-SDO is correctly emitted by the deployed bridge; no new stock `Put` or alarm family appears. Application TX remains independently gated and fail-closed. The declining heap value remains diagnostic only, not a proven leak.
 
+The 2026-10-14 capture closes the October 13 compressor carry-out and ends with a new compressor carry-out, includes a 276.06-minute run with 247.20 minutes continuous Stage 2, and adds six complete stator-heat cycles (**200 cumulative**). All 1,480 JSON messages reassemble correctly. An independently captured `0x385.f0=65535 W` startup sentinel justified a narrowly scoped filter on the friendly compressor-power entity plus a regression test; existing write boundaries are untouched. No tenth exact-length/no-NUL or new stock Put family appeared.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
