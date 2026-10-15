@@ -437,7 +437,14 @@ sensor:
     state_class: measurement
     accuracy_decimals: 1
     update_interval: 2s
-    lambda: 'return id(trane_link).get_last_float_le_or_nan(0x385, 0);'
+    # October 14 captured a literal 65535.0 startup sentinel in float[0],
+    # independent of the known float[1] speed-ceiling sentinel. Reject only
+    # the proven sentinel/invalid negatives; retain valid 0 W and all other
+    # finite power readings without guessing a model-dependent upper limit.
+    lambda: |-
+      const float value = id(trane_link).get_last_float_le_or_nan(0x385, 0);
+      if (!std::isfinite(value) || value < 0.0f || value == 65535.0f) return NAN;
+      return value;
     device_id: dev_heat_pump
   # This stays above the commanded 0x280 speed at low/moderate/high load
   # (~40 vs 29, ~63 vs 56, ~66-68 vs ~58 RPS) and falls to zero when idle.
