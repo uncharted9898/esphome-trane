@@ -17,6 +17,17 @@ CLIMATE_CPP = (ROOT / "components/trane_hvac/trane_climate.cpp").read_text()
 
 
 class WaveshareSafetyContractTests(unittest.TestCase):
+    def test_split_wifi_receiver_is_receive_only_and_bounded(self):
+        header = (ROOT / "components/trane_bus/wifi_list_fragment_assembler.h").read_text()
+        self.assertIn("MAX_DOCUMENT_BYTES = 4096", header)
+        self.assertIn("FIRST_FRAGMENT_BYTES = 2048", header)
+        self.assertIn("MAX_FRAGMENT_AGE_MS = 5000", header)
+        self.assertIn("source_id != 0x649", header)
+        self.assertIn("wifi_list_fragments_.consume(", BUS_CPP)
+        self.assertIn("wifi_list_fragments_.expire(millis())", BUS_CPP)
+        self.assertIn("WifiListFragmentAssembler wifi_list_fragments_", BUS_H)
+        self.assertNotIn("send_frame_", header)
+
     def test_reference_can_pins_and_rate(self):
         for config in (LISTEN, FULL, HOMEASSISTANT):
             self.assertIn("tx_pin: GPIO15", config)
