@@ -197,3 +197,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-stage2-stator-power-sentinel.md](2026-10-14/full-day-stage2-stator-power-sentinel.md) | Full 24-hour CAN replay (1,480/1,480 JSON messages), compressor carry-in/out, 247.2 minutes sustained Stage 2, six stator cycles (200 cumulative), and first confirmed 65535 W compressor-power startup sentinel requiring filtered HA telemetry |
+
+
+## 2026-10-15 through 2026-10-16
+
+| File | What it captured |
+|---|---|
+| [two-day-technician-restart-split-wifi.md](2026-10-16/two-day-technician-restart-split-wifi.md) | 48 hours / 5.34 million raw CAN frames; full raw-vs-collector JSON agreement; long-logger verification; new split WifiList SDO shape; node-3 NMT restart; 5 additional stator cycles (205 cumulative); new power sentinels and two exact-length/no-NUL DebugUI samples |
