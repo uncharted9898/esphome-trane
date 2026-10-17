@@ -212,6 +212,8 @@ The 2026-10-13 archive includes 12 compressor starts (11 complete and one carry-
 
 The 2026-10-14 capture closes the October 13 compressor carry-out and ends with a new compressor carry-out, includes a 276.06-minute run with 247.20 minutes continuous Stage 2, and adds six complete stator-heat cycles (**200 cumulative**). All 1,480 JSON messages reassemble correctly. An independently captured `0x385.f0=65535 W` startup sentinel justified a narrowly scoped filter on the friendly compressor-power entity plus a regression test; existing write boundaries are untouched. No tenth exact-length/no-NUL or new stock Put family appeared.
 
+October 15–16 added a verified Technician profile sweep, intact >512-byte logger messages, split WifiList JSON requiring bounded receive-only reassembly, and a **real node-3 NMT reset/start** shortly after an ESP reset (with a transient 5→4→5 node-count indicator and EMCY). Both days contribute five complete stator cycles (**205 cumulative**). All 4,979 emitted JSON objects match offline CANopen reconstruction; the two WifiList fragments are individually invalid but combine into a complete 2353-byte application document. Three additional compressor-power 65535 W sentinels confirm the recent filter. **11 exact-length/no-NUL samples** are now captured. Global and per-family TX gates remain disabled by default; mode/network/profile/raw writes remain blocked.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
