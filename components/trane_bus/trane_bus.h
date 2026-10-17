@@ -1,6 +1,7 @@
 #pragma once
 
 #include "esphome/core/automation.h"
+#include "wifi_list_fragment_assembler.h"
 #include "esphome/core/component.h"
 #include "esphome/components/canbus/canbus.h"
 
@@ -257,6 +258,7 @@ class TraneBus : public Component {
   SegmentedRxState rx_621_{};
   SegmentedRxState rx_641_{};
   SegmentedRxState rx_649_{};
+  WifiListFragmentAssembler wifi_list_fragments_{};
   BlockSdoTxState sdo_tx_{};
   Trigger<std::string, uint32_t> json_trigger_;
 
