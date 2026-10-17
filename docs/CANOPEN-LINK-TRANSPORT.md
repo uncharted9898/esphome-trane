@@ -392,15 +392,17 @@ six capture days:
 - 2026-10-10: `HiHeapRemaining = 29868032`
 - 2026-10-11: `HiHeapRemaining = 29351936`
 - 2026-10-13: `HiHeapRemaining = 28835840`
+- 2026-10-15: `HiHeapRemaining = 28319744`
+- 2026-10-15: `HiHeapRemaining = 25624576`
 
-All nine advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+All eleven advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
 optional-NUL rule is a normal Trane wire form rather than a one-off malformed
 sender.
 
 The 2026-10-03 archive was still captured with the pre-fix receiver. It emits
 one malformed `TRANE_JSON` line after 41 bytes, while the underlying CAN
 transaction is valid and the next block segment carries the final closing
-brace. The maintained receiver/analyzer fix accepts all nine captures.
+brace. The maintained receiver/analyzer fix accepts all eleven captures.
 
 
 ### Long structured JSON logger capacity
@@ -441,3 +443,6 @@ On October 11, the eighth no-NUL `HiHeapRemaining=29351936` was received correct
 
 
 On October 13 a ninth independent no-NUL block-SDO carried `HiHeapRemaining=28835840` in exactly 42 bytes, completing the normal final `0x86`, `A2 06 00`, `C1`, `A1` exchange; the installed receiver emitted the entire valid JSON. All 1,605 October 13 collector messages match the read-only raw-CAN replay. No new stock Put family was observed. The decreasing HiHeapRemaining sequence is diagnostic evidence only, not proof of a memory leak or ownership.
+
+
+The October 15 Technician profile sweep also proved post-fix logger emission of 1377-byte EquipSummary and 639-byte WifiList bodies. A further stock WifiList document was transmitted in two independent SDO downloads (2048 + 306 indicated bytes). The bounded receive-only WifiList assembler combines that captured format without expanding TX permissions. See the October 15-16 evidence note for the node-3 NMT restart and EMCY traffic.
