@@ -36,6 +36,8 @@ void TraneBus::setup() {
 }
 
 void TraneBus::loop() {
+  if (wifi_list_fragments_.expire(millis()))
+    ESP_LOGW(TAG, "Timed out waiting for split WifiList continuation");
   this->service_sdo_tx_();
   if (pending_ack_ && (millis() - pending_ack_since_ms_) > ack_timeout_ms_) {
     ESP_LOGW(TAG, "Timed out waiting for SC360 ACK for %s", pending_kind_.c_str());
@@ -429,8 +431,11 @@ void TraneBus::on_can_frame_(uint32_t can_id, bool extended_id, bool rtr, const 
       feed_sdo_json_response_(*sdo_state, data);
     } else {
       std::string complete;
-      if (feed_segmented_json_(*sdo_state, data, complete))
-        handle_json_message_(sdo_request_id, complete);
+      if (feed_segmented_json_(*sdo_state, data, complete)) {
+        std::string assembled;
+        if (wifi_list_fragments_.consume(sdo_request_id, complete, millis(), assembled))
+          handle_json_message_(sdo_request_id, assembled);
+      }
     }
   }
 }
