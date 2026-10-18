@@ -7,7 +7,7 @@ int main() {
   WifiListFragmentAssembler x;
   std::string result;
   const std::string root = "{\"WifiList\":{\"Update\":{\"network\":{\"Ssid\":\"";
-  const std::string msg = root + std::string(2353 - root.size() - 4, 'A') + "\"}}}";
+  const std::string msg = root + std::string(2353 - root.size() - 5, 'A') + "\"}}}}";
   assert(msg.size() == 2353);
   assert(msg.size() > 2048);
   assert(!x.consume(0x649, msg.substr(0, 2048), 100, result));
