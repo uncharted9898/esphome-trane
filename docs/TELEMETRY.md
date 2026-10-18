@@ -45,7 +45,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Byte 7 State Candidate | Candidate / old blower-active hypothesis disproved | Cooling-only captures made this look blower-active, but the 2026-10-06 Technician fan-only test ran the blower at ~800 feedback units / ~79 W while this byte stayed 0. Keep it neutral until its actual operating-state meaning is qualified. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
-| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 205 fully completed isolated cycles through 2026-10-16, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 214 fully completed isolated cycles through 2026-10-17, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
 | `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
 | `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
@@ -98,7 +98,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
 | `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
-| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 205 fully completed isolated stator-heat cycles through 2026-10-16, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 214 fully completed isolated stator-heat cycles through 2026-10-17, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -271,7 +271,7 @@ Do not invent friendly names for these until captured against a known OEM value:
 
 Receive-side SDO/JSON transport is well understood. **Application TX remains disabled by default and fail-closed unless an explicitly qualified path is opted in.**
 
-The 2026-10-03 and 2026-10-05 captures now contain seven complete stock UX360 `SpOverride.Put` setpoint writes. All seven independently use the request-side `0x641/0x5C1` block-SDO transaction, object `0x300A:00`, accepted-state broadcast, and application `{"Ack":"200"}` path. The observed cooling setpoints are 77, 78 and 79 F, while every stock write retains zone 1, `HoldType:"1"`, `Source:"1"`, heat setpoint 62 F and the same JSON field order. The maintained local setpoint writer therefore remains intentionally constrained behind explicit opt-in safety gates.
+The 2026-10-03 and 2026-10-05 captures now contain thirteen complete stock UX360 `SpOverride.Put` setpoint writes. All thirteen independently use the request-side `0x641/0x5C1` block-SDO transaction, object `0x300A:00`, accepted-state broadcast, and application `{"Ack":"200"}` path. The observed cooling setpoints are 77, 78 and 79 F, while every stock write retains zone 1, `HoldType:"1"`, `Source:"1"`, heat setpoint 62 F and the same JSON field order. The maintained local setpoint writer therefore remains intentionally constrained behind explicit opt-in safety gates.
 
 A second qualified family is now available from the 2026-10-06 Technician
 capture: `IndoorSettings.Put` fan enable/disable plus the captured 50% and
@@ -901,3 +901,10 @@ The two complete days add **5 completed isolated stator cycles (205 cumulative)*
 The Technician session also reveals `WifiList` application fragmentation across two complete SDO downloads (2048 + 306 advertised bytes; 2353 JSON bytes after removing the terminal NUL). A bounded receive-only assembler now handles only this captured form; system settings, network settings, mode and raw writes remain blocked. Two more exact-length/no-NUL DebugUI values (`28319744`, `25624576`) take that corpus to **11**. Three further `0x385.f0=65535 W` sentinels on October 15 corroborate the independent compressor-power filter.
 
 October 15 has ~486.8 minutes observed actual compressor runtime (longest run ~306.90 min); October 16 has ~590.44 minutes (longest ~378.53 min, with **346.32 continuous minutes of AC Stage 2**). Recovered-idle `0x383` pressure-pair median absolute separation stays near 1 raw unit for both days; no field-unit conversion is asserted.
+
+
+### 2026-10-17 cooling, stator and setpoint qualification
+
+The full October 17 archive contains 2,631,192 CAN frames and 2,010 structured messages; all 2,010 were reconstructed independently from CAN with no missing, incomplete or aborted SDO transactions. Eight actual compressor intervals total **200.46 min**, including **127.30 min AC Stage 2** over three intervals (longest **90.85 min**). Six additional stock zone-1 setpoint `Put` requests increase the cumulative total from 7 to **13**; stock Csp=80 F is captured for the first time in this sequence. All retain Hsp=62, HoldType=1, Source=1 and the same response-driven application ACK path. No additional TX family is qualified.
+
+Nine fully completed isolated stator cycles raise the corpus to **214**, with median duration ~8.54 min and median `0x390` onset lag ~9.47 seconds. Three further speed-ceiling 65535 RPS sentinels confirm the existing filter, with no compressor-power sentinel this day. All 28 structured humidity and five room-temperature updates match `0x490` binary mirrors. Five CANopen nodes remain operational; no reset or emergency frames occur.
