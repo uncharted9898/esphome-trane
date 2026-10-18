@@ -214,6 +214,8 @@ The 2026-10-14 capture closes the October 13 compressor carry-out and ends with 
 
 October 15–16 added a verified Technician profile sweep, intact >512-byte logger messages, split WifiList JSON requiring bounded receive-only reassembly, and a **real node-3 NMT reset/start** shortly after an ESP reset (with a transient 5→4→5 node-count indicator and EMCY). Both days contribute five complete stator cycles (**205 cumulative**). All 4,979 emitted JSON objects match offline CANopen reconstruction; the two WifiList fragments are individually invalid but combine into a complete 2353-byte application document. Three additional compressor-power 65535 W sentinels confirm the recent filter. **11 exact-length/no-NUL samples** are now captured. Global and per-family TX gates remain disabled by default; mode/network/profile/raw writes remain blocked.
 
+The 2026-10-17 archive is a clean 24-hour 81-ID capture with all **2,010** JSON messages reconstructed exactly from raw CAN, eight completed compressor runs (~200.46 min), nine completed stator cycles (**214 cumulative**), and six new stock zone-1 setpoint writes (**13 cumulative**, now including Csp 80 F). No new command family is qualified. The previous validation failed only two test fixtures (malformed Python tuple and missing closing brace in the synthetic WifiList JSON); both have been repaired without changing runtime TX or decoder behavior.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
