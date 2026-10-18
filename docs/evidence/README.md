@@ -204,3 +204,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [two-day-technician-restart-split-wifi.md](2026-10-16/two-day-technician-restart-split-wifi.md) | 48 hours / 5.34 million raw CAN frames; full raw-vs-collector JSON agreement; long-logger verification; new split WifiList SDO shape; node-3 NMT restart; 5 additional stator cycles (205 cumulative); new power sentinels and two exact-length/no-NUL DebugUI samples |
+
+
+## 2026-10-17
+
+| File | What it captured |
+|---|---|
+| [full-day-cooling-setpoints-stator.md](2026-10-17/full-day-cooling-setpoints-stator.md) | 24-hour 2,631,192 CAN frames, 2,010/2,010 CANopen JSON replay, eight cooling runs, nine stator cycles (214 cumulative), six additional stock setpoint writes (13 cumulative), and stable five-node network |
