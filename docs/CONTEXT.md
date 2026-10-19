@@ -216,6 +216,8 @@ October 15–16 added a verified Technician profile sweep, intact >512-byte logg
 
 The 2026-10-17 archive is a clean 24-hour 81-ID capture with all **2,010** JSON messages reconstructed exactly from raw CAN, eight completed compressor runs (~200.46 min), nine completed stator cycles (**214 cumulative**), and six new stock zone-1 setpoint writes (**13 cumulative**, now including Csp 80 F). No new command family is qualified. The previous validation failed only two test fixtures (malformed Python tuple and missing closing brace in the synthetic WifiList JSON); both have been repaired without changing runtime TX or decoder behavior.
 
+The 2026-10-18 capture is mechanically idle for the entire 24 hours and adds **23 complete isolated stator cycles (237 cumulative)**. All 98 CANopen JSON messages reconstruct exactly, and the 0x383 pressure pair tracks outdoor ambient across 42.44–65.65 F while nearly equalized. An ESP bridge clock reset/reconnect near 15:07:31 UTC does not reset the five operational OEM heartbeat nodes and produces no NMT/EMCY. Native ESP uptime, reset-reason and heap diagnostics were added in the Home Assistant profile; no application TX or CAN decoder permissions were changed.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
@@ -227,7 +229,7 @@ Highest-value remaining work:
 5. capture defrost/reversing-valve behavior;
 6. qualify live A2L concentration/status/alarm telemetry; the mitigation board itself is now identified as CNT09525;
 7. correlate live electric-heat stage states; `EquipSummary` now confirms a 10 kW single-phase 2-stage heater accessory;
-8. validate long structured JSON logging on-device after the logger-buffer increase and continue hydrating any remaining profile fields not present in `EquipSummary`.
+8. continue hydrating any remaining profile fields not present in `EquipSummary`; October 15 already validated long structured JSON logging on-device after the buffer increase.
 
 ## Source hygiene
 
