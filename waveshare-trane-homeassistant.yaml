@@ -55,6 +55,10 @@ external_components:
     components: [trane_bus, trane_hvac]
     refresh: always
 
+# Passive ESP32 diagnostics to attribute future device-clock restarts.
+debug:
+  update_interval: 30s
+
 logger:
   level: INFO
   # Default ESPHome log TX buffer is 512 bytes, which clips valid long
@@ -634,6 +638,24 @@ binary_sensor:
     lambda: 'return id(trane_link).has_pending_ack();'
 
 sensor:
+  # Native ESP uptime makes bridge-only restarts visible without transmitting
+  # anything onto the stock Trane CAN network.
+  - platform: uptime
+    name: "ESP Bridge Uptime"
+    entity_category: diagnostic
+    device_id: dev_discovery
+    update_interval: 30s
+
+  - platform: debug
+    free:
+      name: "ESP Bridge Free Heap"
+      entity_category: diagnostic
+      device_id: dev_discovery
+    block:
+      name: "ESP Bridge Max Free Heap Block"
+      entity_category: diagnostic
+      device_id: dev_discovery
+
   - platform: template
     name: "CAN Frames Seen"
     accuracy_decimals: 0
@@ -715,6 +737,12 @@ sensor:
     lambda: 'return id(trane_link).get_capture_overwrites();'
 
 text_sensor:
+  - platform: debug
+    reset_reason:
+      name: "ESP Bridge Reset Reason"
+      entity_category: diagnostic
+      device_id: dev_discovery
+
   - platform: template
     name: "Trane Bridge Mode"
     entity_category: diagnostic
