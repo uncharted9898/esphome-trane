@@ -28,6 +28,15 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         self.assertIn("WifiListFragmentAssembler wifi_list_fragments_", BUS_H)
         self.assertNotIn("send_frame_", header)
 
+    def test_ha_bridge_reset_and_heap_diagnostics_are_passive(self):
+        self.assertIn("debug:\n  update_interval: 30s", HOMEASSISTANT)
+        self.assertIn('name: "ESP Bridge Uptime"', HOMEASSISTANT)
+        self.assertIn('name: "ESP Bridge Free Heap"', HOMEASSISTANT)
+        self.assertIn('name: "ESP Bridge Max Free Heap Block"', HOMEASSISTANT)
+        self.assertIn('name: "ESP Bridge Reset Reason"', HOMEASSISTANT)
+        self.assertIn("tx_enabled: false", HOMEASSISTANT)
+        self.assertIn("raw_json_enabled: false", HOMEASSISTANT)
+
     def test_reference_can_pins_and_rate(self):
         for config in (LISTEN, FULL, HOMEASSISTANT):
             self.assertIn("tx_pin: GPIO15", config)
