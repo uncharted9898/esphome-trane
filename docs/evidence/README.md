@@ -211,3 +211,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-cooling-setpoints-stator.md](2026-10-17/full-day-cooling-setpoints-stator.md) | 24-hour 2,631,192 CAN frames, 2,010/2,010 CANopen JSON replay, eight cooling runs, nine stator cycles (214 cumulative), six additional stock setpoint writes (13 cumulative), and stable five-node network |
+
+
+## 2026-10-18
+
+| File | What it captured |
+|---|---|
+| [full-day-cold-idle-stator-bridge-reset.md](2026-10-18/full-day-cold-idle-stator-bridge-reset.md) | Complete 24-hour mechanical idle: 2,594,593 raw CAN frames, 98/98 clean CANopen JSON messages, 23 complete isolated stator cycles (237 cumulative), cold-ambient pressure equalization, and a bridge-only reset with five Link nodes remaining operational |
