@@ -218,3 +218,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-cold-idle-stator-bridge-reset.md](2026-10-18/full-day-cold-idle-stator-bridge-reset.md) | Complete 24-hour mechanical idle: 2,594,593 raw CAN frames, 98/98 clean CANopen JSON messages, 23 complete isolated stator cycles (237 cumulative), cold-ambient pressure equalization, and a bridge-only reset with five Link nodes remaining operational |
+
+
+## 2026-10-19
+
+| File | What it captured |
+|---|---|
+| [first-heat-pump-stage1-profile-stator.md](2026-10-19/first-heat-pump-stage1-profile-stator.md) | First explicit HP Stage 1 operation (three compressor runs), diagnostic 0x281.byte7 heating/cooling request-mode discrimination, one new stock 68°F heat setpoint write, eighteenth new stator cycles (255 cumulative), 362/362 reconstructed JSON messages, runtime-history profile sweep and twelfth no-NUL DebugUI sample |
