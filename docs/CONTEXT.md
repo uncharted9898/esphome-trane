@@ -218,6 +218,8 @@ The 2026-10-17 archive is a clean 24-hour 81-ID capture with all **2,010** JSON 
 
 The 2026-10-18 capture is mechanically idle for the entire 24 hours and adds **23 complete isolated stator cycles (237 cumulative)**. All 98 CANopen JSON messages reconstruct exactly, and the 0x383 pressure pair tracks outdoor ambient across 42.44–65.65 F while nearly equalized. An ESP bridge clock reset/reconnect near 15:07:31 UTC does not reset the five operational OEM heartbeat nodes and produces no NMT/EMCY. Native ESP uptime, reset-reason and heap diagnostics were added in the Home Assistant profile; no application TX or CAN decoder permissions were changed.
 
+The 2026-10-19 archive supplies the first three explicit **HP Stage 1** heat-pump compressor runs (~18.38 min total). `0x281.byte7` is now strongly constrained by actual operation: **0=no compressor request; 1=cooling request; 2=heating request**, with other codes unqualified. A separate diagnostic-only text sensor exposes these observed states without removing the raw byte. A stock `SpOverride.Put` at 13:33:59 UTC increases Hsp to **68 F** (Csp 78 F), raising independent stock setpoint writes to **14**. Eighteen complete stator cycles increase the corpus to **255**, and a twelfth no-NUL `HiHeapRemaining=25108480` transfer succeeds. All **362** structured messages match raw SDO replay. The Technician runtime-history sweep is passive evidence only; profile/mode/unqualified TX remains blocked.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
