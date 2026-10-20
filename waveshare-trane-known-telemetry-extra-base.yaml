@@ -270,11 +270,13 @@ sensor:
     lambda: 'return id(trane_link).get_last_byte_or_nan(0x281, 6);'
     device_id: dev_heat_pump
 
-  # Earlier cooling-only captures made this look blower-active because it
-  # remained 1 through blower coast-down. The 2026-10-06 Technician fan-only
-  # test disproves that interpretation: the blower ran at ~800 feedback units
-  # / ~79 W while byte7 stayed 0 throughout. Keep the wire byte neutral until
-  # its actual operating-state meaning is independently qualified.
+  # Source byte is retained for HA entity compatibility. On October 17,
+  # byte7=1 throughout all eight cooling compressor request windows; October 19
+  # records byte7=2 in all three HP Stage 1 request windows (edges within
+  # ~1.4s of 0x280 request). It is 0 at idle and during isolated stator heat.
+  # The October 6 Technician blower-only run independently showed byte7=0.
+  # Thus request mode 0/1/2 is strongly supported, but unknown values, defrost
+  # and supplementary heat still require their own capture evidence.
   - platform: template
     id: trane_281_byte7
     name: "0x281 Byte 7 State Candidate"
@@ -477,7 +479,7 @@ sensor:
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x387, 4);'
     device_id: dev_heat_pump
-  # The archives through 2026-10-18 now contain 237 fully completed isolated
+  # The archives through 2026-10-19 now contain 255 fully completed isolated
   # stator-heat cycles with the compressor fixed at 0 RPS. These three adjacent channels switch from zero
   # to a three-phase current pattern during stator heat and were previously
   # balanced together during active compressor operation. Keep phase numbering
@@ -764,6 +766,26 @@ sensor:
     device_id: dev_thermostat
 
 text_sensor:
+  # Observed compressor-request mode, not a system-mode command and not a
+  # reversing-valve/electric-heat state. The original numeric byte7 sensor
+  # remains intact for historical Home Assistant entity compatibility.
+  - platform: template
+    id: trane_281_request_mode_candidate
+    name: "0x281 Compressor Request Mode Candidate"
+    entity_category: diagnostic
+    disabled_by_default: true
+    update_interval: 2s
+    device_id: dev_air_handler
+    lambda: |-
+      const float value = id(trane_link).get_last_byte_or_nan(0x281, 7);
+      if (!std::isfinite(value)) return {"Unavailable"};
+      switch (static_cast<int>(value)) {
+        case 0: return {"No Compressor Request"};
+        case 1: return {"Cooling Compressor Request"};
+        case 2: return {"Heating Compressor Request"};
+        default: return {"Unqualified Request Code"};
+      }
+
   - platform: template
     id: trane_system_state
     name: "System State Raw"
