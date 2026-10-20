@@ -127,7 +127,7 @@ class CaptureAnalyzerTests(unittest.TestCase):
         self.assertEqual([row["json"] for row in messages], [{"Long": "abcdefghijklmnop"}])
 
     def test_block_download_exact_length_without_trailing_nul(self):
-        for heap_remaining in ("33054720", "32538624", "32022528", "31506432", "30900224", "30384128", "29868032", "29351936", "28835840", "28319744", "25624576"):
+        for heap_remaining in ("33054720", "32538624", "32022528", "31506432", "30900224", "30384128", "29868032", "29351936", "28835840", "28319744", "25624576", "25108480"):
             payload = (
                 f'{{"DebugUI":{{"HiHeapRemaining":"{heap_remaining}"}}}}'
             ).encode()
@@ -270,6 +270,49 @@ class CaptureAnalyzerTests(unittest.TestCase):
             if row["phase"] == "block_download_subblock_response"
         )
         self.assertEqual(ack["ack_sequence"], 12)
+        self.assertEqual(transport[-1]["phase"], "block_download_end_response")
+
+    def test_oct19_stock_heat_setpoint_put_with_68_f(self):
+        # Captured October 19 zone-1 stock Put, retaining the actual 68 F
+        # heating setpoint and original CANopen block sequence.
+        hex_frames = [
+            ("641", "C20A300051000000"),
+            ("5C1", "A00A30000C000000"),
+            ("641", "017B2253704F7665"),
+            ("641", "027272696465223A"),
+            ("641", "037B22507574223A"),
+            ("641", "047B2231223A7B22"),
+            ("641", "05437370223A2237"),
+            ("641", "0638222C22487370"),
+            ("641", "07223A223638222C"),
+            ("641", "0822486F6C645479"),
+            ("641", "097065223A223122"),
+            ("641", "0A2C22536F757263"),
+            ("641", "0B65223A2231227D"),
+            ("641", "8C7D7D7D0031227D"),
+            ("5C1", "A20C000000000000"),
+            ("641", "CD00000000000000"),
+            ("5C1", "A100000000000000"),
+        ]
+        lines = [
+            f"TRANE_CAN_LIVE,S,{1000+i},{canid},8,{payload}"
+            for i, (canid, payload) in enumerate(hex_frames)
+        ]
+        frames = analyzer.parse_frames(lines)
+        messages = analyzer.reassemble_json(frames)
+        self.assertEqual(
+            [m["json"] for m in messages],
+            [{"SpOverride": {"Put": {"1": {
+                "Csp": "78", "Hsp": "68", "HoldType": "1", "Source": "1",
+            }}}}],
+        )
+        transport = analyzer.decode_canopen_sdo_transport(frames)
+        self.assertEqual(
+            next(e["size"] for e in transport if e["phase"] == "block_download_initiate_request"), 81
+        )
+        self.assertEqual(
+            next(e["ack_sequence"] for e in transport if e["phase"] == "block_download_subblock_response"), 12
+        )
         self.assertEqual(transport[-1]["phase"], "block_download_end_response")
 
     def test_segmented_reassembly_honors_unused_final_bytes(self):
