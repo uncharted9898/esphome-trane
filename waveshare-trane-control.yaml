@@ -45,8 +45,8 @@ api:
             heat_f: !lambda 'return heat_f;'
             cool_f: !lambda 'return cool_f;'
             zone: 1
-            # All six captured stock SpOverride.Put writes through October 10
-            # use HoldType=1 and Source=1. The qualified writer rejects other values.
+            # Fourteen stock SpOverride.Put writes through October 19 confirm
+            # zone 1 / HoldType=1 / Source=1 (including Hsp=68 F). The qualified writer rejects other values.
             hold_type: 1
             source: 1
 
