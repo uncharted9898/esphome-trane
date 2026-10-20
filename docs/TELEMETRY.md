@@ -271,7 +271,7 @@ Do not invent friendly names for these until captured against a known OEM value:
 
 Receive-side SDO/JSON transport is well understood. **Application TX remains disabled by default and fail-closed unless an explicitly qualified path is opted in.**
 
-The 2026-10-03 and 2026-10-05 captures now contain fourteen complete stock UX360 `SpOverride.Put` setpoint writes. All fourteen independently use the request-side `0x641/0x5C1` block-SDO transaction, object `0x300A:00`, accepted-state broadcast, and application `{"Ack":"200"}` path. The observed cooling setpoints are 77, 78 and 79 F, while every stock write retains zone 1, `HoldType:"1"`, `Source:"1"`, heat setpoint 62 F and the same JSON field order. The maintained local setpoint writer therefore remains intentionally constrained behind explicit opt-in safety gates.
+The October 3, 5, 10, 11, 17 and 19 captures now contain **fourteen** complete stock UX360 `SpOverride.Put` setpoint writes. All independently use the `0x641/0x5C1` block-SDO transport, object `0x300A:00`, accepted-state broadcast and application `{"Ack":"200"}`. Observed cooling setpoints are **77, 78, 79 and 80 F**, and heating setpoints **62 and 68 F**. Every stock write retains zone 1, `HoldType=1`, `Source=1` and the same JSON field order. The qualified local setpoint writer remains behind separate default-off safety gates.
 
 A second qualified family is now available from the 2026-10-06 Technician
 capture: `IndoorSettings.Put` fan enable/disable plus the captured 50% and
