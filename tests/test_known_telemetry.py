@@ -345,6 +345,18 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertNotIn("Blower V I PF Calculated Power", TARGET_DISCOVERY)
         self.assertNotIn("return volts * amps * pf;", TARGET_DISCOVERY)
 
+    def test_compressor_request_mode_0_1_2_remains_diagnostic_only(self):
+        self.assertIn('name: "0x281 Byte 7 State Candidate"', EXTRA_BASE)
+        self.assertIn('name: "0x281 Compressor Request Mode Candidate"', EXTRA_BASE)
+        self.assertIn("get_last_byte_or_nan(0x281, 7)", EXTRA_BASE)
+        for code in (
+            'case 0: return {"No Compressor Request"};',
+            'case 1: return {"Cooling Compressor Request"};',
+            'case 2: return {"Heating Compressor Request"};',
+            'default: return {"Unqualified Request Code"};',
+        ):
+            self.assertIn(code, EXTRA_BASE)
+
     def test_0x490_invalid_humidity_is_not_published_as_humidity(self):
         self.assertIn('name: "0x490 Zone 1 Humidity Byte Raw"', EXTRA_BASE)
         self.assertNotIn('name: "0x490 Zone 1 Relative Humidity"', EXTRA_BASE)
