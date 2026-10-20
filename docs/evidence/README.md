@@ -224,4 +224,4 @@ A useful pattern is:
 
 | File | What it captured |
 |---|---|
-| [first-heat-pump-stage1-profile-stator.md](2026-10-19/first-heat-pump-stage1-profile-stator.md) | First explicit HP Stage 1 operation (three compressor runs), diagnostic 0x281.byte7 heating/cooling request-mode discrimination, one new stock 68°F heat setpoint write, eighteenth new stator cycles (255 cumulative), 362/362 reconstructed JSON messages, runtime-history profile sweep and twelfth no-NUL DebugUI sample |
+| [first-heat-pump-stage1-profile-stator.md](2026-10-19/first-heat-pump-stage1-profile-stator.md) | First explicit HP Stage 1 operation (three compressor runs), diagnostic 0x281.byte7 heating/cooling request-mode discrimination, one new stock 68°F heat setpoint write, 18 new stator cycles (255 cumulative), 362/362 reconstructed JSON messages, runtime-history profile sweep and twelfth no-NUL DebugUI sample |
