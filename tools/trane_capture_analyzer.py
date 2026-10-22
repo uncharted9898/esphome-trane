@@ -527,7 +527,15 @@ def decode_canopen_sdo_transport(frames: Sequence[Frame]) -> list[dict[str, obje
             opcode = frame.data[0]
             event = base_event(frame, request_id, "client_to_server")
 
-            if len(frame.data) == 8 and opcode == 0xC2:
+            # A running block download can contain segment 0x21 (sequence 33)
+            # or 0xC2 (final sequence 66). These are *not* new SDO initiate
+            # requests merely because their first byte shares that opcode.
+            # Accept a fresh initiate when idle, or a recognizable 0x300A:00
+            # mailbox initiate if a previous session was interrupted.
+            active_block = mode_by_request.get(request_id) == "block"
+            can_initiate = not active_block or _is_trane_json_object(frame.data)
+
+            if len(frame.data) == 8 and opcode == 0xC2 and can_initiate:
                 index = u16_le(frame.data, 1) or 0
                 event.update(
                     {
@@ -547,7 +555,7 @@ def decode_canopen_sdo_transport(frames: Sequence[Frame]) -> list[dict[str, obje
                 events.append(event)
                 continue
 
-            if len(frame.data) == 8 and opcode == 0x21:
+            if len(frame.data) == 8 and opcode == 0x21 and can_initiate:
                 index = u16_le(frame.data, 1) or 0
                 event.update(
                     {
