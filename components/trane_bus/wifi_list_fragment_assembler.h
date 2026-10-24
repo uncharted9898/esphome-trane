@@ -8,11 +8,12 @@
 namespace esphome {
 namespace trane_bus {
 
-// Trane sometimes splits one WifiList JSON document across *two independent*
-// CANopen 0x300A:00 block downloads. On 2026-10-15 the first download held
-// exactly 2048 non-NUL bytes, and a second download completed the same object.
-// This bounded, receive-only assembler does not alter SDO transport or TX.
-class WifiListFragmentAssembler {
+// Bounded, receive-only application JSON assembly across independent
+// CANopen 0x300A:00 block downloads. Capture-qualified roots only:
+//   2026-10-15 WifiList: 2048 + 305 JSON bytes (+ final NUL)
+//   2026-10-22 Schedule: 2048 + 1625 JSON bytes (+ final NUL)
+// Neither SDO transport nor any transmit capability is changed.
+class TraneProfileFragmentAssembler {
  public:
   static constexpr size_t MAX_DOCUMENT_BYTES = 4096;
   static constexpr size_t FIRST_FRAGMENT_BYTES = 2048;
@@ -50,10 +51,13 @@ class WifiListFragmentAssembler {
     }
 
     // Do not infer generic fragmentation from arbitrary malformed JSON.
-    // Only the captured, exact-size WifiList first chunk may open a session.
+    // Only captured, exact-size first chunks from the two known profile roots.
     static constexpr char WIFI_PREFIX[] = "{\"WifiList\":";
-    if (payload.size() == FIRST_FRAGMENT_BYTES &&
-        payload.compare(0, sizeof(WIFI_PREFIX) - 1, WIFI_PREFIX) == 0 &&
+    static constexpr char SCHEDULE_PREFIX[] = "{\"Schedule\":";
+    const bool qualified_root =
+        payload.compare(0, sizeof(WIFI_PREFIX) - 1, WIFI_PREFIX) == 0 ||
+        payload.compare(0, sizeof(SCHEDULE_PREFIX) - 1, SCHEDULE_PREFIX) == 0;
+    if (payload.size() == FIRST_FRAGMENT_BYTES && qualified_root &&
         !complete_object_(payload)) {
       fragment_ = payload;
       started_ms_ = now_ms;
@@ -123,6 +127,10 @@ class WifiListFragmentAssembler {
   std::string fragment_{};
   uint32_t started_ms_{0};
 };
+
+// Compatibility for the October 15 helper; callers can migrate without
+// breaking any existing test or integration referencing the historical name.
+using WifiListFragmentAssembler = TraneProfileFragmentAssembler;
 
 }  // namespace trane_bus
 }  // namespace esphome
