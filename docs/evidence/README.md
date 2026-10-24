@@ -225,3 +225,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [first-heat-pump-stage1-profile-stator.md](2026-10-19/first-heat-pump-stage1-profile-stator.md) | First explicit HP Stage 1 operation (three compressor runs), diagnostic 0x281.byte7 heating/cooling request-mode discrimination, one new stock 68°F heat setpoint write, 18 new stator cycles (255 cumulative), 362/362 reconstructed JSON messages, runtime-history profile sweep and twelfth no-NUL DebugUI sample |
+
+
+## 2026-10-20 through 2026-10-23
+
+| File | What it captured |
+|---|---|
+| [four-day-heating-stator-split-schedule.md](2026-10-23/four-day-heating-stator-split-schedule.md) | 73 new completed stator cycles (328 cumulative), four stock setpoint writes (18 cumulative), two no-NUL samples (14 cumulative), Oct 20 HP Stage 1 runs, two mechanically idle days, and a new 3673-byte Schedule split across two valid block SDOs |
