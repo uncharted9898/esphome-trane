@@ -21,6 +21,8 @@ class WaveshareSafetyContractTests(unittest.TestCase):
         header = (ROOT / "components/trane_bus/wifi_list_fragment_assembler.h").read_text()
         self.assertIn("MAX_DOCUMENT_BYTES = 4096", header)
         self.assertIn("FIRST_FRAGMENT_BYTES = 2048", header)
+        self.assertIn('SCHEDULE_PREFIX[] = "{\\\"Schedule\\\":"', header)
+        self.assertIn("TraneProfileFragmentAssembler", header)
         self.assertIn("MAX_FRAGMENT_AGE_MS = 5000", header)
         self.assertIn("source_id != 0x649", header)
         self.assertIn("wifi_list_fragments_.consume(", BUS_CPP)
