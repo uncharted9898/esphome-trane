@@ -229,7 +229,7 @@ guessed `C2`/sequence stream without object index `0x300A` or the mandatory
 SDO server handshakes. That sequence remains removed.
 
 The October 3, October 5, October 10 and October 11 captures qualify the stock zone-1
-`SpOverride.Put` setpoint path: fourteen independent UX360 writes use request
+`SpOverride.Put` setpoint path: eighteen independent UX360 writes use request
 COB-ID `0x641`, response COB-ID `0x5C1`, object `0x300A:00`, CANopen
 block download, and an application `{"Ack":"200"}`.
 
@@ -262,7 +262,7 @@ The fan writer accepts only the captured `A=0/1` enable states and
 `C=50/100` request values. Mode, profile and arbitrary JSON writes remain
 fail-closed because no equivalent request capture has qualified them.
 
-All fourteen stock writes used this exact application field order and policy:
+All eighteen stock writes used this exact application field order and policy:
 
 ```json
 {"SpOverride":{"Put":{"1":{"Csp":"77","Hsp":"62","HoldType":"1","Source":"1"}}}}
@@ -395,15 +395,17 @@ six capture days:
 - 2026-10-15: `HiHeapRemaining = 28319744`
 - 2026-10-15: `HiHeapRemaining = 25624576`
 - 2026-10-19: `HiHeapRemaining = 25108480`
+- 2026-10-21: another 42-byte exact-length no-NUL `HiHeapRemaining` (value preserved in dated capture)
+- 2026-10-23: `HiHeapRemaining = 24076288`
 
-All twelve advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+All fourteen advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
 optional-NUL rule is a normal Trane wire form rather than a one-off malformed
 sender.
 
 The 2026-10-03 archive was still captured with the pre-fix receiver. It emits
 one malformed `TRANE_JSON` line after 41 bytes, while the underlying CAN
 transaction is valid and the next block segment carries the final closing
-brace. The maintained receiver/analyzer fix accepts all twelve captures.
+brace. The maintained receiver/analyzer fix accepts all fourteen captures.
 
 
 ### Long structured JSON logger capacity
@@ -450,3 +452,6 @@ The October 15 Technician profile sweep also proved post-fix logger emission of 
 
 
 October 19 contributes the **first captured stock heating-setpoint increase**: `SpOverride.Put` zone 1 with Csp 78 F, Hsp 68 F, HoldType/Source 1, and the existing 81-byte block-SDO handshake followed by structured updates/ACK 200. This does not qualify system-mode TX. A twelfth 42-byte no-NUL `HiHeapRemaining=25108480` sample reassembles correctly. The Technician runtime-history sweep also emits intact 1088/1594-byte status profiles.
+
+
+October 22 contains a new fragmented `Schedule` message: the valid logical JSON is **3673 bytes** and spans separate 2048-byte and 1626-byte-indicated CANopen block downloads, the latter containing the trailing NUL. Neither SDO fragment is valid JSON independently. The receive-only 4096-byte bounded profile assembler accepts this additional captured root in the existing 5-second window while retaining the October 15 WifiList path. No transmit capability is added.
