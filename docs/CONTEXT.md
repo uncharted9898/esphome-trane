@@ -1,0 +1,247 @@
+# Development context
+
+This file is the current engineering handoff for `dev`.
+
+For navigation and document authority, start at [README.md](README.md). For semantic mappings use [TELEMETRY.md](TELEMETRY.md); for CANopen transport use [CANOPEN-LINK-TRANSPORT.md](CANOPEN-LINK-TRANSPORT.md).
+
+## Architecture
+
+The project does **not** replace the UX360 or SC360.
+
+Production intent:
+
+- keep UX360 stock and usable;
+- keep SC360 authoritative;
+- attach the ESP bridge as a parallel CAN node;
+- bridge removal/failure must not interrupt OEM HVAC operation;
+- expose local monitoring to Home Assistant;
+- add local control only after the stock write protocol is captured and qualified.
+
+## Reference installation
+
+- outdoor: `5TWV0X24A1000B`
+- indoor: `5TAMXC03AV31DB`
+- controls: UX360 + SC360
+- refrigerant: R-454B / A2L
+- bridge: Waveshare ESP32-S3-RS485-CAN
+- CAN: 50 kbit/s classic CAN
+- Waveshare TWAI pins: GPIO15 TX / GPIO16 RX
+- bridge termination: open/no added 120-ohm resistor
+
+## Firmware profiles
+
+### `waveshare-trane-listenonly.yaml`
+
+Safest first-connect image.
+
+- TWAI listen-only;
+- no CAN ACK participation;
+- application TX disabled;
+- bounded raw capture/census;
+- discovery of unknown standard IDs.
+
+### `waveshare-trane-commissioning.yaml`
+
+Commissioning/correlation profile for census and known-state tests.
+
+### `waveshare-trane-homeassistant.yaml`
+
+Primary monitoring integration.
+
+- normal CAN participation/ACK;
+- application TX disabled;
+- structured JSON receive;
+- target telemetry packages;
+- environmental signals sourced continuously from live binary frames;
+- freshness diagnostics for retained structured profiles.
+
+### `waveshare-trane-control.yaml`
+
+Guarded control-development profile.
+
+The maintained nonblocking CANopen SDO client now supports two captured write families only:
+
+- stock UX360 zone-1 `SpOverride.Put` setpoints;
+- Technician `IndoorSettings.Put` fan enable/disable and captured 50/100% requests.
+
+Global TX plus the matching per-family qualification gate must both be explicitly armed. Mode, profile and arbitrary JSON writes remain fail-closed.
+
+### `waveshare-trane-full.yaml`
+
+Full decoder/integration compile target.
+
+### `esphome-trane.yaml`
+
+Legacy decoder retained for compatibility and regression coverage. It is not the documentation source of truth.
+
+## Transport state
+
+Passive captures prove that Trane structured JSON is transported through standard CANopen SDO download transactions to manufacturer object **`0x300A:00`**.
+
+Observed pairs:
+
+- `0x601 / 0x581`
+- `0x621 / 0x5A1`
+- `0x641 / 0x5C1`
+- `0x649 / 0x5C9`
+
+Observed standard CANopen behavior also includes:
+
+- NMT on `0x000`;
+- heartbeat/error-control nodes `0x701..0x705`;
+- LSS manager/server on `0x7E5/0x7E4`.
+
+A complete Fastscan capture reconstructs identity:
+
+- vendor ID `0x00000001`
+- product code `0x00000004`
+- revision `0x00000000`
+- serial `0xC345985F`
+
+and is followed by successful assignment/startup of CANopen node ID 3.
+
+Do not map CANopen node IDs 1-5 to physical Trane products without a topology/disconnect capture.
+
+## Control safety contract
+
+Application TX is **fail-closed**.
+
+Current rules:
+
+- `tx_enabled: false` by default;
+- raw JSON TX disabled by default;
+- climate state is non-optimistic;
+- typed actions remain validated;
+- one response-driven SDO client targets `0x300A:00` over `0x641/0x5C1`;
+- stock-qualified zone-1 setpoints additionally require `qualified_setpoint_tx_enabled: true`;
+- Technician-qualified indoor-fan writes independently require `qualified_indoor_fan_tx_enabled: true`;
+- fan percentage is intentionally limited to the captured 50% and 100% values;
+- mode, profile and arbitrary JSON writers remain blocked;
+- passive receive/capture remains available regardless of write arming.
+
+Qualified evidence now includes seven independent stock UX360 `SpOverride.Put` writes across October 3, 5, 10 and 11, plus the October 6 Technician `IndoorSettings.Put` fan sequence. Both families use the captured block-SDO request/response path and require application `{"Ack":"200"}` after transport completion.
+
+Still required before widening writes:
+
+1. capture the originating stock request transaction for each new command family;
+2. preserve exact payload shape/policy rather than extrapolating uncaptured values;
+3. require the same response-driven SDO handshake, abort/timeout handling, SC360-presence guard, serialization and quiet-bus guard;
+4. add an independent default-off qualification gate for any newly admitted family;
+5. validate on-device coexistence with the stock UX360 before considering a path production-ready.
+
+
+## Current telemetry highlights
+
+Maintained details live in [TELEMETRY.md](TELEMETRY.md). High-value qualified/candidate relationships include:
+
+### Environment
+
+- room temperature: `0x490.float[0]`;
+- indoor humidity: `0x490.byte4`, user-facing values restricted to 0..100;
+- outdoor ambient: `0x380.float[1]`;
+- return/supply air: `0x308.float[0..1]`.
+
+### Blower
+
+- airflow request candidate: `0x200.u16@2`;
+- airflow feedback candidate: `0x318.u16@4`;
+- airflow target/command candidate: `0x281.u16@0`;
+- compressor demand: `0x281.byte6` (binary mirror of structured `OdStatus.CompDemandPercent`);
+- unresolved operating-state candidate: `0x281.byte7`;
+- speed candidate: `0x318.u16@6`;
+- power: `0x320.float[0]`.
+
+### Compressor/outdoor
+
+- compressor speed request: `0x280.float[0]`;
+- actual compressor speed: `0x384.float[0]`;
+- speed ceiling candidate: `0x385.float[1]`;
+- speed reference/limit candidate: `0x387.float[0]`;
+- minimum speed family: `0x3D0/0x3E0`;
+- line voltage: `0x38F.float[0]`;
+- input power: `0x38C.float[1]`;
+- suction line temperature: `0x382.float[0]`;
+- liquid line temperature: `0x382.float[1]`;
+- compressor discharge-temperature candidate: `0x381.float[1]`;
+- suction-pressure raw/confirmed semantic: `0x383.float[0]`;
+- liquid/high-side pressure raw candidate: `0x383.float[1]`;
+- stator-heat enable: `0x282.byte1`;
+- stator-heat power/level candidate: `0x390.byte0`;
+- compressor phase-current candidates: `0x388.float[0..1]` + `0x389.float[0]`;
+- drive IPM/PFC temperature candidates: `0x410.float[0..1]`;
+- outdoor-fan IPM temperature candidate: `0x430.float[0]`;
+- fan speed: `0x384.u16@6`;
+- drive DC bus: `0x384.u16@4`.
+
+## Structured-profile freshness
+
+Structured profile values are cached by design and may be much older than the current binary telemetry.
+
+The integration exposes:
+
+- Last Structured JSON Age;
+- SystemOpStatus Snapshot Age;
+- IndoorStatus Snapshot Age;
+- SpOverride Snapshot Age.
+
+Do not interpret a retained structured string/value as a live event without checking its age.
+
+## Documentation organization
+
+Maintained docs stay at `docs/`.
+
+Dated reverse-engineering notes live at:
+
+```text
+docs/evidence/YYYY-MM-DD/
+```
+
+The evidence archive preserves old hypotheses, including mappings later disproved. Current truth belongs in `TELEMETRY.md`, source, and tests.
+
+## Latest capture checkpoint
+
+The 2026-10-07 archive is mechanically idle and closes the 10/06 stator carry-out. The 2026-10-08 archive adds eight cooling runs and 13 stator cycles; October 9 adds twelve Stage 1 cooling runs and four fully observed stator cycles, taking the corpus to **156 completed isolated stator-heat cycles**. All 1,304 October 9 structured JSON messages reassemble exactly from the raw CAN stream, and `0x460.f0` further tracks the electronics-thermal family (exact sensor still unresolved). Its sixth exact-length/no-NUL JSON example is received correctly by the installed bridge. It also strengthens `0x2D0.u16@4` as an airflow limit/configuration field rather than actual airflow, and strengthens `0x53E.byte5` as an active/available node-count candidate while proving `0x53D.byte0=1` is not required for a healthy five-node operational network.
+
+The 2026-10-10 archive adds three cooling runs (73.2 min actual compressor runtime), ten complete isolated stator cycles (**166 total**), the sixth exact stock setpoint transaction and the seventh valid 42-byte no-NUL DebugUI transfer. All 528 CAN-reassembled JSON messages match the collector. Mode/profile/other raw application writes remain unqualified.
+
+The 2026-10-11 archive adds four cooling runs (~167.36 minutes physical compressor runtime), including 118.29 minutes uninterrupted Stage 2; 13 new isolated stator cycles (**179 total**); the seventh stock zone-1 setpoint write; and the eighth complete exact-length/no-NUL DebugUI transfer. All 976 collector JSON messages match raw CAN reassembly. Stator heat at ~75.24 and ~77.03 F disproves a fixed 75 F inhibit threshold. Write scope remains unchanged.
+
+The 2026-10-12 archive adds nine compressor runs (279.77 minutes total actual-speed runtime), including 176.26 minutes continuous Stage 2. Eight complete isolated stator cycles advance the corpus to **187**, including a start at 77.35 F. All 1,582 CANopen JSON messages reassemble exactly, with no new stock Put family or no-NUL event. The default-off TX safety boundary remains unchanged.
+
+The 2026-10-13 archive includes 12 compressor starts (11 complete and one carry-out), **at least 272.66 minutes observed runtime**, one 124.61-minute uninterrupted Stage 2 interval, and seven completed isolated stator cycles (**194 cumulative**). All **1,605** structured messages reassemble exactly from raw CAN. A ninth exact-length/no-NUL `DebugUI.HiHeapRemaining=28835840` block-SDO is correctly emitted by the deployed bridge; no new stock `Put` or alarm family appears. Application TX remains independently gated and fail-closed. The declining heap value remains diagnostic only, not a proven leak.
+
+The 2026-10-14 capture closes the October 13 compressor carry-out and ends with a new compressor carry-out, includes a 276.06-minute run with 247.20 minutes continuous Stage 2, and adds six complete stator-heat cycles (**200 cumulative**). All 1,480 JSON messages reassemble correctly. An independently captured `0x385.f0=65535 W` startup sentinel justified a narrowly scoped filter on the friendly compressor-power entity plus a regression test; existing write boundaries are untouched. No tenth exact-length/no-NUL or new stock Put family appeared.
+
+October 15–16 added a verified Technician profile sweep, intact >512-byte logger messages, split WifiList JSON requiring bounded receive-only reassembly, and a **real node-3 NMT reset/start** shortly after an ESP reset (with a transient 5→4→5 node-count indicator and EMCY). Both days contribute five complete stator cycles (**205 cumulative**). All 4,979 emitted JSON objects match offline CANopen reconstruction; the two WifiList fragments are individually invalid but combine into a complete 2353-byte application document. Three additional compressor-power 65535 W sentinels confirm the recent filter. **11 exact-length/no-NUL samples** are now captured. Global and per-family TX gates remain disabled by default; mode/network/profile/raw writes remain blocked.
+
+The 2026-10-17 archive is a clean 24-hour 81-ID capture with all **2,010** JSON messages reconstructed exactly from raw CAN, eight completed compressor runs (~200.46 min), nine completed stator cycles (**214 cumulative**), and six new stock zone-1 setpoint writes (**13 cumulative**, now including Csp 80 F). No new command family is qualified. The previous validation failed only two test fixtures (malformed Python tuple and missing closing brace in the synthetic WifiList JSON); both have been repaired without changing runtime TX or decoder behavior.
+
+The 2026-10-18 capture is mechanically idle for the entire 24 hours and adds **23 complete isolated stator cycles (237 cumulative)**. All 98 CANopen JSON messages reconstruct exactly, and the 0x383 pressure pair tracks outdoor ambient across 42.44–65.65 F while nearly equalized. An ESP bridge clock reset/reconnect near 15:07:31 UTC does not reset the five operational OEM heartbeat nodes and produces no NMT/EMCY. Native ESP uptime, reset-reason and heap diagnostics were added in the Home Assistant profile; no application TX or CAN decoder permissions were changed.
+
+The 2026-10-19 archive supplies the first three explicit **HP Stage 1** heat-pump compressor runs (~18.38 min total). `0x281.byte7` is now strongly constrained by actual operation: **0=no compressor request; 1=cooling request; 2=heating request**, with other codes unqualified. A separate diagnostic-only text sensor exposes these observed states without removing the raw byte. A stock `SpOverride.Put` at 13:33:59 UTC increases Hsp to **68 F** (Csp 78 F), raising independent stock setpoint writes to **14**. Eighteen complete stator cycles increase the corpus to **255**, and a twelfth no-NUL `HiHeapRemaining=25108480` transfer succeeds. All **362** structured messages match raw SDO replay. The Technician runtime-history sweep is passive evidence only; profile/mode/unqualified TX remains blocked.
+
+The October 20–23 capture set advances the isolated stator corpus **255→328** (+14/+19/+19/+21), independent stock zone-1 setpoint writes **14→18** (including Hsp 69 and 70 F), and exact-length no-NUL transfers **12→14**. October 20 records three more HP Stage 1 runs; October 22 and 23 are mechanically idle with 19 and 21 complete stator cycles. The October 22 Technician sweep reveals a previously unseen valid `Schedule` document of **3673 JSON bytes** split across independent CANopen downloads (2048 bytes plus 1626 bytes including NUL). The receive-only bounded fragment assembler has been extended to recognize this qualified Schedule shape, preserving the existing WifiList behavior and all fail-closed transmitter gates. All 324 emitted collector JSON messages across October 22–23 match the raw CAN replay, with the additional split Schedule reconstructed independently.
+
+## Immediate engineering work
+
+Highest-value remaining work:
+
+1. capture/qualify a stock UX360 system-mode write; setpoint TX is already stock-qualified and opt-in guarded;
+2. validate the separately guarded Technician-qualified indoor-fan writer on-device through the control profile; it is implemented, exposed as typed services, and remains default-off behind both global TX and its dedicated qualification gate;
+3. confirm the `0x383.float[0..1]` gauge-vs-absolute display conversion against synchronized Technician suction/liquid PSI and confirm `0x381.float[1]` against discharge temperature;
+4. independently qualify `0x430.float[1]`, `0x450.float[0..1]`, and `0x460.float[0]`;
+5. capture defrost/reversing-valve behavior;
+6. qualify live A2L concentration/status/alarm telemetry; the mitigation board itself is now identified as CNT09525;
+7. correlate live electric-heat stage states; `EquipSummary` now confirms a 10 kW single-phase 2-stage heater accessory;
+8. continue hydrating any remaining profile fields not present in `EquipSummary`; October 15 already validated long structured JSON logging on-device after the buffer increase.
+
+## Source hygiene
+
+Project rules:
+
+- no build-time source-rewrite scripts;
+- no patch-wrapper chains or generated-source monkey-patching;
+- behavior belongs in maintained source;
+- preserve useful upstream comments/evidence;
+- use Candidate/Raw names until evidence justifies promotion;
+- keep passive capture usable even while active-control work is incomplete.
