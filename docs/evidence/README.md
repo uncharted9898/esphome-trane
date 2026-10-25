@@ -232,3 +232,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [four-day-heating-stator-split-schedule.md](2026-10-23/four-day-heating-stator-split-schedule.md) | 73 new completed stator cycles (328 cumulative), four stock setpoint writes (18 cumulative), two no-NUL samples (14 cumulative), Oct 20 HP Stage 1 runs, two mechanically idle days, and a new 3673-byte Schedule split across two valid block SDOs |
+
+
+## 2026-10-24
+
+| File | What it captured |
+|---|---|
+| [full-day-idle-stator-transport.md](2026-10-24/full-day-idle-stator-transport.md) | Complete mechanical-idle day with 2,591,720 raw CAN frames, exact 88/88 JSON reconstruction, 20 new stator cycles (348 cumulative), cold idle-pressure equalization and stable five-node CANopen network; also validates the captured October 22 Schedule split seam |
