@@ -46,6 +46,30 @@ int main() {
   assert(!x.pending());
   assert(!x.consume(0x649, schedule.substr(0, 2048), 5000, result));
   assert(x.expire(10001) && !x.pending());
+  // Reproduce the actual October 22 Schedule seam: the first 2048-byte
+  // download ends immediately after the quoted "Start" key, and the next
+  // 1625 JSON bytes begin with ':' (1626 bytes indicated including NUL).
+  // Earlier synthetic fixtures ended inside a string value instead.
+  const std::string observed_prefix = "{\\"Schedule\\":{\\"Update\\":{\\"1\\":{\\"Pad\\":\\"";
+  const std::string observed_seam = "\\",\\"Start\\"";
+  const std::string observed_first = observed_prefix +
+      std::string(2048 - observed_prefix.size() - observed_seam.size(), 'P') +
+      observed_seam;
+  const std::string observed_tail_prefix = ":\\"18.00\\",\\"Tail\\":\\"";
+  const std::string observed_tail_end = "\\"}}}}";
+  const std::string observed_second = observed_tail_prefix +
+      std::string(1625 - observed_tail_prefix.size() - observed_tail_end.size(), 'S') +
+      observed_tail_end;
+  assert(observed_first.size() == 2048);
+  assert(observed_second.size() == 1625);
+  assert(observed_second.front() == ':');
+  assert(!x.consume(0x649, observed_first, 11000, result));
+  assert(x.pending() && result.empty());
+  assert(x.consume(0x649, observed_second, 12000, result));
+  assert(result == observed_first + observed_second);
+  assert(result.size() == 3673);
+  assert(!x.pending());
+
   WifiListFragmentAssembler legacy;
   assert(!legacy.pending());
   return 0;
