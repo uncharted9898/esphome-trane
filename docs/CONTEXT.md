@@ -222,6 +222,8 @@ The 2026-10-19 archive supplies the first three explicit **HP Stage 1** heat-pum
 
 The October 20–23 capture set advances the isolated stator corpus **255→328** (+14/+19/+19/+21), independent stock zone-1 setpoint writes **14→18** (including Hsp 69 and 70 F), and exact-length no-NUL transfers **12→14**. October 20 records three more HP Stage 1 runs; October 22 and 23 are mechanically idle with 19 and 21 complete stator cycles. The October 22 Technician sweep reveals a previously unseen valid `Schedule` document of **3673 JSON bytes** split across independent CANopen downloads (2048 bytes plus 1626 bytes including NUL). The receive-only bounded fragment assembler has been extended to recognize this qualified Schedule shape, preserving the existing WifiList behavior and all fail-closed transmitter gates. All 324 emitted collector JSON messages across October 22–23 match the raw CAN replay, with the additional split Schedule reconstructed independently.
 
+October 24 is a complete mechanically idle 24-hour archive (2,591,720 CAN frames) with **88/88** valid SDO JSON messages, no ESP or OEM CANopen reset, and **20 complete isolated stator cycles (348 cumulative)**. Stator median duration is 8.19 min and median enable-to-power lag 9.21 s. Paired idle pressures remain within median 1.237 raw units, tracking ambient closely. A new native regression reproduces the actual October 22 Schedule first-block split immediately after the `"Start"` key; the existing receive-only assembler is correct and needs no further runtime change. Independent stock setpoint-write and no-NUL counts remain 18 and 14. No new TX family was qualified.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
