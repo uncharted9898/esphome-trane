@@ -239,3 +239,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-idle-stator-transport.md](2026-10-24/full-day-idle-stator-transport.md) | Complete mechanical-idle day with 2,591,720 raw CAN frames, exact 88/88 JSON reconstruction, 20 new stator cycles (348 cumulative), cold idle-pressure equalization and stable five-node CANopen network; also validates the captured October 22 Schedule split seam |
+
+
+## 2026-10-25
+
+| File | What it captured |
+|---|---|
+| [full-day-idle-stator-no-nul.md](2026-10-25/full-day-idle-stator-no-nul.md) | Complete mechanical-idle day with 2,592,765 CAN frames, 139/139 validated CANopen JSON messages, 19 isolated stator cycles (367 cumulative), stable five-node network and fifteenth exact-length/no-NUL DebugUI sample |
