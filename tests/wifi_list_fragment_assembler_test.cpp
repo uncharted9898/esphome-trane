@@ -50,13 +50,13 @@ int main() {
   // download ends immediately after the quoted "Start" key, and the next
   // 1625 JSON bytes begin with ':' (1626 bytes indicated including NUL).
   // Earlier synthetic fixtures ended inside a string value instead.
-  const std::string observed_prefix = "{\\"Schedule\\":{\\"Update\\":{\\"1\\":{\\"Pad\\":\\"";
-  const std::string observed_seam = "\\",\\"Start\\"";
+  const std::string observed_prefix = R"({"Schedule":{"Update":{"1":{"Pad":")";
+  const std::string observed_seam = R"(","Start")";
   const std::string observed_first = observed_prefix +
       std::string(2048 - observed_prefix.size() - observed_seam.size(), 'P') +
       observed_seam;
-  const std::string observed_tail_prefix = ":\\"18.00\\",\\"Tail\\":\\"";
-  const std::string observed_tail_end = "\\"}}}}";
+  const std::string observed_tail_prefix = R"(:"18.00","Tail":")";
+  const std::string observed_tail_end = R"("}}}})";
   const std::string observed_second = observed_tail_prefix +
       std::string(1625 - observed_tail_prefix.size() - observed_tail_end.size(), 'S') +
       observed_tail_end;
