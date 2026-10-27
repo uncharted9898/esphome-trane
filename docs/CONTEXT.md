@@ -226,6 +226,8 @@ October 24 is a complete mechanically idle 24-hour archive (2,591,720 CAN frames
 
 The October 25 capture is a complete idle 24-hour archive with **2,592,765 CAN frames**, all **139/139** CANopen JSON messages reconstructed exactly and **19** completed isolated stator cycles (**367 cumulative**). A fifteenth exact-length/no-NUL `DebugUI.HiHeapRemaining=23560192` passes the installed receiver. Idle pressures correlate with ambient and equalize closely; all five Link nodes stay operational. October 24 firmware builds passed, but a malformed C++ native test-fixture string caused the safety-test job to fail. That fixture is repaired and compiles/passes locally; exact-head GitHub validation remains required. Stock setpoint and no-NUL corpora are **18** and **15**. Default-off transmitter gates and unqualified command blocks are unchanged.
 
+October 26 is mechanically idle for all 24 hours (2,590,463 CAN frames), with **60/60** structured messages reconstructed exactly and **19 complete isolated stator cycles (386 cumulative)**. Median stator duration is 8.341 min and onset lag 9.240 seconds; one validated cycle lasts 11.19 minutes. All five heartbeat nodes stay operational. A collector stop/reconnect near 23:10 UTC occurs **without ESP device-tick regression or OEM NMT/EMCY**, separating collector lifecycle from stock network control. Ambient/pressure equilibrium and humidity/room mirrors remain sound. Historical stock setpoint and no-NUL counts stay **18** and **15**. No new command family is qualified; TX safety gates remain unchanged.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
