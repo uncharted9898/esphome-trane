@@ -45,7 +45,7 @@ The friendly environmental entities intentionally use the live binary sources ab
 | `0x281.byte6` | Compressor Demand Mirror | Confirmed/strong | Matches structured `OdStatus.CompDemandPercent` exactly at independent 72, 82, 84 and 82 percent updates. |
 | `0x281.byte7` | Compressor Request Mode Candidate (raw retained) | Strong for observed 0/1/2; other codes unqualified | October 17 cooling request windows carry 1, October 19 HP Stage 1 requests carry 2, idle/stator and October 6 blower-only carry 0. A separate disabled-by-default text diagnostic maps only these captured values; raw byte remains available. Not a reversing-valve or electric-heat control field. |
 | `0x281.u16@6` | Composite raw only | Raw | Literally byte6 + (byte7 << 8); not independent telemetry. |
-| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 348 fully completed isolated cycles through 2026-10-24, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
+| `0x282.byte1` | Stator Heat Enable | Confirmed/strong | Across 367 fully completed isolated cycles through 2026-10-25, this bit consistently asserts about 9-10 s before stator-heating current/power appears, remains asserted through the heat interval, and clears as the load returns to standby. The 10/06 carry-out closes cleanly just after midnight on 10/07. Compressor and outdoor fan stay stopped throughout isolated cycles. |
 | `0x283.float[0..1]` | Indoor Temperature 1/2 Candidate | Candidate | Likely refrigeration/coil family; do not relabel as simple inlet/coil air without Technician correlation. |
 | `0x300.float[0]` | ID Gas Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
 | `0x300.float[1]` | ID Evap Liquid Temperature Candidate | Strong candidate | Refrigerant-side temperature family. |
@@ -98,7 +98,7 @@ This interpretation is based on lead/lag behavior across modulation and cooling-
 | `0x388.float[0..1]` | Compressor Phase Current 1/2 Candidate | Strong candidate | Both are zero at ordinary standby, participate in the three-phase current pattern during active compressor operation, and assert during 66 isolated stator-heat cycles with compressor speed still 0 RPS. |
 | `0x389.float[0]` | Compressor Phase Current 3 Candidate | Strong candidate | Completes the three-current family with `0x388`; active during compressor operation and all 64 observed stator-heat cycles, zero during ordinary standby. Exact U/V/W ordering is unresolved. |
 | `0x389.float[1]` | Input AC Current Candidate | Strong candidate | ~6-7 A under observed high load. |
-| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 348 fully completed isolated stator-heat cycles through 2026-10-24, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
+| `0x390.byte0` | Stator Heat Power Level | Strong/confirmed semantic, unit unresolved | Across 367 fully completed isolated stator-heat cycles through 2026-10-25, this channel remains heat-specific, sits at 44-46, and appears about 9-10 s after the enable bit at the same time outdoor input power rises. Technician exposes `MocStatorHeatPower`, but exact wire units are not yet proven. |
 | `0x38C.float[1]` | Input Power | Strong/confirmed | ~1.5-1.7 kW active; ~15 W satisfied standby. |
 | `0x38F.float[0]` | Line Voltage Candidate | Strong candidate | ~237-241 V across active/idle captures. |
 | `0x38F.float[1]` | Raw/Candidate | Candidate | ~3.7-4.0 in observed captures. |
@@ -940,3 +940,12 @@ The October 24 archive contains **2,591,720 raw CAN frames** and **88/88** recon
 Outdoor ambient spans ~49.26–69.11°F. The paired idle `0x383` pressure channels separate by median **1.237** raw units and correlate with ambient at r≈0.995/0.997, without confirming gauge/absolute display units. Six of six room-temperature mirrors match nearest `0x490.f0`; 36/38 humidity updates match nearest `0x490.byte4`, with the other two matching within two seconds. All five Link heartbeat nodes remain operational.
 
 An additional regression from October 22 reproduces the **actual** 2048-byte `Schedule` first-block boundary ending after the `"Start"` key, with continuation beginning `:` and totaling 3673 JSON bytes. The existing bounded receive-only assembler handles that capture without any transmitter change.
+
+
+### 2026-10-25 — full idle, 19 stator cycles, fifteenth no-NUL capture
+
+The archive contains 2,592,765 raw CAN frames and exactly matching **139/139** reconstructed CANopen JSON messages (69 block-SDO status updates, 69 segmented application ACKs, one DebugUI block transfer). All requests complete without abort, missed collector message or remaining session. Compressor and blower request, feedback and power stay zero all day. **19 complete isolated stator cycles** raise the corpus **348→367** (median duration 8.261 min, median `0x390` onset lag 9.377 s); outdoor input power is ~88 W median with stator enabled versus ~13 W standby.
+
+Outdoor ambient ranges 50.225–72.903°F. `0x383.f0/f1` median idle absolute separation is **1.251 raw units** (42,932 pairs), with correlation to ambient ~0.995/0.997. All six room mirrors and all 63 humidity mirrors agree with nearby `0x490` samples; seven humidity updates follow the structured update within two seconds. All five Link heartbeat nodes remain operational without NMT or EMCY.
+
+The fifteenth exact-length/no-NUL `HiHeapRemaining=23560192` has 42 indicated bytes and is emitted intact. The October 24 CI safety-test failure was isolated to malformed C++ quoting in the new Schedule key-boundary fixture; the locally compiled native test passes after converting those literals to C++ raw string literals. No decoder, TX or transport write policy was changed.
