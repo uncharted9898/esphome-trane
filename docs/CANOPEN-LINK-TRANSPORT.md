@@ -397,15 +397,16 @@ six capture days:
 - 2026-10-19: `HiHeapRemaining = 25108480`
 - 2026-10-21: another 42-byte exact-length no-NUL `HiHeapRemaining` (value preserved in dated capture)
 - 2026-10-23: `HiHeapRemaining = 24076288`
+- 2026-10-25: `HiHeapRemaining = 23560192`
 
-All fourteen advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+All fifteen advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
 optional-NUL rule is a normal Trane wire form rather than a one-off malformed
 sender.
 
 The 2026-10-03 archive was still captured with the pre-fix receiver. It emits
 one malformed `TRANE_JSON` line after 41 bytes, while the underlying CAN
 transaction is valid and the next block segment carries the final closing
-brace. The maintained receiver/analyzer fix accepts all fourteen captures.
+brace. The maintained receiver/analyzer fix accepts all fifteen captures.
 
 
 ### Long structured JSON logger capacity
@@ -455,3 +456,6 @@ October 19 contributes the **first captured stock heating-setpoint increase**: `
 
 
 October 22 contains a new fragmented `Schedule` message: the valid logical JSON is **3673 bytes** and spans separate 2048-byte and 1626-byte-indicated CANopen block downloads, the latter containing the trailing NUL. Neither SDO fragment is valid JSON independently. The receive-only 4096-byte bounded profile assembler accepts this additional captured root in the existing 5-second window while retaining the October 15 WifiList path. No transmit capability is added.
+
+
+October 25 adds the fifteenth exact-length/no-NUL sample (`23560192`), with a complete 42-byte block-SDO and no trailing NUL. All 139 emitted JSON messages match the raw replay. No new command family was observed.
