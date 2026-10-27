@@ -224,6 +224,8 @@ The October 20–23 capture set advances the isolated stator corpus **255→328*
 
 October 24 is a complete mechanically idle 24-hour archive (2,591,720 CAN frames) with **88/88** valid SDO JSON messages, no ESP or OEM CANopen reset, and **20 complete isolated stator cycles (348 cumulative)**. Stator median duration is 8.19 min and median enable-to-power lag 9.21 s. Paired idle pressures remain within median 1.237 raw units, tracking ambient closely. A new native regression reproduces the actual October 22 Schedule first-block split immediately after the `"Start"` key; the existing receive-only assembler is correct and needs no further runtime change. Independent stock setpoint-write and no-NUL counts remain 18 and 14. No new TX family was qualified.
 
+The October 25 capture is a complete idle 24-hour archive with **2,592,765 CAN frames**, all **139/139** CANopen JSON messages reconstructed exactly and **19** completed isolated stator cycles (**367 cumulative**). A fifteenth exact-length/no-NUL `DebugUI.HiHeapRemaining=23560192` passes the installed receiver. Idle pressures correlate with ambient and equalize closely; all five Link nodes stay operational. October 24 firmware builds passed, but a malformed C++ native test-fixture string caused the safety-test job to fail. That fixture is repaired and compiles/passes locally; exact-head GitHub validation remains required. Stock setpoint and no-NUL corpora are **18** and **15**. Default-off transmitter gates and unqualified command blocks are unchanged.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
