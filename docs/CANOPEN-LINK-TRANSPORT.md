@@ -398,15 +398,16 @@ six capture days:
 - 2026-10-21: another 42-byte exact-length no-NUL `HiHeapRemaining` (value preserved in dated capture)
 - 2026-10-23: `HiHeapRemaining = 24076288`
 - 2026-10-25: `HiHeapRemaining = 23560192`
+- 2026-10-27: `HiHeapRemaining = 23044096`
 
-All fifteen advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+All sixteen advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
 optional-NUL rule is a normal Trane wire form rather than a one-off malformed
 sender.
 
 The 2026-10-03 archive was still captured with the pre-fix receiver. It emits
 one malformed `TRANE_JSON` line after 41 bytes, while the underlying CAN
 transaction is valid and the next block segment carries the final closing
-brace. The maintained receiver/analyzer fix accepts all fifteen captures.
+brace. The maintained receiver/analyzer fix accepts all sixteen captures.
 
 
 ### Long structured JSON logger capacity
@@ -459,3 +460,6 @@ October 22 contains a new fragmented `Schedule` message: the valid logical JSON 
 
 
 October 25 adds the fifteenth exact-length/no-NUL sample (`23560192`), with a complete 42-byte block-SDO and no trailing NUL. All 139 emitted JSON messages match the raw replay. No new command family was observed.
+
+
+October 27 adds the sixteenth observed exact-length/no-NUL block-SDO sample (`HiHeapRemaining=23044096`), carrying exactly 42 JSON bytes and no trailing NUL. All 113 October 27 and 20 October 28 structured JSON messages independently replay and match the collector; no new write family was observed.
