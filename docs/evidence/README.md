@@ -253,3 +253,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-cold-idle-stator-collector-restart.md](2026-10-26/full-day-cold-idle-stator-collector-restart.md) | Full-day cold idle with 2,590,463 CAN frames, exact 60/60 JSON replay, 19 isolated stator cycles (386 cumulative), 11.19-minute longest cycle, tight pressure equalization and a collector-only restart without ESP/OEM NMT reset |
+
+
+## 2026-10-27 through 2026-10-28
+
+| File | What it captured |
+|---|---|
+| [two-day-cold-idle-stator-no-nul.md](2026-10-28/two-day-cold-idle-stator-no-nul.md) | Two full mechanically idle days with 5,186,202 raw CAN frames, 133/133 exact JSON replay, 39 completed isolated stator cycles (425 cumulative), sixteenth no-NUL DebugUI and October 28 collector-only reconnect |
