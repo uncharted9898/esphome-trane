@@ -228,6 +228,8 @@ The October 25 capture is a complete idle 24-hour archive with **2,592,765 CAN f
 
 October 26 is mechanically idle for all 24 hours (2,590,463 CAN frames), with **60/60** structured messages reconstructed exactly and **19 complete isolated stator cycles (386 cumulative)**. Median stator duration is 8.341 min and onset lag 9.240 seconds; one validated cycle lasts 11.19 minutes. All five heartbeat nodes stay operational. A collector stop/reconnect near 23:10 UTC occurs **without ESP device-tick regression or OEM NMT/EMCY**, separating collector lifecycle from stock network control. Ambient/pressure equilibrium and humidity/room mirrors remain sound. Historical stock setpoint and no-NUL counts stay **18** and **15**. No new command family is qualified; TX safety gates remain unchanged.
 
+October 27–28 both remain mechanically idle for complete 24-hour archives, with **5,186,202 raw CAN frames and 133/133 CANopen JSON messages reassembled and matched**. There are **20 + 19 complete stator cycles**, taking the isolated-cycle corpus to **425**. The sixteenth exact-length/no-NUL sample is `DebugUI.HiHeapRemaining=23044096` (42 wire bytes, no trailing NUL) on October 27; stock setpoint writes remain at **18**. All five stock Link nodes remain operational, including through an October 28 ~05:09 UTC collector restart that does not reset ESP device ticks. No runtime decoder/TX change is warranted. The October 26 exact-head workflow was **cancelled**; the present head requires successful validation before production firmware replacement.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
