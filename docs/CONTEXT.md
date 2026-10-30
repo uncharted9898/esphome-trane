@@ -230,6 +230,8 @@ October 26 is mechanically idle for all 24 hours (2,590,463 CAN frames), with **
 
 October 27–28 both remain mechanically idle for complete 24-hour archives, with **5,186,202 raw CAN frames and 133/133 CANopen JSON messages reassembled and matched**. There are **20 + 19 complete stator cycles**, taking the isolated-cycle corpus to **425**. The sixteenth exact-length/no-NUL sample is `DebugUI.HiHeapRemaining=23044096` (42 wire bytes, no trailing NUL) on October 27; stock setpoint writes remain at **18**. All five stock Link nodes remain operational, including through an October 28 ~05:09 UTC collector restart that does not reset ESP device ticks. No runtime decoder/TX change is warranted. The October 26 exact-head workflow was **cancelled**; the present head requires successful validation before production firmware replacement.
 
+October 29 is another complete mechanical-idle 24-hour capture with **2,593,335 raw CAN frames**, exact **107/107** structured CANopen JSON replay, and **17 fully completed isolated stator cycles**, taking cumulative evidence to **442**. A distinct **18th start at 23:59:01 UTC carries out into October 30**, supported by `0x282`, `0x390` and three phase-current fields, but not counted as complete until the next capture closes it. The seventeenth exact-length/no-NUL `HiHeapRemaining=22528000` transfer is reassembled successfully. Stock setpoint corpus stays **18**; no new writer semantics, mode control, electric-heat/defrost/A2L telemetry, or transmit permissions were established. October 28 exact-head GitHub CI passed.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
