@@ -260,3 +260,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [two-day-cold-idle-stator-no-nul.md](2026-10-28/two-day-cold-idle-stator-no-nul.md) | Two full mechanically idle days with 5,186,202 raw CAN frames, 133/133 exact JSON replay, 39 completed isolated stator cycles (425 cumulative), sixteenth no-NUL DebugUI and October 28 collector-only reconnect |
+
+
+## 2026-10-29
+
+| File | What it captured |
+|---|---|
+| [full-day-idle-stator-carryout-seventeenth-nonul.md](2026-10-29/full-day-idle-stator-carryout-seventeenth-nonul.md) | Complete idle day, 2,593,335 raw CAN frames, exact 107/107 JSON replay, 17 completed isolated stator cycles (442 cumulative) plus one 23:59 carry-out, seventeenth exact-length/no-NUL DebugUI, stable five-node CANopen network |
