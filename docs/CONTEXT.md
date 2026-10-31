@@ -232,6 +232,8 @@ October 27–28 both remain mechanically idle for complete 24-hour archives, wit
 
 October 29 is another complete mechanical-idle 24-hour capture with **2,593,335 raw CAN frames**, exact **107/107** structured CANopen JSON replay, and **17 fully completed isolated stator cycles**, taking cumulative evidence to **442**. A distinct **18th start at 23:59:01 UTC carries out into October 30**, supported by `0x282`, `0x390` and three phase-current fields, but not counted as complete until the next capture closes it. The seventeenth exact-length/no-NUL `HiHeapRemaining=22528000` transfer is reassembled successfully. Stock setpoint corpus stays **18**; no new writer semantics, mode control, electric-heat/defrost/A2L telemetry, or transmit permissions were established. October 28 exact-head GitHub CI passed.
 
+October 30 closes the October 29 stator carry-out at **00:06:27 UTC** (~7.44 minutes total) and adds 16 fresh complete cycles, advancing the project corpus **442→459 complete isolated stator cycles**. The full-day archive is mechanically idle with **2,593,248 raw CAN frames**, all **24/24** CANopen JSON bodies reconstructed correctly, equalized refrigerant pressures, 7/7 room and 5/5 humidity mirrors, and five operational CANopen nodes. Historical stock setpoint writes and exact-length/no-NUL transfers stay at **18/17**. The preceding October 29 firmware matrix compiled, but its safety test job failed on a malformed no-NUL fixture tuple; the Python syntax has been repaired without touching runtime firmware semantics.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
