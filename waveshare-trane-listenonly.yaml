@@ -1,0 +1,229 @@
+substitutions:
+  version: "dev-listenonly-recorder"
+
+esphome:
+  name: trane-link-listenonly
+  friendly_name: Trane Link Passive Capture
+  project:
+    name: "uncharted9898.trane-link-bridge"
+    version: ${version}
+  # Commissioning is intentionally recorder-first. This marker appears after
+  # component setup so the host log shows that the passive image was alive
+  # before the HVAC system was energized.
+  on_boot:
+    - priority: -10
+      then:
+        - lambda: |-
+            ESP_LOGI("trane_capture", "TRANE_RECORDER_READY,mode=LISTENONLY,ring=2048,tx_queue=0");
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [trane_bus]
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf
+
+# INFO keeps ESPHome background chatter low while preserving the raw wire stream,
+# reconstructed JSON, capture markers, and warnings. On ESP32-S3 + ESP-IDF the
+# normal ESPHome console is USB Serial/JTAG, so USB is the preferred first-boot
+# capture path; API logging remains useful as a second path once Wi-Fi is up.
+logger:
+  level: INFO
+  logs:
+    canbus: WARN
+    trane_bus: INFO
+    trane_wire: INFO
+    trane_json: INFO
+
+# Never reboot the recorder merely because HA/ESPHome is not connected. Losing
+# the API must not create a hole in a one-time cold-boot or firmware-update trace.
+api:
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+
+# Likewise, commissioning capture continues if Wi-Fi is absent or changes while
+# the HVAC/Technician-app session is in progress.
+wifi:
+  reboot_timeout: 0s
+  power_save_mode: none
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  ap:
+    ssid: "Trane Link Capture Setup"
+
+captive_portal:
+improv_serial:
+
+canbus:
+  - platform: esp32_can
+    id: hvac_can
+    # Waveshare ESP32-S3-RS485-CAN schematic: CAN is TXD2/RXD2,
+    # mapped to GPIO15 TX / GPIO16 RX. GPIO17/GPIO18 are TXD1/RXD1.
+    tx_pin: GPIO15
+    rx_pin: GPIO16
+    bit_rate: 50kbps
+    can_id: 1
+    # HARD SAFETY BOUNDARY: TWAI listen-only receives but does not ACK or
+    # transmit. tx_queue_len: 0 is a second independent guard.
+    mode: LISTENONLY
+    tx_queue_len: 0
+    rx_queue_len: 128
+
+    # Continuous host-side recorder. A zero CAN-ID mask matches every ID of the
+    # selected standard/extended class. These lines are intended to be piped
+    # directly to disk from the ESPHome/serial logger.
+    on_frame:
+      - can_id: 0x000
+        can_id_mask: 0x000
+        use_extended_id: false
+        then:
+          - lambda: |-
+              char bytes[17] = {0};
+              for (size_t i = 0; i < x.size() && i < 8; i++)
+                snprintf(bytes + (i * 2), sizeof(bytes) - (i * 2), "%02X", x[i]);
+              ESP_LOGI("trane_wire", "TRANE_CAN_LIVE,S,%lu,%03lX,%u,%u,%s",
+                       static_cast<unsigned long>(millis()),
+                       static_cast<unsigned long>(can_id),
+                       remote_transmission_request ? 1U : 0U,
+                       static_cast<unsigned>(x.size()), bytes);
+
+      - can_id: 0x00000000
+        can_id_mask: 0x00000000
+        use_extended_id: true
+        then:
+          - lambda: |-
+              char bytes[17] = {0};
+              for (size_t i = 0; i < x.size() && i < 8; i++)
+                snprintf(bytes + (i * 2), sizeof(bytes) - (i * 2), "%02X", x[i]);
+              ESP_LOGI("trane_wire", "TRANE_CAN_LIVE,E,%lu,%08lX,%u,%u,%s",
+                       static_cast<unsigned long>(millis()),
+                       static_cast<unsigned long>(can_id),
+                       remote_transmission_request ? 1U : 0U,
+                       static_cast<unsigned>(x.size()), bytes);
+
+trane_bus:
+  id: trane_link
+  canbus_id: hvac_can
+  command_can_id: 0x641
+  # These software guards are deliberately retained even though the CAN driver
+  # above is already hardware LISTENONLY. This commissioning image has no UI or
+  # automation that can arm transmission.
+  tx_enabled: false
+  raw_json_enabled: false
+  require_sc360_before_tx: true
+  # Bounded RAM fallback only. Host TRANE_CAN_LIVE logging is the primary
+  # long-duration/"huge file" recorder.
+  capture_capacity: 2048
+  capture_enabled: true
+  on_json:
+    - lambda: |-
+        ESP_LOGI("trane_json", "TRANE_JSON,%03lX,%s",
+                 static_cast<unsigned long>(can_id), json.c_str());
+
+text_sensor:
+  - platform: template
+    name: "Commissioning Mode"
+    lambda: |-
+      return {"PASSIVE LISTEN-ONLY RECORDER"};
+    update_interval: 60s
+
+binary_sensor:
+  - platform: template
+    name: "SC360 Traffic Seen"
+    lambda: |-
+      return id(trane_link).has_seen_sc360();
+
+  - platform: template
+    name: "CAN Capture Running"
+    lambda: |-
+      return id(trane_link).is_capture_enabled();
+
+sensor:
+  - platform: template
+    name: "Total CAN Frames Seen"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_rx_frames();
+    update_interval: 10s
+
+  - platform: template
+    name: "Known Trane Frames Seen"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_trane_frames();
+    update_interval: 10s
+
+  - platform: template
+    name: "Unclassified CAN Frames Seen"
+    accuracy_decimals: 0
+    lambda: |-
+      const uint32_t total = id(trane_link).get_rx_frames();
+      const uint32_t known = id(trane_link).get_trane_frames();
+      return total >= known ? total - known : 0;
+    update_interval: 10s
+
+  - platform: template
+    name: "SC360 Frames Seen"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_sc360_frames();
+    update_interval: 10s
+
+  - platform: template
+    name: "Segmented JSON Messages"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_rx_json_messages();
+    update_interval: 10s
+
+  - platform: template
+    name: "RX Transport Errors"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_rx_transport_errors();
+    update_interval: 10s
+
+  - platform: template
+    name: "Captured CAN Frames"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_capture_size();
+    update_interval: 5s
+
+  - platform: template
+    name: "Capture Ring Overwrites"
+    accuracy_decimals: 0
+    lambda: |-
+      return id(trane_link).get_capture_overwrites();
+    update_interval: 5s
+
+button:
+  - platform: template
+    name: "Freeze CAN Capture"
+    icon: mdi:snowflake
+    on_press:
+      - lambda: |-
+          id(trane_link).stop_capture();
+          ESP_LOGI("trane_capture", "Capture frozen with %u frames", (unsigned) id(trane_link).get_capture_size());
+
+  - platform: template
+    name: "Dump Frozen CAN Capture"
+    icon: mdi:download
+    on_press:
+      - lambda: |-
+          id(trane_link).stop_capture();
+          id(trane_link).dump_capture();
+
+  - platform: template
+    name: "Clear And Resume CAN Capture"
+    icon: mdi:record-rec
+    on_press:
+      - lambda: |-
+          id(trane_link).start_capture(true);
