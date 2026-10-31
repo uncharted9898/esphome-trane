@@ -267,3 +267,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-idle-stator-carryout-seventeenth-nonul.md](2026-10-29/full-day-idle-stator-carryout-seventeenth-nonul.md) | Complete idle day, 2,593,335 raw CAN frames, exact 107/107 JSON replay, 17 completed isolated stator cycles (442 cumulative) plus one 23:59 carry-out, seventeenth exact-length/no-NUL DebugUI, stable five-node CANopen network |
+
+
+## 2026-10-30
+
+| File | What it captured |
+|---|---|
+| [full-day-idle-stator-carryin-closure.md](2026-10-30/full-day-idle-stator-carryin-closure.md) | Full-day mechanical idle with 2,593,248 raw CAN frames and 24/24 complete JSON messages; closure of October 29 stator carry-out plus 16 new complete cycles (459 cumulative); stable five-node network and no new TX family |
