@@ -1,5 +1,12 @@
-# Gitignore settings for ESPHome
-# This is an example and may include too much for your use-case.
-# You can modify this file to suit your needs.
+# ESPHome build/runtime state
 /.esphome/
 /secrets.yaml
+/tests/secrets.yaml
+
+# Python/editor artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.vscode/
+.idea/
+.DS_Store
