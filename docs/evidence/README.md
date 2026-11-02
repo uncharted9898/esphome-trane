@@ -274,3 +274,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [full-day-idle-stator-carryin-closure.md](2026-10-30/full-day-idle-stator-carryin-closure.md) | Full-day mechanical idle with 2,593,248 raw CAN frames and 24/24 complete JSON messages; closure of October 29 stator carry-out plus 16 new complete cycles (459 cumulative); stable five-node network and no new TX family |
+
+
+## 2026-10-31 through 2026-11-01
+
+| File | What it captured |
+|---|---|
+| [two-day-stator-dst-timezone.md](2026-11-01/two-day-stator-dst-timezone.md) | Two complete idle days with 5,185,987 CAN frames, 83/83 clean structured JSON replays, 38 completed stator cycles (497 cumulative), eighteenth no-NUL DebugUI, reconstructed November 1 -0500 timezone update and five stable CANopen nodes |
