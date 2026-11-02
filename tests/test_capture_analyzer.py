@@ -359,7 +359,7 @@ class CaptureAnalyzerTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            [m["can_id"] for m in messages], [0x649, 0x641]
+            [m["can_id"] for m in messages], ["0x649", "0x641"]
         )
         transport = analyzer.decode_canopen_sdo_transport(frames)
         block = next(
