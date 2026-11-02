@@ -234,6 +234,8 @@ October 29 is another complete mechanical-idle 24-hour capture with **2,593,335 
 
 October 30 closes the October 29 stator carry-out at **00:06:27 UTC** (~7.44 minutes total) and adds 16 fresh complete cycles, advancing the project corpus **442→459 complete isolated stator cycles**. The full-day archive is mechanically idle with **2,593,248 raw CAN frames**, all **24/24** CANopen JSON bodies reconstructed correctly, equalized refrigerant pressures, 7/7 room and 5/5 humidity mirrors, and five operational CANopen nodes. Historical stock setpoint writes and exact-length/no-NUL transfers stay at **18/17**. The preceding October 29 firmware matrix compiled, but its safety test job failed on a malformed no-NUL fixture tuple; the Python syntax has been repaired without touching runtime firmware semantics.
 
+October 31–November 1 adds 18 + 20 complete isolated stator cycles (**497 cumulative**), with **5,185,987 CAN frames and 83/83** independently matched CANopen JSON messages. The HVAC remains mechanically idle across both full days, all five Link nodes operational, and every stator cycle has the three phase-current candidates. October 31 adds the eighteenth exact-length/no-NUL `HiHeapRemaining=22011904`, and the previously undocumented October 21 value `24592384` was recovered and regression-fixtured. At **06:02:39 UTC Nov 1**, a stock `SystemSettings.Update.J="-0500"` follows the 06:00 UTC Eastern time transition; J is a current-offset candidate and K a standard-offset candidate based on the earlier October 15 profile. This is strictly received status, not a qualified Put. Stock setpoint writes remain **18**, no new TX paths enabled. The October 30 exact-head CI passed all six jobs.
+
 ## Immediate engineering work
 
 Highest-value remaining work:
