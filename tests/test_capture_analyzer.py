@@ -131,7 +131,8 @@ class CaptureAnalyzerTests(unittest.TestCase):
             "33054720", "32538624", "32022528", "31506432",
             "30900224", "30384128", "29868032", "29351936",
             "28835840", "28319744", "25624576", "25108480",
-            "24076288", "23560192", "23044096", "22528000",
+            "24592384", "24076288", "23560192", "23044096",
+            "22528000", "22011904",
         ):
             payload = (
                 f'{{"DebugUI":{{"HiHeapRemaining":"{heap_remaining}"}}}}'
@@ -319,6 +320,57 @@ class CaptureAnalyzerTests(unittest.TestCase):
             next(e["ack_sequence"] for e in transport if e["phase"] == "block_download_subblock_response"), 12
         )
         self.assertEqual(transport[-1]["phase"], "block_download_end_response")
+
+    def test_nov1_stock_timezone_status_is_update_not_put(self):
+        # Complete stock 2026-11-01 06:02:39 UTC 0x649/0x5C9 block,
+        # followed by its 0x641/0x5C1 application ACK. The request is
+        # a received SystemSettings.Update only, never a qualified writer.
+        wire = [
+            ("649", "C20A30002C000000"),
+            ("5C9", "A00A300007000000"),
+            ("649", "017B225379737465"),
+            ("649", "026D53657474696E"),
+            ("649", "036773223A7B2255"),
+            ("649", "047064617465223A"),
+            ("649", "057B224A223A222D"),
+            ("649", "0630353030227D7D"),
+            ("649", "877D003030227D7D"),
+            ("5C9", "A207000000000000"),
+            ("641", "210A30000E000000"),
+            ("5C1", "600A300000000000"),
+            ("649", "D500000000000000"),
+            ("5C9", "A100000000000000"),
+            ("641", "007B2241636B223A"),
+            ("5C1", "2000000000000000"),
+            ("641", "1122323030227D00"),
+            ("5C1", "3000000000000000"),
+        ]
+        lines = [
+            f"TRANE_CAN_LIVE,S,{1000+i},{can_id},8,{payload}"
+            for i, (can_id, payload) in enumerate(wire)
+        ]
+        frames = analyzer.parse_frames(lines)
+        messages = analyzer.reassemble_json(frames)
+        self.assertEqual(
+            [m["json"] for m in messages],
+            [
+                {"SystemSettings": {"Update": {"J": "-0500"}}},
+                {"Ack": "200"},
+            ],
+        )
+        self.assertEqual(
+            [m["can_id"] for m in messages], [0x649, 0x641]
+        )
+        transport = analyzer.decode_canopen_sdo_transport(frames)
+        block = next(
+            row for row in transport
+            if row["phase"] == "block_download_initiate_request"
+        )
+        self.assertEqual(block["size"], 44)
+        self.assertTrue(any(
+            row["phase"] == "block_download_end_response"
+            for row in transport
+        ))
 
     def test_segmented_reassembly_honors_unused_final_bytes(self):
         lines = [
