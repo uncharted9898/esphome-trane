@@ -401,15 +401,17 @@ six capture days:
 - 2026-10-27: `HiHeapRemaining = 23044096`
 - 2026-10-29: `HiHeapRemaining = 22528000`
 - 2026-10-31: `HiHeapRemaining = 22011904`
+- 2026-11-03: `HiHeapRemaining = 21495808`
+- 2026-11-05: `HiHeapRemaining = 20979712`
 
-All eighteen advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+All twenty advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
 optional-NUL rule is a normal Trane wire form rather than a one-off malformed
 sender.
 
 The 2026-10-03 archive was still captured with the pre-fix receiver. It emits
 one malformed `TRANE_JSON` line after 41 bytes, while the underlying CAN
 transaction is valid and the next block segment carries the final closing
-brace. The maintained receiver/analyzer fix accepts all eighteen captures.
+brace. The maintained receiver/analyzer fix accepts all twenty captures.
 
 
 ### Long structured JSON logger capacity
@@ -471,3 +473,6 @@ October 29 adds the seventeenth observed 42-byte no-NUL `DebugUI.HiHeapRemaining
 
 
 October 31 adds the eighteenth exact-length/no-NUL DebugUI transfer (`HiHeapRemaining=22011904`). The October 21 value `24592384` was recovered directly from the original wire capture, completing all 18 regression fixture values. November 1 includes a valid **received** `SystemSettings.Update.J="-0500"` block SDO after Eastern daylight saving ends, with Ack 200; this does not qualify any `SystemSettings.Put` or system-mode TX.
+
+
+November 3 and 5 contribute the nineteenth/twentieth 42-byte exact-length, no-terminating-NUL `DebugUI.HiHeapRemaining` values, **21495808** and **20979712**. Both complete normal block-SDO final ACKs, decode to valid JSON, and match the installed collector. All 602 structured messages across November 2–7 independently replay and match. The heap sequence remains diagnostic only, not proof of a memory leak or ownership.
