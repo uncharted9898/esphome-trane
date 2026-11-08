@@ -281,3 +281,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [two-day-stator-dst-timezone.md](2026-11-01/two-day-stator-dst-timezone.md) | Two complete idle days with 5,185,987 CAN frames, 83/83 clean structured JSON replays, 38 completed stator cycles (497 cumulative), eighteenth no-NUL DebugUI, reconstructed November 1 -0500 timezone update and five stable CANopen nodes |
+
+
+## 2026-11-02 through 2026-11-07
+
+| File | What it captured |
+|---|---|
+| [six-day-idle-stator-esp-restart.md](2026-11-07/six-day-idle-stator-esp-restart.md) | Six full idle days with 15,554,337 raw CAN frames and 602/602 validated structured JSON messages; 112 stator completions (609 cumulative), one November 7 carry-out, ESP clock reset Nov 2, collector-only restart Nov 5, and 19th/20th no-NUL DebugUI samples |
