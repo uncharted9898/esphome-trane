@@ -288,3 +288,10 @@ A useful pattern is:
 | File | What it captured |
 |---|---|
 | [six-day-idle-stator-esp-restart.md](2026-11-07/six-day-idle-stator-esp-restart.md) | Six full idle days with 15,554,337 raw CAN frames and 602/602 validated structured JSON messages; 112 stator completions (609 cumulative), one November 7 carry-out, ESP clock reset Nov 2, collector-only restart Nov 5, and 19th/20th no-NUL DebugUI samples |
+
+
+## 2026-11-08 through 2026-11-11
+
+| File | What it captured |
+|---|---|
+| [four-day-heat-hp1-id2-stator.md](2026-11-11/four-day-heat-hp1-id2-stator.md) | Four full-day archives with 10,377,567 raw CAN frames and 1,032/1,032 matched JSON transfers; November 7 carry-in closed and 78 completed stator cycles (687 cumulative); two November 10 HP runs and first HP1+ID2/0x281.byte7=3 correlation; four new no-NUL DebugUI transfers (24 cumulative) |
