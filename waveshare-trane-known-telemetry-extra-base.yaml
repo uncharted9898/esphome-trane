@@ -275,8 +275,10 @@ sensor:
   # records byte7=2 in all three HP Stage 1 request windows (edges within
   # ~1.4s of 0x280 request). It is 0 at idle and during isolated stator heat.
   # The October 6 Technician blower-only run independently showed byte7=0.
-  # Thus request mode 0/1/2 is strongly supported, but unknown values, defrost
-  # and supplementary heat still require their own capture evidence.
+  # Codes 0/1/2 remain supported; Nov 10 byte7=3 coincides with the
+  # received HP1+ID2 state while the compressor remains active. It does not
+  # prove defrost or physically energized resistance heat. Other codes remain
+  # unqualified and no additional TX is permitted.
   - platform: template
     id: trane_281_byte7
     name: "0x281 Byte 7 State Candidate"
@@ -479,7 +481,7 @@ sensor:
     update_interval: 2s
     lambda: 'return id(trane_link).get_last_float_le_or_nan(0x387, 4);'
     device_id: dev_heat_pump
-  # The archives through 2026-11-07 now contain 609 fully completed isolated
+  # The archives through 2026-11-11 now contain 687 fully completed isolated
   # stator-heat cycles with the compressor fixed at 0 RPS. These three adjacent channels switch from zero
   # to a three-phase current pattern during stator heat and were previously
   # balanced together during active compressor operation. Keep phase numbering
