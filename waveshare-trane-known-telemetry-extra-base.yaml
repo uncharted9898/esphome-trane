@@ -767,7 +767,10 @@ sensor:
 
 text_sensor:
   # Observed compressor-request mode, not a system-mode command and not a
-  # reversing-valve/electric-heat state. The original numeric byte7 sensor
+  # reversing-valve/electric-heat state. November 10 captures byte7=3 with
+  # SystemOpStatus.C=HP1+ID2 while the compressor runs, but does not prove
+  # whether a defrost cycle or electric resistance element was energized.
+  # The original numeric byte7 sensor
   # remains intact for historical Home Assistant entity compatibility.
   - platform: template
     id: trane_281_request_mode_candidate
@@ -783,6 +786,7 @@ text_sensor:
         case 0: return {"No Compressor Request"};
         case 1: return {"Cooling Compressor Request"};
         case 2: return {"Heating Compressor Request"};
+        case 3: return {"HP + Indoor Stage 2 Request (Observed)"};
         default: return {"Unqualified Request Code"};
       }
 
