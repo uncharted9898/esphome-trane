@@ -403,15 +403,19 @@ six capture days:
 - 2026-10-31: `HiHeapRemaining = 22011904`
 - 2026-11-03: `HiHeapRemaining = 21495808`
 - 2026-11-05: `HiHeapRemaining = 20979712`
+- 2026-11-09: `HiHeapRemaining = 20463616`
+- 2026-11-09: `HiHeapRemaining = 19947520`
+- 2026-11-10: `HiHeapRemaining = 19431424`
+- 2026-11-11: `HiHeapRemaining = 18915328`
 
-All twenty advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
+All twenty-four advertise 42 bytes, exactly the UTF-8 JSON length. This confirms the
 optional-NUL rule is a normal Trane wire form rather than a one-off malformed
 sender.
 
 The 2026-10-03 archive was still captured with the pre-fix receiver. It emits
 one malformed `TRANE_JSON` line after 41 bytes, while the underlying CAN
 transaction is valid and the next block segment carries the final closing
-brace. The maintained receiver/analyzer fix accepts all twenty captures.
+brace. The maintained receiver/analyzer fix accepts all twenty-four captures.
 
 
 ### Long structured JSON logger capacity
@@ -476,3 +480,6 @@ October 31 adds the eighteenth exact-length/no-NUL DebugUI transfer (`HiHeapRema
 
 
 November 3 and 5 contribute the nineteenth/twentieth 42-byte exact-length, no-terminating-NUL `DebugUI.HiHeapRemaining` values, **21495808** and **20979712**. Both complete normal block-SDO final ACKs, decode to valid JSON, and match the installed collector. All 602 structured messages across November 2–7 independently replay and match. The heap sequence remains diagnostic only, not proof of a memory leak or ownership.
+
+
+November 8–11 independently replay **1,032/1,032** structured messages from the raw CANopen stream with zero aborts or incomplete transactions. November 9 has two, and November 10–11 one each, additional 42-byte exact-length/no-NUL `DebugUI.HiHeapRemaining` transfers, taking the historical corpus to **24** and extending fixture coverage. The November 10 received `SystemOpStatus.C="HP1+ID2"` status is not a stock `Put` and does not qualify system-mode, defrost or resistance-heat transmission.
