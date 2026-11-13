@@ -345,7 +345,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
         self.assertNotIn("Blower V I PF Calculated Power", TARGET_DISCOVERY)
         self.assertNotIn("return volts * amps * pf;", TARGET_DISCOVERY)
 
-    def test_compressor_request_mode_0_1_2_remains_diagnostic_only(self):
+    def test_compressor_request_mode_observed_0_1_2_3_remains_diagnostic_only(self):
         self.assertIn('name: "0x281 Byte 7 State Candidate"', EXTRA_BASE)
         self.assertIn('name: "0x281 Compressor Request Mode Candidate"', EXTRA_BASE)
         self.assertIn("get_last_byte_or_nan(0x281, 7)", EXTRA_BASE)
@@ -353,6 +353,7 @@ class KnownTelemetryContractTests(unittest.TestCase):
             'case 0: return {"No Compressor Request"};',
             'case 1: return {"Cooling Compressor Request"};',
             'case 2: return {"Heating Compressor Request"};',
+            'case 3: return {"HP + Indoor Stage 2 Request (Observed)"};',
             'default: return {"Unqualified Request Code"};',
         ):
             self.assertIn(code, EXTRA_BASE)
